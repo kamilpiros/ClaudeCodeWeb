@@ -1,0 +1,16 @@
+# Cloudflare Pages project configuration.
+# Bindings: DB (D1), AI (Workers AI). Secret: ANTHROPIC_API_KEY (set via
+# `wrangler pages secret put ANTHROPIC_API_KEY` or the dashboard).
+
+name = "stones"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stones"
+# Replace with the id printed by `wrangler d1 create stones`
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[ai]
+binding = "AI"

@@ -12,6 +12,7 @@ export function Capture() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [draft, setDraft] = useState<CaptureDraft | null>(null);
   const [parseFailedText, setParseFailedText] = useState<string | null>(null);
+  const [parseFailedDetail, setParseFailedDetail] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedCapture[]>(getQueue);
   const [online, setOnline] = useState(navigator.onLine);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -84,6 +85,8 @@ export function Capture() {
         // The server responded but couldn't parse (LLM down, bad output…)
         // — never lose input: offer to save the raw text as a musing.
         setParseFailedText(raw);
+        const payload = e.payload as { detail?: string } | null;
+        setParseFailedDetail(payload?.detail ?? `HTTP ${e.status}`);
       } else {
         // Network failure (likely offline): queue the raw text.
         if (!queuedId) {
@@ -178,6 +181,9 @@ export function Capture() {
             Couldn't parse that right now. Your text is safe — save it as a raw
             musing and sort it later, or retry.
           </p>
+          {parseFailedDetail && (
+            <p className="muted small">Technical detail: {parseFailedDetail}</p>
+          )}
           <div className="row">
             <button
               type="button"

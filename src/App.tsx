@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Capture } from "./components/Capture";
 import { CompanyPage } from "./components/CompanyPage";
+import { ListView } from "./components/ListView";
 import { Musings } from "./components/Musings";
 import { Pipeline } from "./components/Pipeline";
 import { onToast } from "./toast";
@@ -8,12 +9,14 @@ import { onToast } from "./toast";
 type Route =
   | { name: "capture" }
   | { name: "pipeline" }
+  | { name: "list" }
   | { name: "company"; id: number }
   | { name: "musings" };
 
 function parseRoute(): Route {
   const hash = window.location.hash.replace(/^#/, "");
   if (hash.startsWith("/pipeline")) return { name: "pipeline" };
+  if (hash.startsWith("/list")) return { name: "list" };
   if (hash.startsWith("/musings")) return { name: "musings" };
   const company = hash.match(/^\/company\/(\d+)/);
   if (company) return { name: "company", id: Number(company[1]) };
@@ -48,6 +51,7 @@ export function App() {
       <main>
         {route.name === "capture" && <Capture />}
         {route.name === "pipeline" && <Pipeline />}
+        {route.name === "list" && <ListView />}
         {route.name === "company" && (
           <CompanyPage key={route.id} id={route.id} />
         )}
@@ -61,6 +65,7 @@ export function App() {
           icon="▤"
           active={route.name === "pipeline" || route.name === "company"}
         />
+        <Tab href="#/list" label="List" icon="≣" active={route.name === "list"} />
         <Tab
           href="#/musings"
           label="Musings"

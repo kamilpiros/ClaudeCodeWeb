@@ -24,6 +24,8 @@ export const confirmDraftSchema = z.object({
         .nullish()
         .transform((v) => v ?? null),
       currency: nullableString,
+      country: nullableString.catch(null),
+      sector: nullableString.catch(null),
       source: z
         .enum(SOURCES)
         .nullish()
@@ -58,6 +60,15 @@ export const confirmDraftSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullish()
     .transform((v) => v ?? null),
+  entry_price: z
+    .number()
+    .nullish()
+    .transform((v) => v ?? null),
+  target_price: z
+    .number()
+    .nullish()
+    .transform((v) => v ?? null),
+  exit_criteria: nullableString,
   reminders: z
     .array(
       z.object({
@@ -130,8 +141,9 @@ export async function confirmCapture(
           `INSERT INTO companies
              (name, ticker, exchange, market_cap_musd, currency, status,
               pass_reason, source, source_detail, koyfin_url, aliases,
-              horizon, conviction, next_earnings_date, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              horizon, conviction, next_earnings_date, country, sector,
+              entry_price, target_price, exit_criteria, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           nc.name,
@@ -148,6 +160,11 @@ export async function confirmCapture(
           draft.horizon,
           draft.conviction,
           draft.next_earnings_date,
+          nc.country,
+          nc.sector,
+          draft.entry_price,
+          draft.target_price,
+          draft.exit_criteria,
           now,
           now,
         ),
@@ -188,7 +205,10 @@ export async function confirmCapture(
       draft.pass_reason ||
       draft.horizon ||
       draft.conviction ||
-      draft.next_earnings_date
+      draft.next_earnings_date ||
+      draft.entry_price !== null ||
+      draft.target_price !== null ||
+      draft.exit_criteria
     ) {
       stmts.push(
         db
@@ -199,6 +219,9 @@ export async function confirmCapture(
                  horizon = COALESCE(?, horizon),
                  conviction = COALESCE(?, conviction),
                  next_earnings_date = COALESCE(?, next_earnings_date),
+                 entry_price = COALESCE(?, entry_price),
+                 target_price = COALESCE(?, target_price),
+                 exit_criteria = COALESCE(?, exit_criteria),
                  updated_at = ?
              WHERE id = ?`,
           )
@@ -208,6 +231,9 @@ export async function confirmCapture(
             draft.horizon,
             draft.conviction,
             draft.next_earnings_date,
+            draft.entry_price,
+            draft.target_price,
+            draft.exit_criteria,
             now,
             existing.id,
           ),

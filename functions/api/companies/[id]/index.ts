@@ -1,13 +1,13 @@
-import { getCompany } from "../../_lib/db";
+import { getCompany } from "../../../_lib/db";
 import type {
   ActionItemRow,
   CompanyRow,
   Env,
   NoteRow,
   Status,
-} from "../../_lib/types";
-import { STATUSES } from "../../_lib/types";
-import { badRequest, json, nowIso, readJson } from "../../_lib/util";
+} from "../../../_lib/types";
+import { STATUSES } from "../../../_lib/types";
+import { badRequest, json, nowIso, readJson } from "../../../_lib/util";
 
 function idFrom(params: Record<string, unknown>): number | null {
   const id = Number(params.id);
@@ -66,6 +66,14 @@ const EDITABLE_FIELDS = new Set([
   "ir_email_used",
   "ir_notes",
   "aliases",
+  "horizon",
+  "next_earnings_date",
+  "country",
+  "sector",
+  "entry_price",
+  "entry_date",
+  "target_price",
+  "exit_criteria",
 ]);
 
 /** PATCH /api/companies/:id — edit any field; status changes write history. */
@@ -125,4 +133,25 @@ export const onRequestPatch: PagesFunction<Env> = async ({
 
   const updated = await getCompany(env.DB, id);
   return json({ company: updated as CompanyRow });
+};
+
+/**
+ * DELETE /api/companies/:id — removes the company and everything attached
+ * to it (notes, action items, reminders, quotes, status history).
+ */
+export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
+  const id = idFrom(params);
+  if (!id) return badRequest("bad id");
+  const company = await getCompany(env.DB, id);
+  if (!company) return json({ error: "not found" }, 404);
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM action_items WHERE company_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM reminders WHERE company_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM quotes WHERE company_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM status_history WHERE company_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM notes WHERE company_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM companies WHERE id = ?").bind(id),
+  ]);
+  return json({ ok: true });
 };

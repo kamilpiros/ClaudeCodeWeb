@@ -53,8 +53,13 @@ Return ONLY a JSON object with this exact shape:
                                 // trades, special situations with a clock);
                                 // "core" for long-term holds / compounders;
                                 // null when the note doesn't indicate either
-  "conviction": 1|2|3|4|5|null  // only when clearly expressed ("high
+  "conviction": 1|2|3|4|5|null, // only when clearly expressed ("high
                                 // conviction", "small starter, not sure yet")
+  "entry_price": number | null, // only when stated ("bought at 12.50")
+  "target_price": number | null,// only when stated ("sell around 20", "target 18")
+  "exit_criteria": string | null// only when the note states exit conditions
+                                // ("exit if margins fall below 15%", "sell
+                                // half at 2x"); concise, author's words
 }
 
 Rules:
@@ -143,6 +148,17 @@ export const parsedCaptureSchema = z.object({
     .nullish()
     .catch(null)
     .transform((v) => v ?? null),
+  entry_price: z
+    .number()
+    .nullish()
+    .catch(null)
+    .transform((v) => v ?? null),
+  target_price: z
+    .number()
+    .nullish()
+    .catch(null)
+    .transform((v) => v ?? null),
+  exit_criteria: nullableString.catch(null),
 });
 
 export type ParsedCapture = z.infer<typeof parsedCaptureSchema>;

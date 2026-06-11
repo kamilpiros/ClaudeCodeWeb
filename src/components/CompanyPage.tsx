@@ -115,11 +115,31 @@ export function CompanyPage({ id }: { id: number }) {
         {company.next_earnings_date && (
           <span className="chip">ER {company.next_earnings_date}</span>
         )}
+        {company.sector && <span className="chip">{company.sector}</span>}
+        {company.country && <span className="chip">{company.country}</span>}
         {company.source && (
           <span className="chip">
             {company.source}
             {company.source_detail ? `: ${company.source_detail}` : ""}
           </span>
+        )}
+        {(!company.sector || !company.country || !company.market_cap_musd) && (
+          <button
+            type="button"
+            className="small"
+            onClick={async () => {
+              toast("Researching…");
+              try {
+                const { company: updated } = await api.enrichCompany(id);
+                setCompany(updated);
+                toast("Filled missing fields");
+              } catch {
+                toast("Lookup failed — try again");
+              }
+            }}
+          >
+            ✦ Auto-fill
+          </button>
         )}
       </div>
 
@@ -146,6 +166,11 @@ export function CompanyPage({ id }: { id: number }) {
           <span className="muted">Pass reason: </span>
           {company.pass_reason}
         </div>
+      )}
+
+      {/* Ownership block — only when the company is (or was) a position */}
+      {(company.status === "owned" || company.status === "exited") && (
+        <PositionBlock company={company} onPatch={patch} />
       )}
 
       {/* Links */}
@@ -194,7 +219,21 @@ export function CompanyPage({ id }: { id: number }) {
             <div className="note-item" key={n.id}>
               <div className="row between">
                 <span className="chip">{NOTE_TYPE_LABELS[n.note_type]}</span>
-                <span className="muted small">{formatDate(n.created_at)}</span>
+                <span className="row">
+                  <span className="muted small">{formatDate(n.created_at)}</span>
+                  <button
+                    type="button"
+                    className="small danger"
+                    style={{ border: "none", background: "none", padding: "0 4px" }}
+                    onClick={async () => {
+                      if (!confirm("Delete this note?")) return;
+                      await api.deleteNote(n.id);
+                      reload();
+                    }}
+                  >
+                    ✗
+                  </button>
+                </span>
               </div>
               <div className="pre small" style={{ marginTop: 6 }}>
                 {n.body}
@@ -216,6 +255,117 @@ export function CompanyPage({ id }: { id: number }) {
             <span className="muted">{formatDate(h.changed_at)}</span>
           </div>
         ))}
+      </div>
+
+      <div className="row" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          className="small danger"
+          onClick={async () => {
+            if (
+              !confirm(
+                `Delete ${company.name} and ALL its notes, reminders and history? This cannot be undone.`,
+              )
+            )
+              return;
+            await api.deleteCompany(id);
+            toast("Company deleted");
+            window.location.hash = "#/pipeline";
+          }}
+        >
+          Delete company…
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PositionBlock({
+  company,
+  onPatch,
+}: {
+  company: Company;
+  onPatch: (fields: Record<string, unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [entry, setEntry] = useState(company.entry_price?.toString() ?? "");
+  const [entryDate, setEntryDate] = useState(company.entry_date ?? "");
+  const [target, setTarget] = useState(company.target_price?.toString() ?? "");
+  const [exit, setExit] = useState(company.exit_criteria ?? "");
+
+  if (!editing) {
+    return (
+      <div className="card stack">
+        <div className="row between">
+          <span className="field-label" style={{ margin: 0 }}>Position</span>
+          <button type="button" className="small" onClick={() => setEditing(true)}>✎</button>
+        </div>
+        <div className="row wrap">
+          {company.entry_price !== null && (
+            <span className="chip">entry {company.entry_price}{company.entry_date ? ` · ${company.entry_date}` : ""}</span>
+          )}
+          {company.target_price !== null && (
+            <span className="chip">target {company.target_price}</span>
+          )}
+          {company.entry_price === null && company.target_price === null && !company.exit_criteria && (
+            <span className="muted small">
+              No position details yet — babble them in a capture ("bought at
+              12.50, target 20, exit if margins slip") or edit here.
+            </span>
+          )}
+        </div>
+        {company.exit_criteria && (
+          <div className="small">
+            <span className="muted">Exit when: </span>
+            {company.exit_criteria}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card stack">
+      <div className="row">
+        <div className="grow">
+          <div className="field-label">Entry price</div>
+          <input inputMode="decimal" value={entry} onChange={(e) => setEntry(e.target.value)} />
+        </div>
+        <div className="grow">
+          <div className="field-label">Entry date</div>
+          <input type="date" style={{ width: "100%" }} value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+        </div>
+        <div className="grow">
+          <div className="field-label">Target</div>
+          <input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <div className="field-label">Exit criteria</div>
+        <textarea
+          style={{ minHeight: 60 }}
+          value={exit}
+          placeholder="When do you sell? e.g. margins < 15%, thesis broken, 2x"
+          onChange={(e) => setExit(e.target.value)}
+        />
+      </div>
+      <div className="row">
+        <button
+          type="button"
+          className="primary small"
+          onClick={async () => {
+            await onPatch({
+              entry_price: entry === "" ? null : Number(entry),
+              entry_date: entryDate || null,
+              target_price: target === "" ? null : Number(target),
+              exit_criteria: exit.trim() || null,
+            });
+            setEditing(false);
+          }}
+        >
+          Save
+        </button>
+        <button type="button" className="small" onClick={() => setEditing(false)}>Cancel</button>
       </div>
     </div>
   );
@@ -393,6 +543,19 @@ function RemindersBlock({
               {r.due_date}
             </span>
           )}
+          <button
+            type="button"
+            className="small danger"
+            style={{ border: "none", background: "none", padding: "0 4px" }}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!confirm("Delete this reminder?")) return;
+              await api.deleteReminder(r.id);
+              onChanged();
+            }}
+          >
+            ✗
+          </button>
         </label>
       ))}
       {reminders.length === 0 && (

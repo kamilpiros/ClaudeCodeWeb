@@ -83,6 +83,12 @@ export interface Company {
   next_earnings_date: string | null;
   baseline_price: number | null;
   baseline_price_date: string | null;
+  country: string | null;
+  sector: string | null;
+  entry_price: number | null;
+  entry_date: string | null;
+  target_price: number | null;
+  exit_criteria: string | null;
   created_at: string;
   updated_at: string;
   days_in_status?: number;
@@ -148,6 +154,8 @@ export interface DraftNewCompany {
   exchange: string | null;
   market_cap_musd: number | null;
   currency: string | null;
+  country?: string | null;
+  sector?: string | null;
   source: Source | null;
   source_detail: string | null;
 }
@@ -178,6 +186,9 @@ export interface CaptureDraft {
   horizon: "core" | "tactical" | null;
   conviction: number | null;
   next_earnings_date: string | null;
+  entry_price: number | null;
+  target_price: number | null;
+  exit_criteria: string | null;
 }
 
 export interface Stats {

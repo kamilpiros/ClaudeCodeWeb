@@ -87,6 +87,15 @@ export const api = {
   patchCompany: (id: number, fields: Record<string, unknown>) =>
     request<{ company: Company }>("PATCH", `/api/companies/${id}`, fields),
 
+  deleteCompany: (id: number) =>
+    request<{ ok: true }>("DELETE", `/api/companies/${id}`),
+
+  enrichCompany: (id: number) =>
+    request<{ company: Company }>("POST", `/api/companies/${id}/enrich`),
+
+  deleteReminder: (id: number) =>
+    request<{ ok: true }>("DELETE", `/api/reminders/${id}`),
+
   createNote: (note: {
     company_id?: number | null;
     note_type?: NoteType;

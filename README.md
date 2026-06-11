@@ -45,12 +45,14 @@ npx wrangler d1 create stones
 ```
 
 Put the printed `database_id` into `wrangler.toml` (replacing the placeholder
-zero-UUID, which is only there so local dev works out of the box), then apply
-migrations:
+zero-UUID, which is only there so local dev works out of the box).
 
-```sh
-npm run db:migrate:remote     # schema + seed companies
-```
+**Migrations apply themselves.** Every deploy bundles the SQL from
+`/migrations` (via `scripts/gen-migrations.mjs`, part of `npm run build`) and
+an API middleware applies pending migrations on the first request — including
+the initial schema + seed on a brand-new database. `wrangler d1 migrations
+apply` is never required against production (it still works for local dev and
+is detected/baselined, never re-run).
 
 ### 2. Create the Pages project (Git integration)
 
@@ -108,6 +110,9 @@ service worker make it a standalone app; the API is network-first and the
 capture box queues raw text in localStorage when offline.
 
 ## Importing the "Stones Turned" Excel
+
+**Easiest path: in the app.** List tab → **⇪ Import CSV** → pick the file.
+Rows whose company name already exists are skipped, so re-importing is safe.
 
 Export the sheet as CSV (semicolon-separated — the default in a German Excel
 locale) with exactly these columns:

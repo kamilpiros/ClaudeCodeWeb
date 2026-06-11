@@ -30,6 +30,7 @@ export function ListView() {
   const [horizon, setHorizon] = useState("");
   const [sort, setSort] = useState<SortKey>("updated");
   const [enriching, setEnriching] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   async function reload() {
     try {
@@ -121,10 +122,49 @@ export function ListView() {
     reload();
   }
 
+  async function importCsv(file: File) {
+    setImporting(true);
+    try {
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "content-type": "text/csv" },
+        body: await file.text(),
+      });
+      const payload = (await res.json()) as {
+        imported?: number;
+        skipped?: number;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      toast(`Imported ${payload.imported}, skipped ${payload.skipped} existing`);
+      reload();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div>
-      <h1>List</h1>
-      <div className="stack">
+      <div className="row between">
+        <h1 style={{ marginBottom: 0 }}>List</h1>
+        <label className="small" style={{ cursor: "pointer" }}>
+          <span className="chip clickable">{importing ? "Importing…" : "⇪ Import CSV"}</span>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            style={{ display: "none" }}
+            disabled={importing}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) importCsv(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+      <div className="stack" style={{ marginTop: 14 }}>
         <input value={q} placeholder="Search…" onChange={(e) => setQ(e.target.value)} />
         <div className="row wrap">
           <select value={status} style={{ width: "auto" }} onChange={(e) => setStatus(e.target.value as Status | "")}>

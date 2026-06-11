@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, formatMarketCap } from "../api";
-import type { Company, Status } from "../types";
+import type { Company, Quote, Status } from "../types";
 import { FUNNEL_ORDER, STATUS_LABELS } from "../types";
 
 const COLLAPSED_BY_DEFAULT: Status[] = ["dismissed", "exited"];
@@ -15,6 +15,14 @@ export function Pipeline() {
   const [openGroups, setOpenGroups] = useState<Set<Status>>(
     () => new Set(FUNNEL_ORDER.filter((s) => !COLLAPSED_BY_DEFAULT.includes(s))),
   );
+  const [quotes, setQuotes] = useState<Map<number, Quote>>(new Map());
+
+  useEffect(() => {
+    api
+      .quotes()
+      .then(({ quotes }) => setQuotes(new Map(quotes.map((q) => [q.company_id, q]))))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +110,7 @@ export function Pipeline() {
               </summary>
               <div className="card" style={{ padding: "2px 14px" }}>
                 {list.map((c) => (
-                  <CompanyRowView key={c.id} company={c} />
+                  <CompanyRowView key={c.id} company={c} quote={quotes.get(c.id)} />
                 ))}
               </div>
             </details>
@@ -116,7 +124,7 @@ export function Pipeline() {
   );
 }
 
-function CompanyRowView({ company: c }: { company: Company }) {
+function CompanyRowView({ company: c, quote }: { company: Company; quote?: Quote }) {
   const mcap = formatMarketCap(c.market_cap_musd);
   return (
     <a className="pipeline-row" href={`#/company/${c.id}`}>
@@ -124,13 +132,31 @@ function CompanyRowView({ company: c }: { company: Company }) {
         <div>
           <strong>{c.name}</strong>{" "}
           {c.ticker && <span className="muted small">{c.ticker}</span>}
+          {c.horizon === "tactical" && <span className="chip tactical">T</span>}
         </div>
         <div className="muted small">
           {mcap && `${mcap} · `}
           {c.days_in_status !== undefined && `${c.days_in_status}d in status`}
           {c.open_action_items ? ` · ${c.open_action_items} open` : ""}
+          {c.next_earnings_date && ` · ER ${c.next_earnings_date}`}
         </div>
       </div>
+      {quote?.price != null && (
+        <div className="price-block">
+          <div className="small">
+            {quote.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {quote.currency ? ` ${quote.currency}` : ""}
+          </div>
+          {quote.change_since_baseline_pct !== null && (
+            <div
+              className={`small ${quote.change_since_baseline_pct >= 0 ? "up" : "down"}`}
+            >
+              {quote.change_since_baseline_pct >= 0 ? "+" : ""}
+              {quote.change_since_baseline_pct}%
+            </div>
+          )}
+        </div>
+      )}
       {c.conviction && (
         <span className="conviction">
           {"●".repeat(c.conviction)}

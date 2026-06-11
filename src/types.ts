@@ -79,10 +79,40 @@ export interface Company {
   ir_email_used: string | null;
   ir_notes: string | null;
   aliases: string | null;
+  horizon: "core" | "tactical" | null;
+  next_earnings_date: string | null;
+  baseline_price: number | null;
+  baseline_price_date: string | null;
   created_at: string;
   updated_at: string;
   days_in_status?: number;
   open_action_items?: number;
+}
+
+export interface Reminder {
+  id: number;
+  company_id: number | null;
+  note_id: number | null;
+  body: string;
+  due_date: string | null;
+  trigger: string | null;
+  done: number;
+  created_at: string;
+  done_at: string | null;
+  company_name?: string | null;
+  company_ticker?: string | null;
+}
+
+export interface Quote {
+  company_id: number;
+  price: number | null;
+  currency: string | null;
+  prev_close: number | null;
+  fetched_at: string;
+  baseline_price: number | null;
+  baseline_price_date: string | null;
+  change_since_baseline_pct: number | null;
+  change_1d_pct: number | null;
 }
 
 export interface Note {
@@ -122,6 +152,12 @@ export interface DraftNewCompany {
   source_detail: string | null;
 }
 
+export interface DraftReminder {
+  body: string;
+  due_date: string | null;
+  trigger: string | null;
+}
+
 export interface CaptureDraft {
   raw_text: string;
   company: {
@@ -136,8 +172,12 @@ export interface CaptureDraft {
   note_type: NoteType;
   note_body: string;
   action_items: string[];
+  reminders: DraftReminder[];
   suggested_status: Status | null;
   pass_reason: string | null;
+  horizon: "core" | "tactical" | null;
+  conviction: number | null;
+  next_earnings_date: string | null;
 }
 
 export interface Stats {

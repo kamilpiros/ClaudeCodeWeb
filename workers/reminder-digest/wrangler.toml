@@ -1,0 +1,22 @@
+# Companion Worker: daily email digest of due reminders + upcoming earnings.
+# Deploy:  npx wrangler deploy -c workers/reminder-digest/wrangler.toml
+# Secrets: npx wrangler secret put RESEND_API_KEY -c workers/reminder-digest/wrangler.toml
+
+name = "stones-reminder-digest"
+main = "index.ts"
+compatibility_date = "2025-01-01"
+
+# 06:00 UTC daily (~07:00/08:00 in Zurich depending on DST)
+[triggers]
+crons = ["0 6 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stones"
+database_id = "306b003b-5ef5-4a49-9c1c-55c1107bca01"
+
+[vars]
+DIGEST_TO = "cyril.bouquet@bqtpartners.com"
+# Resend's shared onboarding sender works out of the box for your own
+# verified account email; switch to your own domain once verified in Resend.
+DIGEST_FROM = "Stones <onboarding@resend.dev>"

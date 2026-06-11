@@ -4,6 +4,8 @@ import type {
   Company,
   Note,
   NoteType,
+  Quote,
+  Reminder,
   Stats,
   Status,
   StatusHistoryEntry,
@@ -107,6 +109,21 @@ export const api = {
   musings: () => request<{ musings: Note[] }>("GET", "/api/musings"),
 
   stats: () => request<Stats>("GET", "/api/stats"),
+
+  reminders: () => request<{ reminders: Reminder[] }>("GET", "/api/reminders"),
+
+  createReminder: (reminder: {
+    company_id?: number | null;
+    body: string;
+    due_date?: string | null;
+  }) => request<{ reminder: Reminder }>("POST", "/api/reminders", reminder),
+
+  patchReminder: (
+    id: number,
+    fields: { done?: boolean; body?: string; due_date?: string | null },
+  ) => request<{ reminder: Reminder }>("PATCH", `/api/reminders/${id}`, fields),
+
+  quotes: () => request<{ quotes: Quote[] }>("GET", "/api/quotes"),
 };
 
 export function formatMarketCap(

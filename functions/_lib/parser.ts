@@ -32,9 +32,29 @@ Return ONLY a JSON object with this exact shape:
                                 // transcription artifacts, keep the author's
                                 // voice and ALL substance, do not summarize away
                                 // numbers, names, or reasoning
-  "action_items": [string],     // explicit to-dos only ("check X", "ask Y")
+  "action_items": [string],     // explicit UNDATED to-dos only ("check X", "ask Y")
+  "reminders": [                // DATED/deadline-bound to-dos — anything the
+                                // user must not forget by a certain time
+    {
+      "body": string,           // what to do, e.g. "Buy call options on Nestlé"
+      "due_date": "YYYY-MM-DD" | null,  // resolve relative phrases ("next
+                                // Friday", "in two weeks") from today's date;
+                                // null when the timing is event-based
+      "anchor": "next_earnings" | null  // "next_earnings" when the deadline is
+                                // tied to the company's next earnings date
+                                // ("before the next earnings", "ahead of Q2
+                                // results") — the app researches that date
+    }
+  ],
   "suggested_status": null | "inbox"|"dismissed"|"quick_look"|"worked"|"watchlist"|"owned"|"exited",
-  "pass_reason": string | null  // only when input clearly states why passing
+  "pass_reason": string | null, // only when input clearly states why passing
+  "horizon": "core" | "tactical" | null,  // "tactical" for short-term trades
+                                // (options plays, earnings trades, swing
+                                // trades, special situations with a clock);
+                                // "core" for long-term holds / compounders;
+                                // null when the note doesn't indicate either
+  "conviction": 1|2|3|4|5|null  // only when clearly expressed ("high
+                                // conviction", "small starter, not sure yet")
 }
 
 Rules:
@@ -47,6 +67,9 @@ Rules:
   others into action_items as "Cross-ref: <name> — <context>".
 - Only suggest a status change when the input implies it ("passing on this",
   "bought a starter", "putting this on the watchlist").
+- A to-do WITH a deadline or event ("before earnings", "by Friday", "when the
+  H1 report is out") goes into reminders, NOT action_items. Pre-fill as much
+  as you can infer; leave fields null rather than guessing wrong.
 - Never invent tickers. null is better than wrong.
 - note_body language: keep whatever language the user used.`;
 
@@ -83,12 +106,43 @@ export const parsedCaptureSchema = z.object({
   note_type: z.enum(NOTE_TYPES).catch("note"),
   note_body: z.string().min(1),
   action_items: z.array(z.string()).catch([]),
+  reminders: z
+    .array(
+      z.object({
+        body: z.string().min(1),
+        due_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullish()
+          .catch(null)
+          .transform((v) => v ?? null),
+        anchor: z
+          .enum(["next_earnings"])
+          .nullish()
+          .catch(null)
+          .transform((v) => v ?? null),
+      }),
+    )
+    .catch([]),
   suggested_status: z
     .enum(STATUSES)
     .nullish()
     .catch(null)
     .transform((v) => v ?? null),
   pass_reason: nullableString.catch(null),
+  horizon: z
+    .enum(["core", "tactical"])
+    .nullish()
+    .catch(null)
+    .transform((v) => v ?? null),
+  conviction: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .nullish()
+    .catch(null)
+    .transform((v) => v ?? null),
 });
 
 export type ParsedCapture = z.infer<typeof parsedCaptureSchema>;
@@ -122,6 +176,8 @@ export function validateParsedCapture(raw: unknown): ParsedCapture {
 
 function buildUserMessage(text: string, directory: DirectoryEntry[]): string {
   return [
+    `Today is ${new Date().toISOString().slice(0, 10)}.`,
+    "",
     "Company directory (JSON):",
     JSON.stringify(directory),
     "",

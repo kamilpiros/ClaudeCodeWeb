@@ -56,8 +56,32 @@ export interface CompanyRow {
   ir_email_used: string | null;
   ir_notes: string | null;
   aliases: string | null;
+  horizon: "core" | "tactical" | null;
+  next_earnings_date: string | null;
+  baseline_price: number | null;
+  baseline_price_date: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReminderRow {
+  id: number;
+  company_id: number | null;
+  note_id: number | null;
+  body: string;
+  due_date: string | null;
+  trigger: string | null;
+  done: number;
+  created_at: string;
+  done_at: string | null;
+}
+
+export interface QuoteRow {
+  company_id: number;
+  price: number | null;
+  currency: string | null;
+  prev_close: number | null;
+  fetched_at: string;
 }
 
 export interface NoteRow {

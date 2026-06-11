@@ -70,21 +70,37 @@ export async function enrichCompany(
   env: Env,
   name: string,
   context: string | null,
+  opts: { timeoutMs?: number } = {},
 ): Promise<Enrichment | null> {
-  const deadline = new Promise<null>((resolve) =>
-    setTimeout(() => resolve(null), ENRICH_TIMEOUT_MS),
-  );
   try {
-    return await Promise.race([runEnrichment(env, name, context), deadline]);
+    return await enrichCompanyStrict(env, name, context, opts);
   } catch {
     return null;
   }
+}
+
+/**
+ * Same lookup, but failures throw with the underlying reason — used by the
+ * explicit "Auto-fill" endpoint so problems are diagnosable.
+ */
+export async function enrichCompanyStrict(
+  env: Env,
+  name: string,
+  context: string | null,
+  opts: { timeoutMs?: number } = {},
+): Promise<Enrichment | null> {
+  const timeoutMs = opts.timeoutMs ?? ENRICH_TIMEOUT_MS;
+  const deadline = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`lookup timed out after ${timeoutMs / 1000}s`)), timeoutMs),
+  );
+  return Promise.race([runEnrichment(env, name, context, timeoutMs), deadline]);
 }
 
 async function runEnrichment(
   env: Env,
   name: string,
   context: string | null,
+  timeoutMs: number,
 ): Promise<Enrichment | null> {
   const messages: AnthropicMessage[] = [
     {
@@ -96,19 +112,17 @@ async function runEnrichment(
   let res: AnthropicResponse = await anthropicRequest(
     env,
     enrichBody(messages),
-    { timeoutMs: ENRICH_TIMEOUT_MS },
+    { timeoutMs },
   );
   // Server-side tool loop can pause; resume by re-sending with the
   // assistant turn appended (max twice within our time budget).
   for (let i = 0; i < 2 && res.stop_reason === "pause_turn"; i++) {
     messages.push({ role: "assistant", content: res.content });
-    res = await anthropicRequest(env, enrichBody(messages), {
-      timeoutMs: ENRICH_TIMEOUT_MS,
-    });
+    res = await anthropicRequest(env, enrichBody(messages), { timeoutMs });
   }
 
   const text = responseText(res);
-  if (!text) return null;
+  if (!text) throw new Error("model returned no text");
   return enrichmentSchema.parse(extractJson(text));
 }
 

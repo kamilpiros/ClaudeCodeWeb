@@ -142,6 +142,8 @@ export function ConfirmCard(props: {
                   {newCompany.currency ? ` · ${newCompany.currency}` : ""}
                 </span>
               )}
+              {newCompany.sector && <span className="chip">{newCompany.sector}</span>}
+              {newCompany.country && <span className="chip">{newCompany.country}</span>}
             </div>
           ) : (
             <span className="muted">No company — saved as unattached musing</span>
@@ -243,6 +245,26 @@ export function ConfirmCard(props: {
                       ...newCompany,
                       market_cap_musd: e.target.value === "" ? null : Number(e.target.value),
                     })
+                  }
+                />
+              </div>
+            </div>
+            <div className="row">
+              <div className="grow">
+                <div className="field-label">Sector</div>
+                <input
+                  value={newCompany.sector ?? ""}
+                  onChange={(e) =>
+                    setNewCompany({ ...newCompany, sector: e.target.value || null })
+                  }
+                />
+              </div>
+              <div className="grow">
+                <div className="field-label">Country</div>
+                <input
+                  value={newCompany.country ?? ""}
+                  onChange={(e) =>
+                    setNewCompany({ ...newCompany, country: e.target.value || null })
                   }
                 />
               </div>

@@ -114,8 +114,10 @@ export function ListView() {
         await api.enrichCompany(c.id);
         done++;
         toast(`Enriched ${done}/${missingData.length}: ${c.name}`);
-      } catch {
-        toast(`Lookup failed for ${c.name} — continuing`);
+      } catch (e) {
+        toast(
+          `${c.name}: ${e instanceof Error ? e.message : "lookup failed"} — continuing`,
+        );
       }
     }
     setEnriching(false);

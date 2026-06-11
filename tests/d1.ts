@@ -109,7 +109,11 @@ export class TestD1 {
 /** Fresh in-memory DB with all schema migrations applied (0001, 0003). */
 export function freshDb(): TestD1 {
   const db = new TestD1();
-  for (const file of ["0001_init.sql", "0003_intelligence.sql"]) {
+  for (const file of [
+    "0001_init.sql",
+    "0003_intelligence.sql",
+    "0004_classification.sql",
+  ]) {
     db.db.exec(readFileSync(join(HERE, "..", "migrations", file), "utf8"));
   }
   return db;

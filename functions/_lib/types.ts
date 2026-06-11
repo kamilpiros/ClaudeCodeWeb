@@ -60,6 +60,12 @@ export interface CompanyRow {
   next_earnings_date: string | null;
   baseline_price: number | null;
   baseline_price_date: string | null;
+  country: string | null;
+  sector: string | null;
+  entry_price: number | null;
+  entry_date: string | null;
+  target_price: number | null;
+  exit_criteria: string | null;
   created_at: string;
   updated_at: string;
 }

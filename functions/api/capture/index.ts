@@ -56,6 +56,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       exchange: enrichment?.exchange ?? null,
       market_cap_musd: enrichment?.market_cap_musd ?? null,
       currency: enrichment?.currency ?? null,
+      country: enrichment?.country ?? null,
+      sector: enrichment?.sector ?? null,
     };
   }
 
@@ -108,6 +110,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       horizon: parsed.horizon,
       conviction: parsed.conviction,
       next_earnings_date: nextEarningsDate,
+      entry_price: parsed.entry_price,
+      target_price: parsed.target_price,
+      exit_criteria: parsed.exit_criteria,
     },
   });
 };

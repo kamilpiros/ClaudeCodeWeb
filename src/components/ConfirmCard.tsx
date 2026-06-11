@@ -102,6 +102,9 @@ export function ConfirmCard(props: {
         horizon: horizon || null,
         conviction: conviction === "" ? null : conviction,
         next_earnings_date: d.next_earnings_date,
+        entry_price: d.entry_price,
+        target_price: d.target_price,
+        exit_criteria: d.exit_criteria,
       });
       props.onSaved();
     } catch (e) {
@@ -421,6 +424,17 @@ export function ConfirmCard(props: {
           <div className="row wrap">
             <span className="chip">Next earnings: {d.next_earnings_date}</span>
             <span className="muted small">researched — saved to the company</span>
+          </div>
+        )}
+
+        {/* Position details extracted from the note */}
+        {(d.entry_price !== null || d.target_price !== null || d.exit_criteria) && (
+          <div className="row wrap">
+            {d.entry_price !== null && <span className="chip">entry {d.entry_price}</span>}
+            {d.target_price !== null && <span className="chip">target {d.target_price}</span>}
+            {d.exit_criteria && (
+              <span className="small muted">exit when: {d.exit_criteria}</span>
+            )}
           </div>
         )}
 

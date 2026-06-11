@@ -15,13 +15,19 @@ JSON object with this exact shape — no prose:
   "ticker": string | null,        // exchange-style ticker, e.g. "1846.HK", "EVC", "3661.T"
   "exchange": string | null,      // e.g. "HKEX", "NYSE", "ASX", "XETRA"
   "market_cap_musd": number | null, // approximate market cap in MILLIONS of USD
-  "currency": string | null       // listing currency, e.g. "USD", "HKD"
+  "currency": string | null,      // listing currency, e.g. "USD", "HKD"
+  "country": string | null,       // home country, e.g. "Switzerland", "Japan"
+  "sector": string | null         // ONE coarse bucket: "Technology" | "Healthcare" |
+                                  // "Industrials" | "Consumer" | "Financials" |
+                                  // "Energy" | "Materials" | "Real Estate" |
+                                  // "Utilities" | "Telecom" | "Media" | "Other"
 }
 
 Rules:
 - Never invent a ticker. If unsure, use null.
 - market_cap_musd is a rough number in millions of USD (e.g. 350 for $350M).
-- If the company appears to be private or unlisted, return all nulls.`;
+- If the company appears to be private or unlisted, ticker/exchange/currency
+  are null but country and sector may still be filled.`;
 
 const enrichmentSchema = z.object({
   ticker: z
@@ -40,6 +46,16 @@ const enrichmentSchema = z.object({
   currency: z
     .string()
     .nullish()
+    .transform((v) => (v && v.trim() ? v.trim() : null)),
+  country: z
+    .string()
+    .nullish()
+    .catch(null)
+    .transform((v) => (v && v.trim() ? v.trim() : null)),
+  sector: z
+    .string()
+    .nullish()
+    .catch(null)
     .transform((v) => (v && v.trim() ? v.trim() : null)),
 });
 

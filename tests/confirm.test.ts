@@ -194,6 +194,25 @@ describe("reminders, horizon and earnings", () => {
     expect(result.company!.next_earnings_date).toBe("2099-07-24");
   });
 
+  it("stores ownership details (entry, target, exit criteria) on owned companies", async () => {
+    const db = freshDb();
+    const id = await seedCompany(db, { status: "owned" });
+    const result = await confirmCapture(
+      asD1(db),
+      baseDraft({
+        company_id: id,
+        note_type: "exit_criteria",
+        note_body: "Bought at 12.50, target around 20, out if LASIK volumes roll over.",
+        entry_price: 12.5,
+        target_price: 20,
+        exit_criteria: "LASIK volumes roll over",
+      }),
+    );
+    expect(result.company!.entry_price).toBe(12.5);
+    expect(result.company!.target_price).toBe(20);
+    expect(result.company!.exit_criteria).toBe("LASIK volumes roll over");
+  });
+
   it("stores horizon and reminders on a NEW company too", async () => {
     const db = freshDb();
     const result = await confirmCapture(

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/gen-migrations.mjs && vite build",
     "preview": "npm run build && wrangler pages dev",
     "test": "vitest run",
     "icons": "node scripts/gen-icons.mjs",

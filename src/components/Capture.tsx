@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api";
 import { dequeue, enqueue, getQueue, type QueuedCapture } from "../offline";
 import { toast } from "../toast";
-import type { CaptureDraft } from "../types";
+import type { CaptureDraft, Reminder } from "../types";
 import { ConfirmCard } from "./ConfirmCard";
 
 type Phase = "idle" | "recording" | "transcribing" | "parsing" | "saving";
@@ -15,8 +15,27 @@ export function Capture() {
   const [parseFailedDetail, setParseFailedDetail] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedCapture[]>(getQueue);
   const [online, setOnline] = useState(navigator.onLine);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+
+  const loadReminders = useCallback(async () => {
+    try {
+      const { reminders } = await api.reminders();
+      const horizon = new Date();
+      horizon.setDate(horizon.getDate() + 14);
+      const cutoff = horizon.toISOString().slice(0, 10);
+      setReminders(
+        reminders.filter((r) => !r.done && (!r.due_date || r.due_date <= cutoff)),
+      );
+    } catch {
+      /* offline: keep last data */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReminders();
+  }, [loadReminders]);
 
   useEffect(() => {
     const sync = () => setOnline(navigator.onLine);
@@ -129,11 +148,14 @@ export function Capture() {
           setDraft(null);
           setText("");
           toast("Saved ✓");
+          loadReminders();
         }}
         onDiscard={() => setDraft(null)}
       />
     );
   }
+
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="capture-box">
@@ -197,6 +219,44 @@ export function Capture() {
             </button>
           </div>
         </div>
+      )}
+
+      {reminders.length > 0 && (
+        <>
+          <h2>Up next</h2>
+          <div className="card stack">
+            {reminders.map((r) => (
+              <label className="row" key={r.id}>
+                <input
+                  type="checkbox"
+                  checked={false}
+                  onChange={async () => {
+                    await api.patchReminder(r.id, { done: true });
+                    toast("Done ✓");
+                    loadReminders();
+                  }}
+                />
+                <span className="grow small">
+                  {r.body}
+                  {r.company_name && (
+                    <a
+                      href={`#/company/${r.company_id}`}
+                      className="muted"
+                    >{` — ${r.company_name}`}</a>
+                  )}
+                </span>
+                {r.due_date && (
+                  <span
+                    className={`chip ${r.due_date < today ? "overdue" : r.due_date === today ? "due-today" : ""}`}
+                  >
+                    {r.due_date < today ? "overdue · " : ""}
+                    {r.due_date}
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
+        </>
       )}
 
       {queue.length > 0 && (

@@ -1,4 +1,5 @@
-import { companyDirectory } from "../../_lib/db";
+import { companyDirectory, getCompany } from "../../_lib/db";
+import { findNextEarningsDate, reminderDueFromEarnings } from "../../_lib/earnings";
 import { enrichCompany } from "../../_lib/enrich";
 import { ParseFailedError, parseCapture } from "../../_lib/parser";
 import type { Env } from "../../_lib/types";
@@ -58,6 +59,39 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     };
   }
 
+  // When a reminder is anchored to "next earnings", research the date now
+  // (web search) so the reminder lands with a concrete due date. Reuse any
+  // already-known earnings date on the matched company if it's still ahead.
+  let nextEarningsDate: string | null = null;
+  const needsEarnings = parsed.reminders.some((r) => r.anchor === "next_earnings");
+  const companyName = matched?.name ?? newCompany?.name ?? null;
+  if (needsEarnings && companyName) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (matched) {
+      const full = await getCompany(env.DB, matched.id);
+      if (full?.next_earnings_date && full.next_earnings_date >= today) {
+        nextEarningsDate = full.next_earnings_date;
+      }
+    }
+    if (!nextEarningsDate) {
+      const lookup = await findNextEarningsDate(
+        env,
+        companyName,
+        matched?.ticker ?? newCompany?.ticker ?? null,
+      );
+      nextEarningsDate = lookup?.next_earnings_date ?? null;
+    }
+  }
+
+  const reminders = parsed.reminders.map((r) => ({
+    body: r.body,
+    due_date:
+      r.anchor === "next_earnings" && nextEarningsDate
+        ? reminderDueFromEarnings(nextEarningsDate)
+        : r.due_date,
+    trigger: r.anchor === "next_earnings" ? "earnings" : null,
+  }));
+
   return json({
     draft: {
       raw_text: text,
@@ -68,8 +102,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       note_type: parsed.note_type,
       note_body: parsed.note_body,
       action_items: parsed.action_items,
+      reminders,
       suggested_status: parsed.suggested_status,
       pass_reason: parsed.pass_reason,
+      horizon: parsed.horizon,
+      conviction: parsed.conviction,
+      next_earnings_date: nextEarningsDate,
     },
   });
 };

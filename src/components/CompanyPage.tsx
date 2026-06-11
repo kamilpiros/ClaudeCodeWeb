@@ -6,6 +6,8 @@ import type {
   Company,
   Note,
   NoteType,
+  Quote,
+  Reminder,
   Status,
   StatusHistoryEntry,
 } from "../types";
@@ -21,6 +23,8 @@ export function CompanyPage({ id }: { id: number }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [history, setHistory] = useState<StatusHistoryEntry[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -34,11 +38,21 @@ export function CompanyPage({ id }: { id: number }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     }
+    try {
+      const { reminders } = await api.reminders();
+      setReminders(reminders.filter((r) => r.company_id === id && !r.done));
+    } catch {
+      /* non-fatal */
+    }
   }, [id]);
 
   useEffect(() => {
     reload();
-  }, [reload]);
+    api
+      .quotes()
+      .then(({ quotes }) => setQuote(quotes.find((q) => q.company_id === id) ?? null))
+      .catch(() => {});
+  }, [reload, id]);
 
   async function patch(fields: Record<string, unknown>) {
     try {
@@ -75,7 +89,32 @@ export function CompanyPage({ id }: { id: number }) {
           ))}
         </select>
         {mcap && <span className="chip">{mcap}</span>}
-        {company.currency && <span className="chip">{company.currency}</span>}
+        {quote?.price != null && (
+          <span className="chip">
+            {quote.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {quote.currency ? ` ${quote.currency}` : ""}
+            {quote.change_since_baseline_pct !== null && (
+              <span className={quote.change_since_baseline_pct >= 0 ? "up" : "down"}>
+                {" "}
+                {quote.change_since_baseline_pct >= 0 ? "+" : ""}
+                {quote.change_since_baseline_pct}% since{" "}
+                {quote.baseline_price_date ?? "added"}
+              </span>
+            )}
+          </span>
+        )}
+        <select
+          value={company.horizon ?? ""}
+          style={{ width: "auto", padding: "4px 8px", fontSize: "0.85rem" }}
+          onChange={(e) => patch({ horizon: e.target.value || null })}
+        >
+          <option value="">horizon: —</option>
+          <option value="core">Core</option>
+          <option value="tactical">Tactical</option>
+        </select>
+        {company.next_earnings_date && (
+          <span className="chip">ER {company.next_earnings_date}</span>
+        )}
         {company.source && (
           <span className="chip">
             {company.source}
@@ -136,6 +175,10 @@ export function CompanyPage({ id }: { id: number }) {
           </div>
         </>
       )}
+
+      {/* Reminders */}
+      <h2>Reminders</h2>
+      <RemindersBlock companyId={id} reminders={reminders} onChanged={reload} />
 
       {/* Add note */}
       <h2>Add note</h2>
@@ -314,6 +357,78 @@ function IrBlock({
       <button type="button" className="small" onClick={() => setEditing(true)}>
         ✎
       </button>
+    </div>
+  );
+}
+
+function RemindersBlock({
+  companyId,
+  reminders,
+  onChanged,
+}: {
+  companyId: number;
+  reminders: Reminder[];
+  onChanged: () => void;
+}) {
+  const [body, setBody] = useState("");
+  const [due, setDue] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="card stack">
+      {reminders.map((r) => (
+        <label className="row" key={r.id}>
+          <input
+            type="checkbox"
+            checked={false}
+            onChange={async () => {
+              await api.patchReminder(r.id, { done: true });
+              toast("Done ✓");
+              onChanged();
+            }}
+          />
+          <span className="grow small">{r.body}</span>
+          {r.due_date && (
+            <span className={`chip ${r.due_date < today ? "overdue" : ""}`}>
+              {r.due_date}
+            </span>
+          )}
+        </label>
+      ))}
+      {reminders.length === 0 && (
+        <span className="muted small">No open reminders.</span>
+      )}
+      <div className="row">
+        <input
+          className="grow"
+          value={body}
+          placeholder="New reminder…"
+          onChange={(e) => setBody(e.target.value)}
+        />
+        <input
+          type="date"
+          style={{ width: "auto" }}
+          value={due}
+          onChange={(e) => setDue(e.target.value)}
+        />
+        <button
+          type="button"
+          className="small primary"
+          disabled={!body.trim()}
+          onClick={async () => {
+            await api.createReminder({
+              company_id: companyId,
+              body: body.trim(),
+              due_date: due || null,
+            });
+            setBody("");
+            setDue("");
+            onChanged();
+          }}
+        >
+          Add
+        </button>
+      </div>
     </div>
   );
 }

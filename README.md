@@ -168,6 +168,47 @@ All routes under `/api`, JSON in/out:
 Anthropic API errors (429/5xx) are retried once, then surfaced so the UI can
 offer saving the raw text as an unparsed musing — capture never loses input.
 
+## Intelligence features
+
+- **Reminders (tactical-trade memory).** The parser splits to-dos: undated ones
+  become action items; anything deadline-bound ("buy calls before next
+  earnings", "re-check by Friday") becomes a dated **reminder**. Earnings-
+  anchored reminders trigger a web-search lookup of the company's next
+  earnings date at capture time; the reminder is dated 3 days before it and
+  the date is saved on the company (shown as an `ER` chip). Open reminders
+  surface on the capture home screen ("Up next") and per company.
+- **Horizon & conviction pre-fill.** Notes that read like short-term trades
+  (options, earnings plays) are tagged `tactical`; long-term holds `core`.
+  Conviction (1–5) is pre-filled when clearly expressed. Both editable.
+- **Prices.** `GET /api/quotes` pulls best-effort delayed quotes from Yahoo
+  Finance's public endpoint for companies in active statuses (cached 15 min
+  in D1). The first quote per company is stored as its **baseline**, so the
+  pipeline and company page show "+12% since added". Tickers should be
+  Yahoo-style (`1846.HK`, `NESN.SW`, `NOL.AX`, `EVC`) — edit the ticker if a
+  quote doesn't resolve. Unofficial feed: if it breaks, prices simply
+  disappear; nothing else is affected.
+
+### Daily email digest (optional, recommended)
+
+Cloudflare Pages can't run cron, so a tiny companion Worker
+(`workers/reminder-digest/`) emails you every morning at 06:00 UTC with due/
+upcoming reminders and earnings in the next 7 days. Setup:
+
+1. Create a free account at [resend.com](https://resend.com) → API Keys →
+   create a key.
+2. Deploy the worker and set the secret:
+   ```sh
+   npx wrangler deploy -c workers/reminder-digest/wrangler.toml
+   npx wrangler secret put RESEND_API_KEY -c workers/reminder-digest/wrangler.toml
+   ```
+3. Recipient/sender are in `workers/reminder-digest/wrangler.toml` (`DIGEST_TO`,
+   `DIGEST_FROM`). With Resend's free tier, `onboarding@resend.dev` can send
+   to your own account email; verify your own domain in Resend to use it as
+   sender.
+
+No email is sent on days with nothing due. Without the worker, the in-app
+"Up next" list still shows everything.
+
 ## Tests
 
 ```sh

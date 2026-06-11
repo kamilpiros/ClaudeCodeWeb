@@ -16,6 +16,13 @@ interface ActionItemEdit {
   include: boolean;
 }
 
+interface ReminderEdit {
+  body: string;
+  due_date: string | null;
+  trigger: string | null;
+  include: boolean;
+}
+
 /**
  * The confirmation card shown after parsing: matched company (or NEW),
  * note type chip, cleaned note, action items as checkboxes, suggested
@@ -45,6 +52,13 @@ export function ConfirmCard(props: {
   const [items, setItems] = useState<ActionItemEdit[]>(
     d.action_items.map((body) => ({ body, include: true })),
   );
+  const [reminders, setReminders] = useState<ReminderEdit[]>(
+    d.reminders.map((r) => ({ ...r, include: true })),
+  );
+  const [horizon, setHorizon] = useState<"core" | "tactical" | "">(
+    d.horizon ?? "",
+  );
+  const [conviction, setConviction] = useState<number | "">(d.conviction ?? "");
   const [statusChange, setStatusChange] = useState<Status | "">(
     d.suggested_status ?? "",
   );
@@ -75,9 +89,19 @@ export function ConfirmCard(props: {
         note_body: noteBody.trim(),
         raw_transcript: d.raw_text,
         action_items: items.filter((i) => i.include && i.body.trim()).map((i) => i.body.trim()),
+        reminders: reminders
+          .filter((r) => r.include && r.body.trim())
+          .map((r) => ({
+            body: r.body.trim(),
+            due_date: r.due_date || null,
+            trigger: r.trigger,
+          })),
         status_change: statusChange || null,
         pass_reason: passReason.trim() || null,
         mentioned_as: d.mentioned_as,
+        horizon: horizon || null,
+        conviction: conviction === "" ? null : conviction,
+        next_earnings_date: d.next_earnings_date,
       });
       props.onSaved();
     } catch (e) {
@@ -318,6 +342,117 @@ export function ConfirmCard(props: {
                   + Add action item
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Reminders (dated to-dos) */}
+        {(reminders.length > 0 || editing) && (
+          <div>
+            <div className="field-label">Reminders</div>
+            <div className="stack">
+              {reminders.map((r, i) => (
+                <div className="row" key={i}>
+                  <input
+                    type="checkbox"
+                    checked={r.include}
+                    onChange={(e) =>
+                      setReminders(
+                        reminders.map((it, j) =>
+                          j === i ? { ...it, include: e.target.checked } : it,
+                        ),
+                      )
+                    }
+                  />
+                  {editing ? (
+                    <input
+                      className="grow"
+                      value={r.body}
+                      onChange={(e) =>
+                        setReminders(
+                          reminders.map((it, j) =>
+                            j === i ? { ...it, body: e.target.value } : it,
+                          ),
+                        )
+                      }
+                    />
+                  ) : (
+                    <span className="grow small">
+                      {r.body}
+                      {r.trigger === "earnings" && (
+                        <span className="muted"> (earnings-linked)</span>
+                      )}
+                    </span>
+                  )}
+                  <input
+                    type="date"
+                    style={{ width: "auto" }}
+                    value={r.due_date ?? ""}
+                    onChange={(e) =>
+                      setReminders(
+                        reminders.map((it, j) =>
+                          j === i ? { ...it, due_date: e.target.value || null } : it,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+              {editing && (
+                <button
+                  type="button"
+                  className="small"
+                  onClick={() =>
+                    setReminders([
+                      ...reminders,
+                      { body: "", due_date: null, trigger: null, include: true },
+                    ])
+                  }
+                >
+                  + Add reminder
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Earnings date researched at parse time */}
+        {d.next_earnings_date && (
+          <div className="row wrap">
+            <span className="chip">Next earnings: {d.next_earnings_date}</span>
+            <span className="muted small">researched — saved to the company</span>
+          </div>
+        )}
+
+        {/* Horizon + conviction pre-fill */}
+        {hasCompany && (
+          <div className="row">
+            <div className="grow">
+              <div className="field-label">Horizon</div>
+              <select
+                value={horizon}
+                onChange={(e) => setHorizon(e.target.value as "core" | "tactical" | "")}
+              >
+                <option value="">—</option>
+                <option value="core">Core (long-term)</option>
+                <option value="tactical">Tactical (short-term)</option>
+              </select>
+            </div>
+            <div className="grow">
+              <div className="field-label">Conviction</div>
+              <select
+                value={conviction}
+                onChange={(e) =>
+                  setConviction(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              >
+                <option value="">—</option>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {"●".repeat(n)}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         )}

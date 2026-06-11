@@ -165,6 +165,60 @@ describe("status-history writes", () => {
   });
 });
 
+describe("reminders, horizon and earnings", () => {
+  it("writes dated reminders linked to the company and note", async () => {
+    const db = freshDb();
+    const id = await seedCompany(db, { status: "owned" });
+    const result = await confirmCapture(
+      asD1(db),
+      baseDraft({
+        company_id: id,
+        note_body: "Want call option exposure before next earnings.",
+        horizon: "tactical",
+        conviction: 4,
+        next_earnings_date: "2099-07-24",
+        reminders: [
+          { body: "Buy call options", due_date: "2099-07-21", trigger: "earnings" },
+          { body: "Re-check IV after the print", due_date: null, trigger: null },
+        ],
+      }),
+    );
+    expect(result.reminders).toHaveLength(2);
+    expect(result.reminders[0].company_id).toBe(id);
+    expect(result.reminders[0].note_id).toBe(result.note.id);
+    expect(result.reminders[0].due_date).toBe("2099-07-21");
+    expect(result.reminders[0].trigger).toBe("earnings");
+    expect(result.reminders[1].due_date).toBeNull();
+    expect(result.company!.horizon).toBe("tactical");
+    expect(result.company!.conviction).toBe(4);
+    expect(result.company!.next_earnings_date).toBe("2099-07-24");
+  });
+
+  it("stores horizon and reminders on a NEW company too", async () => {
+    const db = freshDb();
+    const result = await confirmCapture(
+      asD1(db),
+      baseDraft({
+        new_company: {
+          name: "Quick Trade Co",
+          ticker: "QTC",
+          exchange: null,
+          market_cap_musd: null,
+          currency: null,
+          source: null,
+          source_detail: null,
+        },
+        note_body: "Earnings play",
+        horizon: "tactical",
+        reminders: [{ body: "Size the trade", due_date: "2099-01-05", trigger: null }],
+      }),
+    );
+    expect(result.company!.horizon).toBe("tactical");
+    expect(result.reminders).toHaveLength(1);
+    expect(result.reminders[0].company_id).toBe(result.company!.id);
+  });
+});
+
 describe("alias learning", () => {
   it("appends a new alias when the input used an unknown name", async () => {
     const db = freshDb();

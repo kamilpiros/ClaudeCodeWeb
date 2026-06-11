@@ -60,9 +60,10 @@ function png(size, drawPixel) {
   ]);
 }
 
-const BG = [11, 18, 32, 255]; // #0b1220
-const STONE_BIG = [203, 213, 225, 255]; // #cbd5e1
-const STONE_SMALL = [100, 116, 139, 255]; // #64748b
+const BG = [242, 237, 226, 255]; // warm cream #f2ede2
+const STONE_BIG = [22, 30, 54, 255]; // ink navy #161e36
+const STONE_SMALL = [125, 119, 104, 255]; // warm gray #7d7768
+const DOT = [177, 18, 38, 255]; // crimson #b11226
 
 function inEllipse(x, y, cx, cy, rx, ry) {
   const dx = (x - cx) / rx;
@@ -79,6 +80,10 @@ function drawIcon(size) {
     // small stone resting on top
     if (inEllipse(x, y, size * 0.5, size * 0.33, size * 0.19, size * 0.14)) {
       return STONE_SMALL;
+    }
+    // crimson dot — the BQT motif
+    if (inEllipse(x, y, size * 0.78, size * 0.2, size * 0.05, size * 0.05)) {
+      return DOT;
     }
     return BG;
   });

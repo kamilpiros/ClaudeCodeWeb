@@ -1,35 +1,37 @@
-/* Stones — design language: quiet boutique-partners aesthetic.
-   Ink + ivory + bronze, serif display, hairline rules, generous space. */
+/* Stones — design language matched to bqtpartners.com:
+   warm cream paper, ink-navy text, crimson accents, chunky soft serif
+   display (Fraunces), monospace uppercase micro-labels, hairline rules. */
 
 :root {
-  --bg: #f4f1ea;
-  --panel: #fbf9f4;
-  --text: #1d2126;
-  --muted: #6e6a5f;
-  --line: #ddd6c8;
-  --accent: #9a7b4f;
-  --accent-soft: #b08c5a;
-  --accent-text: #fbf9f4;
-  --danger: #9c3d3d;
-  --ok: #4a7c59;
-  --chip: #ece7da;
-  --serif: Georgia, "Times New Roman", "Songti SC", serif;
+  --bg: #f2ede2;
+  --panel: #faf6ec;
+  --text: #161e36;
+  --ink: #161e36;
+  --ink-text: #f7f3ea;
+  --muted: #7d7768;
+  --line: #ddd5c2;
+  --accent: #b11226;
+  --chip: #e9e2d0;
+  --danger: #b11226;
+  --ok: #3f6f52;
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #11141a;
-    --panel: #181c24;
-    --text: #e9e4d8;
-    --muted: #97917f;
-    --line: #2b3038;
-    --accent: #c2a36b;
-    --accent-soft: #b08c5a;
-    --accent-text: #11141a;
-    --danger: #d98c8c;
+    --bg: #11151f;
+    --panel: #181d2a;
+    --text: #ece6d6;
+    --ink: #ece6d6;
+    --ink-text: #11151f;
+    --muted: #8e8878;
+    --line: #2b3142;
+    --accent: #e05a64;
+    --chip: #232938;
+    --danger: #e05a64;
     --ok: #8fbf9f;
-    --chip: #232831;
   }
 }
 
@@ -42,7 +44,7 @@ html, body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -51,24 +53,34 @@ html, body {
 main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 18px 16px calc(80px + env(safe-area-inset-bottom));
+  padding: 18px 16px calc(82px + env(safe-area-inset-bottom));
 }
 
 h1 {
   font-family: var(--serif);
-  font-size: 1.65rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  margin: 10px 0 18px;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 12px 0 20px;
 }
 
 h2 {
-  font-size: 0.72rem;
-  font-weight: 600;
-  margin: 26px 0 10px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin: 28px 0 10px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
+}
+h2::before {
+  content: "";
+  display: inline-block;
+  width: 26px;
+  height: 1px;
+  background: currentColor;
+  margin-right: 10px;
+  vertical-align: middle;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -78,23 +90,26 @@ button {
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--text);
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 10px 16px;
   cursor: pointer;
   touch-action: manipulation;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-button:hover { border-color: var(--accent-soft); }
+button:hover { border-color: var(--text); }
 button.primary {
-  background: var(--accent);
-  color: var(--accent-text);
-  border-color: var(--accent);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  background: var(--ink);
+  color: var(--ink-text);
+  border-color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 button.danger { color: var(--danger); }
-button.small { padding: 5px 12px; font-size: 0.82rem; }
-button:disabled { opacity: 0.45; cursor: default; }
+button.small { padding: 5px 12px; font-size: 0.8rem; }
+button:disabled { opacity: 0.4; cursor: default; }
 
 textarea, input, select {
   font: inherit;
@@ -102,21 +117,21 @@ textarea, input, select {
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--text);
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 10px 12px;
 }
 textarea:focus, input:focus, select:focus {
   outline: none;
-  border-color: var(--accent-soft);
+  border-color: var(--text);
 }
 textarea { resize: vertical; min-height: 130px; }
 input[type="checkbox"] { width: auto; accent-color: var(--accent); }
-input[type="date"] { width: auto; }
+input[type="date"] { width: auto; font-family: var(--mono); font-size: 0.85rem; }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 2px;
   padding: 16px;
   margin-bottom: 14px;
 }
@@ -134,21 +149,23 @@ input[type="date"] { width: auto; }
 
 .chip {
   display: inline-block;
+  font-family: var(--mono);
   background: var(--chip);
   color: var(--text);
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 3px 9px;
-  font-size: 0.74rem;
-  letter-spacing: 0.03em;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
-.chip.active { background: var(--accent); color: var(--accent-text); }
+.chip.active { background: var(--ink); color: var(--ink-text); }
 .chip.clickable { cursor: pointer; border: none; }
-.chip.overdue { background: var(--danger); color: #fff; }
-.chip.due-today { background: var(--accent); color: var(--accent-text); }
+.chip.overdue { background: var(--accent); color: #fff; }
+.chip.due-today { border: 1px solid var(--accent); background: transparent; color: var(--accent); }
 .chip.tactical {
   background: transparent;
-  border: 1px solid var(--accent-soft);
+  border: 1px solid var(--accent);
   color: var(--accent);
   margin-left: 6px;
   padding: 1px 6px;
@@ -160,7 +177,7 @@ input[type="date"] { width: auto; }
   left: 0;
   right: 0;
   display: flex;
-  background: var(--panel);
+  background: var(--bg);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
   z-index: 20;
@@ -168,20 +185,22 @@ input[type="date"] { width: auto; }
 .tabbar a {
   flex: 1;
   text-align: center;
-  padding: 12px 0 10px;
+  padding: 13px 0 11px;
   color: var(--muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   line-height: 1.3;
 }
-.tabbar a.active { color: var(--accent); font-weight: 600; }
-.tabbar .icon { display: block; font-size: 1.15rem; margin-bottom: 1px; }
+.tabbar a.active { color: var(--accent); }
+.tabbar .icon { display: block; font-size: 1.1rem; margin-bottom: 2px; }
 
 .capture-box textarea {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   min-height: 150px;
   font-family: var(--serif);
+  line-height: 1.6;
 }
 .mic-btn {
   width: 56px;
@@ -194,9 +213,9 @@ input[type="date"] { width: auto; }
   justify-content: center;
 }
 .mic-btn.recording {
-  background: var(--danger);
+  background: var(--accent);
   color: #fff;
-  border-color: var(--danger);
+  border-color: var(--accent);
   animation: pulse 1.2s infinite;
 }
 @keyframes pulse { 50% { transform: scale(1.08); } }
@@ -205,36 +224,42 @@ input[type="date"] { width: auto; }
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 4px;
+  padding: 13px 4px;
   border-bottom: 1px solid var(--line);
   color: var(--text);
 }
 .pipeline-row:last-child { border-bottom: none; }
-.pipeline-row strong { font-family: var(--serif); font-weight: 600; }
-.conviction { letter-spacing: 2px; color: var(--accent); font-size: 0.78rem; }
-.price-block { text-align: right; min-width: 80px; }
+.pipeline-row strong { font-family: var(--serif); font-weight: 600; font-size: 1.05rem; }
+.conviction { letter-spacing: 2px; color: var(--accent); font-size: 0.75rem; }
+.price-block { text-align: right; min-width: 84px; font-family: var(--mono); font-size: 0.9rem; }
 
 details.status-group summary {
   cursor: pointer;
-  padding: 10px 0 8px;
+  padding: 12px 0 8px;
   font-family: var(--serif);
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.25rem;
+  font-weight: 600;
   list-style: none;
 }
 details.status-group summary::-webkit-details-marker { display: none; }
+details.status-group summary .muted {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
 
 .toast {
   position: fixed;
-  bottom: calc(90px + env(safe-area-inset-bottom));
+  bottom: calc(92px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text);
-  color: var(--bg);
-  border-radius: 4px;
+  background: var(--ink);
+  color: var(--ink-text);
+  border-radius: 2px;
   padding: 10px 20px;
-  font-size: 0.88rem;
-  letter-spacing: 0.02em;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
   z-index: 50;
   max-width: 90vw;
 }
@@ -247,11 +272,11 @@ details.status-group summary::-webkit-details-marker { display: none; }
   right: 0;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 2px;
   z-index: 30;
   max-height: 260px;
   overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 30px rgba(20, 25, 50, 0.15);
 }
 .dropdown .menu button {
   display: block;
@@ -267,7 +292,7 @@ details.status-group summary::-webkit-details-marker { display: none; }
 .offline-banner {
   background: var(--chip);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 8px 12px;
   font-size: 0.85rem;
   margin-bottom: 12px;
@@ -284,20 +309,23 @@ table.stats th, table.stats td {
   border-bottom: 1px solid var(--line);
 }
 table.stats th {
+  font-family: var(--mono);
   color: var(--muted);
   font-weight: 500;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
 }
+table.stats td { font-family: var(--mono); font-size: 0.82rem; }
 
 .note-item { border-bottom: 1px solid var(--line); padding: 12px 0; }
 .note-item:last-child { border-bottom: none; }
 
 .field-label {
-  font-size: 0.72rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
   color: var(--muted);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
 }

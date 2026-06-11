@@ -93,6 +93,14 @@ export const api = {
   enrichCompany: (id: number) =>
     request<{ company: Company }>("POST", `/api/companies/${id}/enrich`),
 
+  chart: (id: number, range: string) =>
+    request<{
+      points: { t: number; c: number }[];
+      change_pct: number | null;
+      currency: string | null;
+      last: number;
+    }>("GET", `/api/companies/${id}/chart?range=${range}`),
+
   deleteReminder: (id: number) =>
     request<{ ok: true }>("DELETE", `/api/reminders/${id}`),
 

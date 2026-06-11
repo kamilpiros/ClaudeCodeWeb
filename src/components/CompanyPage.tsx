@@ -168,6 +168,9 @@ export function CompanyPage({ id }: { id: number }) {
         </div>
       )}
 
+      {/* Price history */}
+      {company.ticker && <PriceChart companyId={id} />}
+
       {/* Ownership block — only when the company is (or was) a position */}
       {(company.status === "owned" || company.status === "exited") && (
         <PositionBlock company={company} onPatch={patch} />
@@ -276,6 +279,120 @@ export function CompanyPage({ id }: { id: number }) {
           Delete company…
         </button>
       </div>
+    </div>
+  );
+}
+
+const CHART_RANGES = ["1w", "1m", "3m", "6m", "1y", "5y"] as const;
+type ChartRange = (typeof CHART_RANGES)[number];
+
+function PriceChart({ companyId }: { companyId: number }) {
+  const [range, setRange] = useState<ChartRange>("6m");
+  const [data, setData] = useState<{
+    points: { t: number; c: number }[];
+    change_pct: number | null;
+    currency: string | null;
+    last: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .chart(companyId, range)
+      .then((d) => {
+        if (!cancelled) setData(d);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setData(null);
+          setError(e instanceof Error ? e.message : "price feed unavailable");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, range]);
+
+  const W = 320;
+  const H = 96;
+  let path = "";
+  if (data && data.points.length > 1) {
+    const cs = data.points.map((p) => p.c);
+    const min = Math.min(...cs);
+    const max = Math.max(...cs);
+    const span = max - min || 1;
+    path = data.points
+      .map((p, i) => {
+        const x = (i / (data.points.length - 1)) * W;
+        const y = H - 6 - ((p.c - min) / span) * (H - 12);
+        return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+  }
+
+  return (
+    <div className="card stack">
+      <div className="row between wrap">
+        <div className="row wrap">
+          {CHART_RANGES.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`chip clickable ${range === r ? "active" : ""}`}
+              onClick={() => setRange(r)}
+            >
+              {r.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {data && (
+          <span className="small" style={{ fontFamily: "var(--mono)" }}>
+            {data.last.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {data.currency ? ` ${data.currency}` : ""}{" "}
+            {data.change_pct !== null && (
+              <span className={data.change_pct >= 0 ? "up" : "down"}>
+                {data.change_pct >= 0 ? "+" : ""}
+                {data.change_pct}%
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+      {loading ? (
+        <span className="muted small">Loading price history…</span>
+      ) : data && path ? (
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height={H}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label="price chart"
+        >
+          <path
+            d={path}
+            fill="none"
+            stroke={
+              data.change_pct !== null && data.change_pct < 0
+                ? "var(--danger)"
+                : "var(--ok)"
+            }
+            strokeWidth="1.8"
+          />
+        </svg>
+      ) : (
+        <span className="muted small">
+          No price data{error ? ` (${error})` : ""} — check the ticker is
+          Yahoo-style (e.g. 1846.HK, NESN.SW).
+        </span>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { getCompany } from "../../../_lib/db";
-import { enrichCompany } from "../../../_lib/enrich";
+import { enrichCompanyStrict } from "../../../_lib/enrich";
 import type { CompanyRow, Env } from "../../../_lib/types";
 import { badRequest, json, koyfinUrl, nowIso } from "../../../_lib/util";
 
@@ -14,14 +14,26 @@ export const onRequestPost: PagesFunction<Env> = async ({ params, env }) => {
   const company = await getCompany(env.DB, id);
   if (!company) return json({ error: "not found" }, 404);
 
-  const enrichment = await enrichCompany(
-    env,
-    company.name,
-    company.ticker ? `ticker: ${company.ticker}` : null,
-  );
+  let enrichment;
+  try {
+    enrichment = await enrichCompanyStrict(
+      env,
+      company.name,
+      company.ticker ? `ticker: ${company.ticker}` : null,
+      { timeoutMs: 28_000 },
+    );
+  } catch (e) {
+    return json(
+      {
+        error: "enrichment_failed",
+        message: e instanceof Error ? e.message : String(e),
+      },
+      502,
+    );
+  }
   if (!enrichment) {
     return json(
-      { error: "enrichment_failed", message: "Lookup failed — try again." },
+      { error: "enrichment_failed", message: "no data found" },
       502,
     );
   }

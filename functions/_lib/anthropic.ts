@@ -49,6 +49,11 @@ export async function anthropicRequest(
   opts: { timeoutMs?: number } = {},
 ): Promise<AnthropicResponse> {
   const timeoutMs = opts.timeoutMs ?? 60_000;
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new AnthropicError(
+      "ANTHROPIC_API_KEY secret is not set on this deployment",
+    );
+  }
   let lastError: Error = new AnthropicError("request not attempted");
 
   for (let attempt = 0; attempt < 2; attempt++) {

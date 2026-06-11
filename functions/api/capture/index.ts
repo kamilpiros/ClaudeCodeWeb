@@ -26,6 +26,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         error: e instanceof ParseFailedError ? "parse_failed" : "llm_unavailable",
         message:
           "Could not parse the note right now. You can save it as a raw musing instead.",
+        detail: e instanceof Error ? e.message : String(e),
         raw_text: text,
       },
       502,

@@ -9,8 +9,7 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "stones"
-# Replace with the id printed by `wrangler d1 create stones`
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "306b003b-5ef5-4a49-9c1c-55c1107bca01"
 
 [ai]
 binding = "AI"

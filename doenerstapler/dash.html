@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="gsw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1208">
+<title>Döner-Dash — Dönerfriitig</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<style>
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #toast {
+    position: absolute; bottom: 16%; left: 50%; transform: translateX(-50%);
+    background: rgba(20,13,5,.92); color: var(--cream); border: 1px solid #5a4a2a;
+    padding: 10px 18px; border-radius: 12px; font-size: 14px; z-index: 30; white-space: nowrap;
+  }
+  .big { font-size: 40px; font-weight: 900; color: var(--gold2); margin: 0; }
+  .time { font-size: 22px; font-weight: 800; color: var(--cream); }
+  .board { width: 100%; max-width: 360px; }
+  .row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 10px;
+    padding: 11px 14px; border-radius: 12px; background: #261b0d; margin-bottom: 7px; font-size: 16px; }
+  .row.me { background: #3a2c14; border: 1px solid var(--gold); }
+  .row .rank { font-weight: 800; opacity: .6; } .row .name { font-weight: 700; }
+  .row .pts { font-weight: 800; color: var(--gold2); } .row.gold .rank { color: #ffd95e; opacity: 1; }
+  .muted { opacity: .55; font-size: 13px; margin: 6px 0; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">‹ Menü</a>
+<button class="mute" id="muteBtn" title="Sound">🔊</button>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <div id="startScreen" class="screen">
+    <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
+    <div><h1>Döner-Dash</h1><div class="sub">Dönerfriitig</div></div>
+    <p class="lead">Renn zum Laden 🏃, drängel zum Tresen, zahl (Cash oder Karte 💳) und gib d'Bschtellig uf – <b>so schnäll wie möglich</b>. Wenig Ziit = vill Pünkt.</p>
+    <div style="font-size:13px;opacity:.7">Wähl dis Member-Kürzel:</div>
+    <div class="members" id="members"></div>
+    <button class="btn" id="playBtn" disabled>Los!</button>
+    <button class="btn ghost" id="boardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+  </div>
+
+  <div id="overScreen" class="screen hidden">
+    <div class="sub" id="overTitle">Döner gholt! 🥙</div>
+    <p class="big" id="finalScore">0</p>
+    <div class="time" id="finalTime"></div>
+    <p class="lead" id="overMsg"></p>
+    <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">🎉 Neue persönliche Bestleistung!</div>
+    <button class="btn" id="againBtn">Nomal</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" id="shareBtn" style="padding:10px 22px;font-size:14px">📲 Teile</button>
+      <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+    </div>
+    <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wächsle</button>
+  </div>
+
+  <div id="boardScreen" class="screen hidden">
+    <h1 style="font-size:24px">🏆 Bestenliste</h1>
+    <div class="sub">Döner-Dash</div>
+    <div class="board" id="boardList"><div class="muted">Lade…</div></div>
+    <button class="btn" id="backBtn">Zrugg</button>
+  </div>
+  <div id="toast" class="hidden"></div>
+</div>
+
+<script src="audio.js"></script>
+<script>
+// ===================== Basis =====================
+const MEMBERS = [
+  { id: "CBO", label: "CBO" }, { id: "SJU", label: "SJU" }, { id: "PKN", label: "PKN" },
+  { id: "YMI", label: "YMI" }, { id: "MST/MSO", label: "MST/MSO" }, { id: "JWU", label: "JWU 🥒" },
+];
+const labelOf = (id) => (MEMBERS.find(m => m.id === id) || {}).label || id;
+const LS_KEY = "df_stapler_v1"; // gemeinsamer Speicher
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; } },
+  set(o) { try { localStorage.setItem(LS_KEY, JSON.stringify(o)); } catch {} },
+};
+let member = store.get().member || null;
+let best = 0;
+const P = () => performance.now();
+function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
+
+// Sound
+const muteBtn = document.getElementById("muteBtn");
+let muted = localStorage.getItem("df_muted") === "1";
+const paintMute = () => muteBtn.textContent = muted ? "🔇" : "🔊";
+paintMute();
+function startAudio() { DFAudio.unlock(); DFAudio.setMuted(muted); if (!muted) DFAudio.startMusic(); window.removeEventListener("pointerdown", startAudio); }
+window.addEventListener("pointerdown", startAudio);
+muteBtn.addEventListener("click", (e) => { e.stopPropagation(); muted = DFAudio.toggleMute(); localStorage.setItem("df_muted", muted ? "1" : "0"); paintMute(); if (!muted) DFAudio.startMusic(); });
+
+// Leaderboard
+const api = {
+  async top() { try { const r = await fetch("/api/scores", { cache: "no-store" }); if (!r.ok) throw 0; return await r.json(); } catch { return { scores: localTop(), offline: true }; } },
+  async submit(name, score) { saveLocal(name, score); try { const r = await fetch("/api/scores", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, score }) }); if (!r.ok) throw 0; return await r.json(); } catch { return { scores: localTop(), offline: true }; } },
+};
+function saveLocal(n, s) { const o = store.get(); const b = o.board || {}; if (!b[n] || s > b[n]) b[n] = s; o.board = b; store.set(o); }
+function localTop() { const b = store.get().board || {}; return Object.entries(b).map(([name, score]) => ({ name, score })).sort((a, c) => c.score - a.score).slice(0, 20); }
+
+// Toast / Share
+const toastEl = document.getElementById("toast"); let toastTimer = null;
+function toast(m) { toastEl.textContent = m; toastEl.classList.remove("hidden"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800); }
+async function shareScore() {
+  const text = `Ich han min Döner i ${(lastTime/1000).toFixed(1)}s gholt bim Dönerfriitig Döner-Dash 🥙 (${lastScore} Pünkt). Schlahsch mi?`;
+  const url = location.origin + location.pathname;
+  try { if (navigator.share) { await navigator.share({ title: "Döner-Dash", text, url }); return; } } catch { return; }
+  try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert! 📋"); } catch { toast("Teile gaht nid 😅"); }
+}
+
+// ===================== Canvas =====================
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+function rr(x, y, w, h, r) { r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2); ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function text(t, x, y, size, col, align, weight) { ctx.fillStyle = col; ctx.textAlign = align || "center"; ctx.textBaseline = "middle"; ctx.font = `${weight || 800} ${size}px -apple-system, sans-serif`; ctx.fillText(t, x, y); }
+
+// ---- Figuren / Deko ----
+function drawGuy(cx, feetY, s, phase, shirt, opts) {
+  opts = opts || {}; const skin = opts.skin || "#e7b98a";
+  ctx.save(); ctx.translate(cx, feetY);
+  const sw = Math.sin(phase) * 11 * s;
+  ctx.strokeStyle = "#3a2c1c"; ctx.lineWidth = 6 * s; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0, -22 * s); ctx.lineTo(sw, 0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -22 * s); ctx.lineTo(-sw, 0); ctx.stroke();
+  ctx.fillStyle = shirt; rr(-14 * s, -58 * s, 28 * s, 40 * s, 8 * s); ctx.fill();
+  ctx.strokeStyle = shirt; ctx.lineWidth = 7 * s; ctx.beginPath(); ctx.moveTo(0, -50 * s); ctx.lineTo((opts.arm != null ? opts.arm : Math.cos(phase) * 13) * s, -34 * s); ctx.stroke();
+  ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, -70 * s, 13 * s, 0, 7); ctx.fill();
+  ctx.fillStyle = opts.hair || "#2a2018"; ctx.beginPath(); ctx.arc(0, -73 * s, 13 * s, Math.PI, 2 * Math.PI); ctx.fill();
+  ctx.restore();
+}
+function drawSpit(x, y, h, spin) {
+  const w = h * 0.34;
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = "#cfcfcf"; rr(-3, -h - 16, 6, h + 30, 3); ctx.fill(); // Stange
+  const g = ctx.createLinearGradient(-w, 0, w, 0);
+  g.addColorStop(0, "#5a3214"); g.addColorStop(0.5, "#a8633a"); g.addColorStop(1, "#5a3214");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, -h);
+  ctx.quadraticCurveTo(w, -h * 0.72, w * 0.78, -h * 0.5);
+  ctx.quadraticCurveTo(w * 1.05, -h * 0.22, 0, 0);
+  ctx.quadraticCurveTo(-w * 1.05, -h * 0.22, -w * 0.78, -h * 0.5);
+  ctx.quadraticCurveTo(-w, -h * 0.72, 0, -h);
+  ctx.closePath(); ctx.fill();
+  const hx = Math.sin(spin) * w * 0.5; // rotierendes Glanzlicht
+  ctx.fillStyle = "rgba(255,220,160,.35)"; rr(hx - 4, -h * 0.85, 8, h * 0.8, 4); ctx.fill();
+  ctx.restore();
+}
+
+// ===================== Spiel-State =====================
+let scene = null, sceneT0 = 0, totalStart = 0, penaltyMs = 0, anim = 0;
+let lastTime = 0, lastScore = 0;
+let raf = null, lastFrame = 0;
+const S = {}; // scene-locals
+
+function setScene(name) { scene = name; sceneT0 = P(); S.init = false; }
+function elapsed() { return P() - totalStart + penaltyMs; }
+
+function startGame() {
+  document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
+  resize(); penaltyMs = 0; totalStart = P(); lastFrame = P();
+  setScene("run");
+  if (!raf) loop();
+}
+
+// ---------- Loop ----------
+function loop() {
+  raf = requestAnimationFrame(loop);
+  const t = P(); let dt = (t - lastFrame) / 1000; lastFrame = t; if (dt > 0.05) dt = 0.05;
+  anim += dt;
+  if (scene && SCENES[scene]) SCENES[scene].update(dt);
+  draw();
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  if (scene && SCENES[scene]) SCENES[scene].draw();
+  if (scene && scene !== "done") drawTimer();
+}
+function drawTimer() {
+  const sec = (elapsed() / 1000).toFixed(1);
+  ctx.save();
+  rr(W / 2 - 52, 8 + (env_top()), 104, 34, 10); ctx.fillStyle = "rgba(20,13,5,.65)"; ctx.fill();
+  text("⏱ " + sec + "s", W / 2, 25 + env_top(), 18, "#f6cd72", "center", 800);
+  ctx.restore();
+}
+function env_top() { return Math.max(0, 0); }
+
+// fl-msg während Szene (z.B. "Drängle!")
+function banner(msg, sub) {
+  ctx.save();
+  text(msg, W / 2, H * 0.12, Math.min(30, W * 0.075), "#f6cd72", "center", 900);
+  if (sub) text(sub, W / 2, H * 0.12 + 28, 14, "#f3e7cf", "center", 600);
+  ctx.restore();
+}
+let flash = { t: 0, col: "#fff" };
+function doFlash(col) { flash.t = 1; flash.col = col || "#fff"; }
+function drawFlash() { if (flash.t > 0) { ctx.fillStyle = flash.col; ctx.globalAlpha = flash.t * 0.25; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; flash.t -= 0.06; } }
+
+// Tap-Buttons (für Pay/PIN/Order): werden beim draw gefüllt, beim tap getestet
+let hitButtons = [];
+function btn(x, y, w, h, label, sub, col) {
+  hitButtons.push({ x, y, w, h, label });
+  ctx.save();
+  rr(x, y, w, h, 16); ctx.fillStyle = col || "#3a2c14"; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = "rgba(246,205,114,.5)"; ctx.stroke();
+  text(label, x + w / 2, y + h / 2 - (sub ? 9 : 0), Math.min(26, h * 0.4), "#f6cd72", "center", 800);
+  if (sub) text(sub, x + w / 2, y + h / 2 + 16, 12, "#f3e7cf", "center", 600);
+  ctx.restore();
+}
+
+// ===================== SZENEN =====================
+const SCENES = {};
+
+// --- 1) RUN: Jump'n'Run zum Laden ---
+SCENES.run = {
+  update(dt) {
+    if (!S.init) { S.init = true; S.worldX = 0; S.goal = 1700; S.speed = 300; S.py = 0; S.vy = 0; S.ground = true; S.obs = []; S.spawn = 0.9; S.frame = 0; S.stumble = 0; S.run = true; }
+    S.worldX += S.speed * dt; S.frame += dt * 12;
+    if (S.stumble > 0) S.stumble -= dt;
+    // Sprung-Physik
+    S.vy += 2400 * dt; S.py += S.vy * dt;
+    if (S.py >= 0) { S.py = 0; S.vy = 0; S.ground = true; }
+    // Hindernisse spawnen (nicht ganz am Ende)
+    S.spawn -= dt;
+    if (S.spawn <= 0 && S.worldX < S.goal - 400) { S.spawn = 0.75 + Math.random() * 0.7; S.obs.push({ x: S.worldX + W + 40, type: Math.random() < 0.5 ? "cone" : "pigeon" }); }
+    // Kollision
+    const px = W * 0.26;
+    for (const o of S.obs) {
+      const ox = o.x - S.worldX;
+      if (Math.abs(ox - px) < 26 && S.py > -46 && !o.hit) {
+        o.hit = true; penaltyMs += 900; S.stumble = 0.5; doFlash("#c0392b"); DFAudio.over(); vibrate(60);
+      }
+    }
+    S.obs = S.obs.filter(o => o.x - S.worldX > -60);
+    if (S.worldX >= S.goal) { DFAudio.perfect(); setScene("queue"); }
+  },
+  draw() {
+    const groundY = H * 0.82;
+    // Himmel
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#2a9d8f"); g.addColorStop(.5, "#e9c46a"); g.addColorStop(1, "#f4a261");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, groundY);
+    // Häuser (Parallax)
+    for (let i = -1; i < 8; i++) {
+      const bx = ((i * 150) - (S.worldX * 0.4) % 150) ;
+      ctx.fillStyle = i % 2 ? "#b5651d" : "#9c5518";
+      ctx.fillRect(bx, groundY - 140, 120, 140);
+      ctx.fillStyle = "rgba(255,255,255,.25)";
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) ctx.fillRect(bx + 18 + c * 50, groundY - 120 + r * 38, 30, 24);
+    }
+    // Laden am Ziel
+    const shopX = W + (S.goal - S.worldX) * (S.speed ? 1 : 1) - 120;
+    if (S.worldX > S.goal - W) {
+      const sx = (S.goal - S.worldX) + W * 0.4;
+      ctx.fillStyle = "#7a1f1f"; ctx.fillRect(sx, groundY - 200, 220, 200);
+      ctx.fillStyle = "#f6cd72"; rr(sx + 10, groundY - 198, 200, 40, 6); ctx.fill();
+      text("DÖNER", sx + 110, groundY - 178, 24, "#7a1f1f", "center", 900);
+      ctx.fillStyle = "#241a0c"; ctx.fillRect(sx + 80, groundY - 110, 60, 110); // Türe
+      text("🥙", sx + 175, groundY - 150, 30, "#000", "center", 800);
+    }
+    // Boden
+    ctx.fillStyle = "#3a2c1c"; ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillStyle = "#52402a"; for (let i = 0; i < 30; i++) { const x = ((i * 70) - (S.worldX) % 70); ctx.fillRect(x, groundY + 14, 40, 6); }
+    // Hindernisse
+    for (const o of S.obs) {
+      const x = o.x - S.worldX;
+      if (o.type === "cone") { ctx.fillStyle = "#e8732b"; ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x - 14, groundY); ctx.lineTo(x - 7, groundY - 30); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#fff"; ctx.fillRect(x - 12, groundY - 16, 10, 5); }
+      else { text("🐦", x - 7, groundY - 10, 26, "#000", "center"); }
+    }
+    // Spieler
+    const px = W * 0.26;
+    ctx.save(); if (S.stumble > 0) ctx.globalAlpha = 0.5 + Math.abs(Math.sin(anim * 30)) * 0.5;
+    drawGuy(px, groundY + S.py, 1, S.ground ? S.frame : 1.6, "#2a9d8f");
+    ctx.restore();
+    // Schatten
+    ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(px, groundY + 2, 18 + S.py * 0.1, 5, 0, 0, 7); ctx.fill();
+    // HUD
+    banner("Renn zum Laden! 🏃", "Tippe zum Springe");
+    const pr = Math.min(1, S.worldX / S.goal);
+    rr(W * 0.2, H * 0.2, W * 0.6, 10, 5); ctx.fillStyle = "#241a0c"; ctx.fill();
+    rr(W * 0.2, H * 0.2, W * 0.6 * pr, 10, 5); ctx.fillStyle = "#f6cd72"; ctx.fill();
+    drawFlash();
+  },
+  tap() { if (S.ground) { S.vy = -780; S.ground = false; DFAudio.tick(); vibrate(8); } },
+};
+
+// --- 2) QUEUE: Drängle zum Tresen (Mash) ---
+SCENES.queue = {
+  update(dt) {
+    if (!S.init) { S.init = true; S.push = 0; S.frame = 0; }
+    S.push = Math.max(0, S.push - dt * 14); S.frame += dt * 8;
+    if (S.push >= 100) { DFAudio.perfect(); setScene("pay"); }
+  },
+  draw() {
+    const groundY = H * 0.84;
+    // Innenraum
+    const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#3a2c14"); g.addColorStop(1, "#241a0c");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // Boden-Schachbrett
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 10; c++) { ctx.fillStyle = (r + c) % 2 ? "#2e2210" : "#3c2c16"; ctx.fillRect(c * (W / 10), groundY + r * 12, W / 10 + 1, 12); }
+    // Tresen + Spiess
+    ctx.fillStyle = "#5a3a1a"; ctx.fillRect(W * 0.7, groundY - 70, W * 0.3, 70);
+    drawSpit(W * 0.9, groundY - 70, 130, anim * 3);
+    drawGuy(W * 0.78, groundY - 70, 0.8, 0, "#e74c3c", { arm: 10, hair: "#1a1a1a" }); // Verkäufer
+    // Warteschlange
+    const prog = S.push / 100;
+    const colors = ["#9b59b6", "#3498db", "#e67e22"];
+    for (let i = 0; i < 3; i++) {
+      const baseX = W * (0.5 - i * 0.13);
+      drawGuy(baseX + prog * (W * 0.12), groundY, 0.85, S.frame * 0.3 + i, colors[i], { hair: "#241a0c" });
+    }
+    // Spieler hinten, rückt vor
+    drawGuy(W * 0.16 + prog * (W * 0.28), groundY, 1, S.frame, "#2a9d8f");
+    banner("DRÄNGLE! 👉", "Tippe so schnäll wie möglich");
+    rr(W * 0.2, H * 0.2, W * 0.6, 14, 7); ctx.fillStyle = "#241a0c"; ctx.fill();
+    rr(W * 0.2, H * 0.2, W * 0.6 * prog, 14, 7); ctx.fillStyle = "#4caf50"; ctx.fill();
+  },
+  tap() { S.push = Math.min(100, S.push + 7); DFAudio.hit(Math.floor(S.push / 8)); vibrate(5); },
+};
+
+// --- 3) PAY: Methode wählen ---
+SCENES.pay = {
+  update() { if (!S.init) S.init = true; },
+  draw() {
+    bgShop();
+    banner("Wie zahlsch? 💰", "Karte isch schnäller – aber PIN!");
+    hitButtons = [];
+    const bw = Math.min(150, W * 0.4), bh = 130, gap = 16;
+    const y = H * 0.42;
+    btn(W / 2 - bw - gap / 2, y, bw, bh, "💵", "Cash (langsam)", "#4a3a1a");
+    btn(W / 2 + gap / 2, y, bw, bh, "💳", "Karte (schnäll)", "#1f3a4a");
+  },
+  tap(x, y) {
+    for (const b of hitButtons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      DFAudio.tick();
+      if (b.label === "💵") setScene("cash"); else setScene("pin");
+    }
+  },
+};
+
+// --- 3a) CASH: Münzen zähle (fixe Wartezeit -> langsamer) ---
+SCENES.cash = {
+  update(dt) {
+    if (!S.init) { S.init = true; S.t = 0; S.coins = []; }
+    S.t += dt;
+    if (Math.random() < dt * 8 && S.coins.length < 40) S.coins.push({ x: W / 2 + (Math.random() - .5) * 120, y: -20, vy: 0, r: 8 + Math.random() * 6 });
+    for (const c of S.coins) { c.vy += 900 * dt; c.y += c.vy * dt; if (c.y > H * 0.66) { c.y = H * 0.66; c.vy *= -0.3; } }
+    if (S.t > 2.6) { DFAudio.perfect(); setScene("order"); }
+  },
+  draw() {
+    bgShop();
+    banner("Münze zähle… 🪙", "Cash duuret halt…");
+    for (const c of S.coins) { ctx.fillStyle = "#f6cd72"; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); ctx.strokeStyle = "#c79a2e"; ctx.lineWidth = 2; ctx.stroke(); }
+    rr(W * 0.2, H * 0.2, W * 0.6, 10, 5); ctx.fillStyle = "#241a0c"; ctx.fill();
+    rr(W * 0.2, H * 0.2, W * 0.6 * Math.min(1, S.t / 2.6), 10, 5); ctx.fillStyle = "#f6cd72"; ctx.fill();
+  },
+  tap() {},
+};
+
+// --- 3b) PIN: Code tippe (schnäll möglich) ---
+SCENES.pin = {
+  update() { if (!S.init) { S.init = true; S.pin = ("" + Math.floor(1000 + Math.random() * 9000)).split(""); S.idx = 0; S.shake = 0; } if (S.shake > 0) S.shake -= 0.05; },
+  draw() {
+    bgShop();
+    banner("PIN iigäh 💳", "Tippe d'Ziffere in Reihefolg");
+    // PIN-Anzeige (uf em "Zettel")
+    const sx = W / 2 - 90, sy = H * 0.26;
+    ctx.save(); if (S.shake > 0) ctx.translate(Math.sin(anim * 40) * 6 * S.shake, 0);
+    rr(sx, sy, 180, 50, 10); ctx.fillStyle = "#fff8e7"; ctx.fill();
+    for (let i = 0; i < 4; i++) text(i < S.idx ? "•" : S.pin[i], sx + 30 + i * 40, sy + 25, 26, i < S.idx ? "#4caf50" : "#7a1f1f", "center", 900);
+    ctx.restore();
+    // Keypad
+    hitButtons = [];
+    const cols = 3, kw = Math.min(70, W * 0.2), kh = kw, gap = 12;
+    const startX = W / 2 - (cols * kw + (cols - 1) * gap) / 2, startY = H * 0.42;
+    const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", ""];
+    keys.forEach((k, i) => { if (!k) return; const c = i % 3, r = Math.floor(i / 3); btn(startX + c * (kw + gap), startY + r * (kh + gap), kw, kh, k, null, "#2e2210"); });
+  },
+  tap(x, y) {
+    for (const b of hitButtons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      if (b.label === S.pin[S.idx]) { S.idx++; DFAudio.tick(); vibrate(6); if (S.idx >= 4) { DFAudio.perfect(); setScene("order"); } }
+      else { penaltyMs += 600; S.shake = 1; doFlash("#c0392b"); DFAudio.over(); vibrate(50); }
+      return;
+    }
+  },
+};
+
+// --- 4) ORDER: Bestellung zämestelle ---
+const INGR = [
+  { e: "🥩", n: "Fleisch" }, { e: "🧅", n: "Zwiebeln" }, { e: "🥗", n: "Salat" }, { e: "🌶️", n: "Scharf" },
+  { e: "🧄", n: "Knobli" }, { e: "🍅", n: "Tomate" }, { e: "🥒", n: "Gurke" }, { e: "🧀", n: "Chäs" },
+];
+SCENES.order = {
+  update() {
+    if (!S.init) {
+      S.init = true;
+      const idxs = [...INGR.keys()]; for (let i = idxs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[idxs[i], idxs[j]] = [idxs[j], idxs[i]]; }
+      S.need = idxs.slice(0, 4); S.got = []; S.shake = 0;
+    }
+    if (S.shake > 0) S.shake -= 0.05;
+  },
+  draw() {
+    bgShop();
+    banner("Bschtellig ufgäh! 🥙", "Tippe das Richtige a");
+    // Wunsch-Liste
+    const wish = S.need.map(i => INGR[i].n).join(" · ");
+    ctx.save(); if (S.shake > 0) ctx.translate(Math.sin(anim * 40) * 5 * S.shake, 0);
+    rr(W * 0.1, H * 0.2, W * 0.8, 40, 10); ctx.fillStyle = "#fff8e7"; ctx.fill();
+    text(wish, W / 2, H * 0.2 + 20, Math.min(16, W * 0.04), "#7a1f1f", "center", 800);
+    ctx.restore();
+    // Zutaten-Grid 4x2
+    hitButtons = [];
+    const cols = 4, bw = Math.min(78, W * 0.21), bh = bw, gap = 10;
+    const startX = W / 2 - (cols * bw + (cols - 1) * gap) / 2, startY = H * 0.42;
+    INGR.forEach((ing, i) => {
+      const c = i % 4, r = Math.floor(i / 4);
+      const x = startX + c * (bw + gap), yy = startY + r * (bh + gap);
+      const done = S.got.includes(i);
+      hitButtons.push({ x, y: yy, w: bw, h: bh, idx: i });
+      rr(x, yy, bw, bh, 14); ctx.fillStyle = done ? "#2f5a2f" : "#2e2210"; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = done ? "#4caf50" : "rgba(246,205,114,.3)"; ctx.stroke();
+      text(ing.e, x + bw / 2, yy + bh / 2 - 8, 30, "#000", "center");
+      text(ing.n, x + bw / 2, yy + bh - 14, 11, done ? "#4caf50" : "#f3e7cf", "center", 700);
+    });
+  },
+  tap(x, y) {
+    for (const b of hitButtons) if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      if (S.need.includes(b.idx) && !S.got.includes(b.idx)) {
+        S.got.push(b.idx); DFAudio.hit(8); vibrate(6);
+        if (S.got.length >= S.need.length) { DFAudio.perfect(); finishGame(); }
+      } else if (!S.need.includes(b.idx)) { penaltyMs += 500; S.shake = 1; doFlash("#c0392b"); DFAudio.over(); vibrate(40); }
+      return;
+    }
+  },
+};
+
+// --- 5) DONE ---
+SCENES.done = { update() {}, draw() { bgShop(); banner("🥙 En Guete!", ""); } };
+
+// Hintergrund-Dönerladen (für Pay/PIN/Order/Done)
+function bgShop() {
+  const groundY = H * 0.86;
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#3a2c14"); g.addColorStop(1, "#1f160a");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Menütafel
+  ctx.fillStyle = "#1a120a"; rr(W * 0.08, H * 0.04, W * 0.84, 2, 0);
+  // Tresen
+  ctx.fillStyle = "#5a3a1a"; ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.fillStyle = "#6b4620"; ctx.fillRect(0, groundY, W, 8);
+  // Spiess + Verkäufer hinterm Tresen
+  drawSpit(W * 0.86, groundY, 120, anim * 3);
+  drawGuy(W * 0.7, groundY, 0.7, 0, "#e74c3c", { arm: 8, hair: "#1a1a1a" });
+}
+
+// ---------- Ende ----------
+function finishGame() {
+  lastTime = elapsed();
+  lastScore = Math.max(0, Math.round(30000 - lastTime));
+  setScene("done");
+  const o = store.get(); o.bestsDash = o.bestsDash || {};
+  const wasBest = lastScore > (o.bestsDash[member] || 0);
+  if (wasBest) { o.bestsDash[member] = lastScore; store.set(o); best = lastScore; }
+  vibrate([0, 40, 50, 40]);
+  document.getElementById("finalScore").textContent = lastScore + " Pünkt";
+  document.getElementById("finalTime").textContent = "Ziit: " + (lastTime / 1000).toFixed(1) + "s";
+  document.getElementById("overMsg").innerHTML = overMessage(lastTime);
+  document.getElementById("newBest").classList.toggle("hidden", !wasBest);
+  setTimeout(() => { if (raf) { cancelAnimationFrame(raf); raf = null; } document.getElementById("overScreen").classList.remove("hidden"); DFAudio.win(); }, 700);
+  api.submit(member, lastScore);
+}
+function overMessage(ms) {
+  const s = ms / 1000;
+  if (s < 14) return "Wahnsinn! Du bisch dän Döner-Sprinter. 👑";
+  if (s < 18) return "Schnäll gsi! Respekt am Dönerfriitig. 🔥";
+  if (s < 24) return "Solide gholt. Aber da gaht no meh.";
+  return "Hesch wieder treelet? 😅 Probier's nomal!";
+}
+
+// ---------- Input ----------
+canvas.addEventListener("pointerdown", (e) => {
+  if (!scene || scene === "done") return;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (SCENES[scene].tap) SCENES[scene].tap(x, y);
+});
+
+// ---------- Screens / Member ----------
+const startScreen = document.getElementById("startScreen");
+const playBtn = document.getElementById("playBtn");
+const membersEl = document.getElementById("members");
+function renderMembers() {
+  membersEl.innerHTML = "";
+  MEMBERS.forEach(m => {
+    const b = document.createElement("button");
+    b.className = "member" + (m.id === member ? " active" : ""); b.textContent = m.label;
+    b.onclick = () => { member = m.id; const o = store.get(); o.member = m.id; store.set(o); best = (store.get().bestsDash || {})[m.id] || 0; renderMembers(); playBtn.disabled = false; };
+    membersEl.appendChild(b);
+  });
+  playBtn.disabled = !member;
+}
+function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden")); if (id) document.getElementById(id).classList.remove("hidden"); }
+const boardList = document.getElementById("boardList");
+async function showBoard() {
+  showScreen("boardScreen"); boardList.innerHTML = '<div class="muted">Lade…</div>';
+  const data = await api.top(); const scores = data.scores || [];
+  if (!scores.length) { boardList.innerHTML = '<div class="muted">No kei Score. Hol de erscht Döner! 🥙</div>'; return; }
+  let html = "";
+  scores.slice(0, 12).forEach((row, i) => {
+    const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+    html += `<div class="row${row.name === member ? " me" : ""}${i < 3 ? " gold" : ""}"><span class="rank">${medal}</span><span class="name">${labelOf(row.name).replace(/[&<>]/g, "")}</span><span class="pts">${row.score}</span></div>`;
+  });
+  if (data.offline) html += '<div class="muted">⚠️ Offline – nur lokali Scores.</div>';
+  boardList.innerHTML = html;
+}
+document.getElementById("playBtn").onclick = startGame;
+document.getElementById("againBtn").onclick = startGame;
+document.getElementById("changeBtn").onclick = () => { renderMembers(); showScreen("startScreen"); };
+document.getElementById("boardBtn").onclick = showBoard;
+document.getElementById("overBoardBtn").onclick = showBoard;
+document.getElementById("shareBtn").onclick = shareScore;
+document.getElementById("backBtn").onclick = () => showScreen(lastScore ? "overScreen" : "startScreen");
+
+resize();
+best = (store.get().bestsDash || {})[member] || 0;
+renderMembers();
+showScreen("startScreen");
+</script>
+</body>
+</html>

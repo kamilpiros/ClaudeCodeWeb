@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="gsw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1208">
+<title>Bussen-Glücksrad — Dönerfriitig</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; gap: 14px; padding: max(64px, calc(env(safe-area-inset-top) + 56px)) 16px 24px; }
+  .modes { display: flex; gap: 8px; }
+  .mode {
+    padding: 9px 16px; border-radius: 12px; font-size: 14px; font-weight: 700;
+    background: #2e2210; color: var(--cream); border: 2px solid transparent; cursor: pointer;
+  }
+  .mode.active { border-color: var(--gold); background: #3a2c14; color: var(--gold2); }
+  .wheelBox { position: relative; width: min(86vw, 360px); height: min(86vw, 360px); }
+  #wheel { width: 100%; height: 100%; display: block; touch-action: manipulation; }
+  .pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent;
+    border-top: 26px solid var(--gold2); filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); z-index: 3;
+  }
+  .hubBtn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 92px; height: 92px; border-radius: 50%; border: 4px solid #1a1208;
+    background: linear-gradient(145deg, var(--gold2), var(--gold)); color: #3a2400;
+    font-size: 16px; font-weight: 900; cursor: pointer; z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.4);
+  }
+  .hubBtn:active { transform: translate(-50%, -50%) scale(.94); }
+  .hubBtn[disabled] { opacity: .6; }
+  .result {
+    min-height: 60px; text-align: center; font-size: 22px; font-weight: 800; color: var(--gold2);
+    max-width: 340px; line-height: 1.3;
+  }
+  .result .small { display: block; font-size: 13px; font-weight: 600; opacity: .7; color: var(--cream); margin-top: 4px; }
+  .hint { font-size: 13px; opacity: .6; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">‹ Menü</a>
+<button class="mute" id="muteBtn" title="Sound">🔊</button>
+<div class="wrap">
+  <h1 style="font-size:24px;margin-top:4px">🎰 Bussen-Glücksrad</h1>
+  <div class="modes">
+    <button class="mode active" data-mode="bussen">Bussen</button>
+    <button class="mode" data-mode="wer">Wer zahlt?</button>
+  </div>
+  <div class="wheelBox">
+    <div class="pointer"></div>
+    <canvas id="wheel"></canvas>
+    <button class="hubBtn" id="spinBtn">DRÄIH</button>
+  </div>
+  <div class="result" id="result">Dräih am Rad! 🌴</div>
+  <div class="hint">Tipp: aufs Rad oder de Knopf drücke.</div>
+</div>
+
+<script src="audio.js"></script>
+<script>
+const SETS = {
+  bussen: [
+    "CHF 13.- Busse 💸", "Frei – kei Busse 😅", "Zahlt d'Getränk 🥤", "CHF 5.- is Kässeli 🪙",
+    "Sucht's Restaurant us 🍽️", "Glück ghaa! 🍀", "Bringt s'Dessert 🍰", "Doppli Busse 😈",
+  ],
+  wer: ["CBO", "SJU", "PKN", "YMI", "MST/MSO", "JWU 🥒"],
+};
+const COLORS = ["#e8b04b", "#c0392b", "#2a9d8f", "#e76f51", "#457b9d", "#f4a261", "#5fae4e", "#9b5de5"];
+const RESULT_MSG = {
+  bussen: (s) => `${s}<span class="small">${/Busse|Kässeli|Doppli/.test(s) ? "Zahle gly! 😄" : "Mues niemmer zahle. 🍀"}</span>`,
+  wer: (s) => `${s} zahlt! <span class="small">Pflästerli für d'Vereinskasse 🥙</span>`,
+};
+
+let mode = "bussen";
+let segments = SETS[mode];
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+let SIZE = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  SIZE = canvas.clientWidth;
+  canvas.width = SIZE * DPR; canvas.height = SIZE * DPR; ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  draw();
+}
+window.addEventListener("resize", resize);
+
+let rot = 0, vel = 0, spinning = false, lastIdx = -1;
+const pointerA = -Math.PI / 2;
+
+function winnerIndex() {
+  const n = segments.length, seg = (Math.PI * 2) / n;
+  let rel = (pointerA - rot) % (Math.PI * 2);
+  if (rel < 0) rel += Math.PI * 2;
+  return Math.floor(rel / seg) % n;
+}
+
+function draw() {
+  const n = segments.length, seg = (Math.PI * 2) / n;
+  const cx = SIZE / 2, cy = SIZE / 2, R = SIZE / 2 - 4;
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  for (let i = 0; i < n; i++) {
+    const a0 = rot + i * seg, a1 = a0 + seg;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 2; ctx.stroke();
+    // Label
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(a0 + seg / 2);
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.fillStyle = "#1a1208"; ctx.font = `700 ${Math.max(11, SIZE * 0.045)}px -apple-system, sans-serif`;
+    const label = segments[i];
+    ctx.fillText(label.length > 16 ? label.slice(0, 15) + "…" : label, R - 14, 0);
+    ctx.restore();
+  }
+  // Rand
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.strokeStyle = "#1a1208"; ctx.lineWidth = 6; ctx.stroke();
+}
+
+const spinBtn = document.getElementById("spinBtn");
+const resultEl = document.getElementById("result");
+function spin() {
+  if (spinning) return;
+  DFAudio.unlock();
+  spinning = true; spinBtn.disabled = true;
+  resultEl.textContent = "…";
+  DFAudio.spin();
+  vel = 0.32 + Math.random() * 0.16;
+  lastIdx = winnerIndex();
+  requestAnimationFrame(step);
+}
+function step() {
+  rot += vel; vel *= 0.985;
+  if (vel < 0.0025) {
+    // langsames Auslaufen, dann stoppen
+    rot += vel; vel *= 0.9;
+    if (vel < 0.0008) { finish(); draw(); return; }
+  }
+  const idx = winnerIndex();
+  if (idx !== lastIdx) { lastIdx = idx; DFAudio.tick(); }
+  draw();
+  requestAnimationFrame(step);
+}
+function finish() {
+  spinning = false; spinBtn.disabled = false;
+  const win = segments[winnerIndex()];
+  resultEl.innerHTML = RESULT_MSG[mode](win);
+  DFAudio.win();
+}
+
+// Modi
+document.querySelectorAll(".mode").forEach(b => {
+  b.onclick = () => {
+    if (spinning) return;
+    document.querySelectorAll(".mode").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    mode = b.dataset.mode; segments = SETS[mode];
+    resultEl.innerHTML = "Dräih am Rad! 🌴"; draw();
+  };
+});
+spinBtn.onclick = spin;
+canvas.addEventListener("pointerdown", spin);
+
+// Sound
+const muteBtn = document.getElementById("muteBtn");
+let muted = localStorage.getItem("df_muted") === "1";
+function paintMute() { muteBtn.textContent = muted ? "🔇" : "🔊"; }
+paintMute();
+function startAudio() {
+  DFAudio.unlock(); DFAudio.setMuted(muted);
+  if (!muted) DFAudio.startMusic();
+  window.removeEventListener("pointerdown", startAudio);
+}
+window.addEventListener("pointerdown", startAudio);
+muteBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  muted = DFAudio.toggleMute();
+  localStorage.setItem("df_muted", muted ? "1" : "0");
+  paintMute(); if (!muted) DFAudio.startMusic();
+});
+
+resize();
+</script>
+</body>
+</html>

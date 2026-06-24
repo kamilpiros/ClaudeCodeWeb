@@ -1,13 +1,22 @@
-# 🥙 Dönerfriitig — Döner-Stapler
+# 🥙 Dönerfriitig — Games
 
-Ein kleines Stapel-Game für den **Dönerfriitig**-Verein, gebaut fürs Smartphone
-im Web-Browser. Tippe im richtigen Moment, um Zutaten aufeinanderzustapeln –
-der Überhang wird abgeschnitten und es wird immer schneller. Wer am höchsten
-stapelt, kommt auf die geteilte Bestenliste.
+Kleine Smartphone-Games für den **Dönerfriitig**-Verein, gebaut fürs Web im
+Browser. Beim Öffnen wählt man auf der Landing-Page das Spiel. Mit prozeduralem
+**Tropical-House-Sound** (live per Web Audio API erzeugt, kein Audio-File nötig).
 
-- **Member:** CBO, SJU, PKN, YMI, MST/MSO, JWU
+### 🥙 Döner-Stapler
+Tippe im richtigen Moment, um Zutaten aufeinanderzustapeln – der Überhang wird
+abgeschnitten und es wird immer schneller. Wer am höchsten stapelt, kommt auf
+die geteilte Bestenliste.
+
+### 🎰 Bussen-Glücksrad
+Dreh das Rad. Zwei Modi: **Bussen** (verteilt CHF-13.--Busse & Co. spielerisch)
+und **Wer zahlt?** (lost einen Member aus). Mit Tick-Sound beim Drehen.
+
+- **Member:** CBO, SJU, PKN, YMI, MST/MSO, JWU 🥒
 - **Geteilte Bestenliste** über alle Member (Cloudflare KV)
 - **Funktioniert offline** – Scores werden lokal gepuffert
+- 🔊-Knopf oben rechts schaltet den Sound stumm
 - Installierbar als PWA («Zum Home-Bildschirm hinzufügen»)
 
 ## Lokal testen
@@ -53,7 +62,11 @@ Es erscheint auf dem Startscreen und als App-Icon. Fehlt die Datei, wird ein
 ## Dateien
 
 ```
-index.html                 komplettes Spiel (Canvas, vanilla JS, kein Build)
+index.html                 Landing-Page / Spielauswahl
+stapler.html                Döner-Stapler (Canvas, vanilla JS, kein Build)
+gluecksrad.html             Bussen-Glücksrad
+audio.js                    Tropical-House-Sound-Engine + SFX (Web Audio API)
+style.css                   gemeinsames Styling
 functions/api/scores.js     Bestenliste-API (GET/POST), KV-Persistenz
 manifest.webmanifest        PWA-Manifest
 wrangler.toml               Cloudflare Pages + KV Config

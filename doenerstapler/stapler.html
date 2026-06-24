@@ -95,6 +95,9 @@ let state = store.get();
 let member = state.member || null;
 let best = state.best || 0;
 
+// Haptik (Vibration) – ignoriert, wenn das Gerät es nicht unterstützt
+function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
+
 // ---- Sound ----
 const muteBtn = document.getElementById("muteBtn");
 let muted = localStorage.getItem("df_muted") === "1";
@@ -182,7 +185,7 @@ function drop() {
   const perfect = Math.abs(m.x - t.x) < 6;
   game.stack.push({ x: left, w: overlap, color: m.color });
   game.score++; game.flash = 1; updateHud();
-  if (perfect) DFAudio.perfect(); else DFAudio.hit(game.score);
+  if (perfect) { DFAudio.perfect(); vibrate([0, 12, 22, 12]); } else { DFAudio.hit(game.score); vibrate(8); }
   game.camTarget = Math.max(0, (game.stack.length - 1) * LAYER_H - (H * 0.45));
   game.moving = null; spawnMoving();
 }
@@ -267,6 +270,7 @@ function endGame() {
   DFAudio.over();
   const s = store.get(); s.bests = s.bests || {};
   const wasBest = sc > (s.bests[member] || 0);
+  vibrate(wasBest ? [0, 30, 40, 30, 40, 80] : [0, 50, 40, 50]);
   if (wasBest) { s.bests[member] = sc; store.set(s); best = sc; }
   state = store.get();
   document.getElementById("finalScore").textContent = sc + " Zutate";

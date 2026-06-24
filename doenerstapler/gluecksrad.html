@@ -42,6 +42,7 @@
 <body>
 <a class="back" href="index.html">‹ Menü</a>
 <button class="mute" id="muteBtn" title="Sound">🔊</button>
+<canvas id="confetti" style="position:fixed;inset:0;pointer-events:none;z-index:50"></canvas>
 <div class="wrap">
   <h1 style="font-size:24px;margin-top:4px">🎰 Bussen-Glücksrad</h1>
   <div class="modes">
@@ -71,6 +72,50 @@ const RESULT_MSG = {
   bussen: (s) => `${s}<span class="small">${/Busse|Kässeli|Doppli/.test(s) ? "Zahle gly! 😄" : "Mues niemmer zahle. 🍀"}</span>`,
   wer: (s) => `${s} zahlt! <span class="small">Pflästerli für d'Vereinskasse 🥙</span>`,
 };
+
+function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
+
+// ---- Konfetti ----
+const confCanvas = document.getElementById("confetti");
+const cctx = confCanvas.getContext("2d");
+let confParts = [], confRaf = null, confDPR = 1;
+function sizeConfetti() {
+  confDPR = Math.min(window.devicePixelRatio || 1, 2);
+  confCanvas.width = window.innerWidth * confDPR;
+  confCanvas.height = window.innerHeight * confDPR;
+  cctx.setTransform(confDPR, 0, 0, confDPR, 0, 0);
+}
+sizeConfetti();
+window.addEventListener("resize", sizeConfetti);
+function burstConfetti() {
+  const w = window.innerWidth, ox = w / 2, oy = window.innerHeight * 0.32;
+  const pal = COLORS.concat(["#f6cd72", "#f3e7cf", "#ffffff"]);
+  for (let i = 0; i < 150; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 4 + Math.random() * 9;
+    confParts.push({
+      x: ox + (Math.random() - 0.5) * 60, y: oy,
+      vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 4,
+      g: 0.16 + Math.random() * 0.1, size: 5 + Math.random() * 7,
+      rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+      color: pal[(Math.random() * pal.length) | 0], life: 0, max: 90 + Math.random() * 50,
+    });
+  }
+  if (!confRaf) confRaf = requestAnimationFrame(confStep);
+}
+function confStep() {
+  cctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  confParts = confParts.filter(p => p.life < p.max && p.y < window.innerHeight + 40);
+  for (const p of confParts) {
+    p.life++; p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+    cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.rot);
+    cctx.globalAlpha = Math.max(0, 1 - p.life / p.max);
+    cctx.fillStyle = p.color; cctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    cctx.restore();
+  }
+  if (confParts.length) confRaf = requestAnimationFrame(confStep);
+  else { confRaf = null; cctx.clearRect(0, 0, window.innerWidth, window.innerHeight); }
+}
 
 let mode = "bussen";
 let segments = SETS[mode];
@@ -146,6 +191,8 @@ function finish() {
   const win = segments[winnerIndex()];
   resultEl.innerHTML = RESULT_MSG[mode](win);
   DFAudio.win();
+  vibrate([0, 40, 50, 40, 50, 90]);
+  burstConfetti();
 }
 
 // Modi

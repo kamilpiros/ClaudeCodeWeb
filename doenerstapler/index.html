@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="gsw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1208">
+<title>Dönerfriitig — Döner-Stapler</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg: #1a1208;
+    --bg2: #241a0c;
+    --gold: #e8b04b;
+    --gold2: #f6cd72;
+    --cream: #f3e7cf;
+    --red: #c0392b;
+    --green: #4caf50;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--bg);
+    color: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  canvas { display: block; flex: 1 1 auto; width: 100%; touch-action: none; }
+
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, var(--bg2), var(--bg));
+    text-align: center;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .hidden { display: none !important; }
+
+  .logo {
+    width: 120px; height: 120px; border-radius: 50%;
+    background: linear-gradient(145deg, var(--gold2), var(--gold));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 64px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .logo img { width: 100%; height: 100%; object-fit: cover; }
+
+  h1 { margin: 0; font-size: 30px; letter-spacing: .5px; color: var(--gold2); }
+  .sub { margin: -6px 0 4px; font-size: 14px; opacity: .7; letter-spacing: 3px; text-transform: uppercase; }
+  p.lead { margin: 0; max-width: 320px; font-size: 15px; line-height: 1.5; opacity: .85; }
+
+  .members { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 340px; }
+  .member {
+    padding: 12px 16px; border-radius: 14px; font-size: 16px; font-weight: 700;
+    background: #2e2210; color: var(--cream); border: 2px solid transparent; cursor: pointer;
+    transition: transform .08s, border-color .15s;
+  }
+  .member:active { transform: scale(.94); }
+  .member.active { border-color: var(--gold); background: #3a2c14; color: var(--gold2); }
+
+  .btn {
+    padding: 15px 34px; border-radius: 16px; border: none; cursor: pointer;
+    font-size: 18px; font-weight: 800;
+    background: linear-gradient(145deg, var(--gold2), var(--gold)); color: #3a2400;
+    box-shadow: 0 6px 18px rgba(232,176,75,.35);
+    transition: transform .08s;
+  }
+  .btn:active { transform: scale(.95); }
+  .btn[disabled] { opacity: .4; pointer-events: none; }
+  .btn.ghost { background: transparent; color: var(--cream); box-shadow: none; border: 1.5px solid #5a4a2a; }
+
+  /* HUD */
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: max(14px, env(safe-area-inset-top)) 18px 10px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 5;
+  }
+  #score { font-size: 52px; font-weight: 900; color: var(--gold2); text-shadow: 0 2px 10px rgba(0,0,0,.6); line-height: 1; }
+  #who { font-size: 13px; opacity: .7; text-align: right; }
+  #best { font-size: 13px; opacity: .7; text-align: right; }
+  #tapHint {
+    position: absolute; bottom: 14%; left: 0; right: 0; text-align: center;
+    font-size: 16px; opacity: .75; letter-spacing: 1px; animation: pulse 1.3s ease-in-out infinite;
+    pointer-events: none; z-index: 5;
+  }
+  @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+
+  .big { font-size: 44px; font-weight: 900; color: var(--gold2); margin: 0; }
+  .bussen { color: var(--red); font-weight: 700; }
+
+  /* Leaderboard */
+  .board { width: 100%; max-width: 360px; }
+  .board h2 { font-size: 18px; color: var(--gold2); margin: 4px 0 12px; letter-spacing: 1px; }
+  .row {
+    display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 10px;
+    padding: 11px 14px; border-radius: 12px; background: #261b0d; margin-bottom: 7px; font-size: 16px;
+  }
+  .row.me { background: #3a2c14; border: 1px solid var(--gold); }
+  .row .rank { font-weight: 800; opacity: .6; }
+  .row .name { font-weight: 700; }
+  .row .pts { font-weight: 800; color: var(--gold2); }
+  .row.gold .rank { color: #ffd95e; opacity: 1; }
+  .muted { opacity: .55; font-size: 13px; margin: 6px 0; }
+  .stat { font-size: 14px; opacity: .8; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="score">0</div>
+    <div>
+      <div id="who"></div>
+      <div id="best"></div>
+    </div>
+  </div>
+  <div id="tapHint" class="hidden">Tippe zum Stapeln</div>
+
+  <!-- Start screen -->
+  <div id="startScreen" class="screen">
+    <div class="logo"><img id="logoImg" src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
+    <div>
+      <h1>Döner-Stapler</h1>
+      <div class="sub">Dönerfriitig</div>
+    </div>
+    <p class="lead">StapF die Zutate zäme – tippe im richtige Momänt, susch wird abgschnitte. Wer am höchste staplet, gwinnt. 🥙</p>
+    <div style="font-size:13px;opacity:.7">Wähl dis Member-Kürzel:</div>
+    <div class="members" id="members"></div>
+    <button class="btn" id="playBtn" disabled>Spiele</button>
+    <button class="btn ghost" id="boardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+  </div>
+
+  <!-- Game over -->
+  <div id="overScreen" class="screen hidden">
+    <div class="sub">Game Over</div>
+    <p class="big" id="finalScore">0</p>
+    <p class="lead" id="overMsg"></p>
+    <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">🎉 Neue persönliche Bestleistung!</div>
+    <button class="btn" id="againBtn">Nomal</button>
+    <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+    <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wächsle</button>
+  </div>
+
+  <!-- Leaderboard -->
+  <div id="boardScreen" class="screen hidden">
+    <h1 style="font-size:24px">🏆 Bestenliste</h1>
+    <div class="sub">Dönerfriitig</div>
+    <div class="board" id="boardList"><div class="muted">Lade…</div></div>
+    <button class="btn" id="backBtn">Zrugg</button>
+  </div>
+</div>
+
+<script>
+const MEMBERS = ["CBO","SJU","PKN","YMI","MST/MSO","JWU"];
+const LS_KEY = "df_stapler_v1";
+
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; } },
+  set(o) { try { localStorage.setItem(LS_KEY, JSON.stringify(o)); } catch {} },
+};
+
+let state = store.get();
+let member = state.member || null;
+let best = state.best || 0;
+
+// ---------- API (geteilte Bestenliste, mit lokalem Fallback) ----------
+const api = {
+  async top() {
+    try {
+      const r = await fetch("/api/scores", { cache: "no-store" });
+      if (!r.ok) throw 0;
+      return await r.json();
+    } catch {
+      return { scores: localTop(), offline: true };
+    }
+  },
+  async submit(name, score) {
+    saveLocal(name, score);
+    try {
+      const r = await fetch("/api/scores", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, score }),
+      });
+      if (!r.ok) throw 0;
+      return await r.json();
+    } catch {
+      return { scores: localTop(), offline: true };
+    }
+  },
+};
+function localBoard() { const s = store.get(); return s.board || {}; }
+function saveLocal(name, score) {
+  const s = store.get(); const b = s.board || {};
+  if (!b[name] || score > b[name]) b[name] = score;
+  s.board = b; store.set(s);
+}
+function localTop() {
+  const b = localBoard();
+  return Object.entries(b).map(([name, score]) => ({ name, score }))
+    .sort((a, c) => c.score - a.score).slice(0, 20);
+}
+
+// ---------- Canvas-Setup ----------
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+
+// ---------- Zutaten (Farbe + Label) ----------
+const LAYERS = [
+  { name: "Brot",     c: "#d9a857" },
+  { name: "Fleisch",  c: "#8b4a2b" },
+  { name: "Zwieble",  c: "#e7d9c3" },
+  { name: "Tomate",   c: "#c0392b" },
+  { name: "Salat",    c: "#5fae4e" },
+  { name: "Gurke",    c: "#7bb661" },
+  { name: "Sauce",    c: "#f0c14b" },
+  { name: "Chäs",     c: "#f4d35e" },
+  { name: "Pommes",   c: "#e8b84b" },
+  { name: "Peperoncini", c: "#3aa34a" },
+];
+
+// ---------- Spiel-Zustand ----------
+const BASE_W = () => Math.min(W * 0.55, 230);
+const LAYER_H = 34;
+let game = null;
+
+function newGame() {
+  const baseW = BASE_W();
+  const base = { x: (W - baseW) / 2, w: baseW, idx: -1, color: "#3a2c14" };
+  game = {
+    stack: [base],
+    score: 0,
+    camera: 0,
+    moving: null,
+    speed: 2.2,
+    dir: 1,
+    falling: [],   // abgeschnittene Stücke, die runterfallen
+    over: false,
+    flash: 0,
+  };
+  spawnMoving();
+}
+
+function topLayer() { return game.stack[game.stack.length - 1]; }
+
+function spawnMoving() {
+  const t = topLayer();
+  const idx = game.stack.length - 1; // 0 = erste echte Zutat
+  const lay = LAYERS[idx % LAYERS.length];
+  const fromLeft = (game.stack.length % 2 === 0);
+  game.moving = {
+    x: fromLeft ? -t.w : W,
+    w: t.w,
+    color: lay.c,
+    name: lay.name,
+    idx,
+  };
+  game.dir = fromLeft ? 1 : -1;
+  game.speed = 2.0 + Math.min(game.score * 0.12, 6.5);
+}
+
+function drop() {
+  if (!game || game.over || !game.moving) return;
+  const t = topLayer();
+  const m = game.moving;
+  const left = Math.max(m.x, t.x);
+  const right = Math.min(m.x + m.w, t.x + t.w);
+  const overlap = right - left;
+
+  if (overlap <= 0) {
+    // komplett daneben -> ganzes Stück fällt, Game Over
+    game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: m.w, color: m.color, vy: 0, vx: m.dir * 2 });
+    endGame();
+    return;
+  }
+
+  // abgeschnittenes Stück (Überhang) fällt runter
+  if (m.x < t.x) {
+    const cutW = t.x - m.x;
+    game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: cutW, color: m.color, vy: 0, vx: -2 });
+  } else if (m.x + m.w > t.x + t.w) {
+    const cutW = (m.x + m.w) - (t.x + t.w);
+    game.falling.push({ x: t.x + t.w, y: layerScreenY(game.stack.length), w: cutW, color: m.color, vy: 0, vx: 2 });
+  }
+
+  const placed = { x: left, w: overlap, color: m.color, name: m.name, idx: m.idx };
+  game.stack.push(placed);
+  game.score++;
+  game.flash = 1;
+  updateHud();
+
+  // Kamera hochschieben, damit der Turm sichtbar bleibt
+  const targetCam = Math.max(0, (game.stack.length - 1) * LAYER_H - (H * 0.45));
+  game.camTarget = targetCam;
+
+  game.moving = null;
+  // perfekt mittig? kleiner Bonus-Reset der Breite (Belohnung)
+  spawnMoving();
+}
+
+function layerScreenY(stackIndexFromBottom) {
+  // y des Layers (oberkante) auf dem Bildschirm
+  const baseY = H - LAYER_H - 8;
+  return baseY - (stackIndexFromBottom - 0) * LAYER_H + (game.camera || 0);
+}
+
+let raf = null;
+function loop() {
+  raf = requestAnimationFrame(loop);
+  if (!game) return;
+
+  // Kamera smooth
+  const ct = game.camTarget || 0;
+  game.camera += (ct - game.camera) * 0.15;
+
+  // moving bewegen
+  if (game.moving && !game.over) {
+    game.moving.x += game.dir * game.speed;
+    const m = game.moving;
+    if (game.dir > 0 && m.x > W) game.dir = -1;
+    if (game.dir < 0 && m.x + m.w < 0) game.dir = 1;
+  }
+
+  // fallende Stücke
+  for (const f of game.falling) { f.vy += 0.8; f.y += f.vy; f.x += f.vx; }
+  game.falling = game.falling.filter(f => f.y < H + 100);
+
+  if (game.flash > 0) game.flash -= 0.08;
+
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Hintergrund-Verlauf
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#241a0c"); g.addColorStop(1, "#140d05");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // Stack zeichnen
+  for (let i = 0; i < game.stack.length; i++) {
+    const lay = game.stack[i];
+    const y = layerScreenY(i);
+    drawLayer(lay.x, y, lay.w, lay.color);
+  }
+
+  // fallende Stücke
+  for (const f of game.falling) drawLayer(f.x, f.y, f.w, f.color, true);
+
+  // moving Layer
+  if (game.moving && !game.over) {
+    const y = layerScreenY(game.stack.length);
+    drawLayer(game.moving.x, y, game.moving.w, game.moving.color);
+  }
+
+  // Flash bei perfekt/treffer
+  if (game.flash > 0) {
+    ctx.fillStyle = `rgba(246,205,114,${game.flash * 0.12})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawLayer(x, y, w, color, faded) {
+  const r = 7;
+  ctx.save();
+  if (faded) ctx.globalAlpha = 0.85;
+  ctx.fillStyle = color;
+  roundRect(x, y, w, LAYER_H - 4, r);
+  ctx.fill();
+  // leichte Oberkante-Lichtkante
+  ctx.fillStyle = "rgba(255,255,255,.12)";
+  roundRect(x, y, w, 7, r);
+  ctx.fill();
+  ctx.restore();
+}
+function roundRect(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ---------- HUD ----------
+const hud = document.getElementById("hud");
+const scoreEl = document.getElementById("score");
+const whoEl = document.getElementById("who");
+const bestEl = document.getElementById("best");
+const tapHint = document.getElementById("tapHint");
+function updateHud() {
+  scoreEl.textContent = game ? game.score : 0;
+  whoEl.textContent = member ? "▸ " + member : "";
+  bestEl.textContent = "Best: " + best;
+}
+
+// ---------- Screens ----------
+const startScreen = document.getElementById("startScreen");
+const overScreen = document.getElementById("overScreen");
+const boardScreen = document.getElementById("boardScreen");
+function show(el) {
+  [startScreen, overScreen, boardScreen].forEach(s => s.classList.add("hidden"));
+  if (el) el.classList.remove("hidden");
+  const playing = !el;
+  hud.classList.toggle("hidden", !playing);
+  tapHint.classList.toggle("hidden", !playing);
+}
+
+// Member-Buttons
+const membersEl = document.getElementById("members");
+const playBtn = document.getElementById("playBtn");
+function renderMembers() {
+  membersEl.innerHTML = "";
+  MEMBERS.forEach(m => {
+    const b = document.createElement("button");
+    b.className = "member" + (m === member ? " active" : "");
+    b.textContent = m;
+    b.onclick = () => {
+      member = m;
+      state.member = m; store.set(state);
+      best = (store.get().bests || {})[m] || 0;
+      renderMembers(); playBtn.disabled = false;
+    };
+    membersEl.appendChild(b);
+  });
+  playBtn.disabled = !member;
+}
+
+function startPlay() {
+  show(null);
+  resize();
+  newGame();
+  updateHud();
+  if (!raf) loop();
+}
+
+function endGame() {
+  game.over = true;
+  const sc = game.score;
+  // persönliche Bestleistung
+  const s = store.get(); s.bests = s.bests || {};
+  const wasBest = sc > (s.bests[member] || 0);
+  if (wasBest) { s.bests[member] = sc; store.set(s); best = sc; }
+  state = store.get();
+
+  document.getElementById("finalScore").textContent = sc + " Zutate";
+  document.getElementById("overMsg").innerHTML = overMessage(sc);
+  document.getElementById("newBest").classList.toggle("hidden", !wasBest);
+  setTimeout(() => show(overScreen), 550);
+
+  // an geteilte Bestenliste schicken
+  api.submit(member, sc);
+}
+
+function overMessage(sc) {
+  if (sc === 0) return "Nid mal s’Brot töffe? Das git e <span class='bussen'>Busse vo CHF 13.-</span> 😅";
+  if (sc < 5) return "Chli mehr Übig, susch chunnsch als Letschte ü gahsch als Erschte. 🥙";
+  if (sc < 12) return "Solide gstaplet! Das git Respekt am Dönerfriitig.";
+  if (sc < 20) return "Stark! Das rïcht fast für d’DF Chlöpfete. 🎉";
+  return "Legendär! Du bisch de Döner-King. 👑";
+}
+
+// ---------- Leaderboard ----------
+const boardList = document.getElementById("boardList");
+async function showBoard() {
+  show(boardScreen);
+  boardList.innerHTML = '<div class="muted">Lade…</div>';
+  const data = await api.top();
+  const scores = data.scores || [];
+  if (!scores.length) {
+    boardList.innerHTML = '<div class="muted">No kei Score. Spiel die erschti Rundi! 🥙</div>';
+    return;
+  }
+  let html = "";
+  scores.slice(0, 12).forEach((row, i) => {
+    const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+    const me = row.name === member ? " me" : "";
+    const gold = i < 3 ? " gold" : "";
+    html += `<div class="row${me}${gold}"><span class="rank">${medal}</span><span class="name">${escapeHtml(row.name)}</span><span class="pts">${row.score}</span></div>`;
+  });
+  if (data.offline) html += '<div class="muted">⚠️ Offline – nur lokali Scores (geteilti Bestenliste subäld online).</div>';
+  boardList.innerHTML = html;
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+// ---------- Input ----------
+function onTap(e) {
+  // nur reagieren, wenn das Spiel läuft (HUD sichtbar)
+  if (game && !game.over && !hud.classList.contains("hidden")) {
+    e.preventDefault();
+    drop();
+  }
+}
+canvas.addEventListener("pointerdown", onTap);
+window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); drop(); } });
+
+// Buttons
+document.getElementById("playBtn").onclick = startPlay;
+document.getElementById("againBtn").onclick = startPlay;
+document.getElementById("changeBtn").onclick = () => { renderMembers(); show(startScreen); };
+document.getElementById("boardBtn").onclick = showBoard;
+document.getElementById("overBoardBtn").onclick = showBoard;
+document.getElementById("backBtn").onclick = () => show(member && game ? overScreen : startScreen);
+
+// ---------- Init ----------
+resize();
+if (member) best = (store.get().bests || {})[member] || 0;
+renderMembers();
+show(startScreen);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+name = "doenerstapler"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."
+
+# Geteilte Bestenliste in Cloudflare KV.
+# 1. KV-Namespace erstellen:
+#      npx wrangler kv namespace create LEADERBOARD
+# 2. Die ausgegebene id unten einsetzen (ersetzt die Null-id).
+# Ohne Binding läuft das Spiel trotzdem – die Bestenliste ist dann nur lokal.
+[[kv_namespaces]]
+binding = "LEADERBOARD"
+id = "00000000000000000000000000000000"

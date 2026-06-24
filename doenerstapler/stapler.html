@@ -11,7 +11,7 @@
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
   canvas { display: block; flex: 1 1 auto; width: 100%; touch-action: none; }
   #hud {
-    position: absolute; top: 0; left: 64px; right: 64px;
+    position: absolute; top: 0; left: 96px; right: 64px;
     padding: max(14px, env(safe-area-inset-top)) 0 10px;
     display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 5;
   }
@@ -20,6 +20,17 @@
   #tapHint {
     position: absolute; bottom: 14%; left: 0; right: 0; text-align: center;
     font-size: 16px; opacity: .75; letter-spacing: 1px; animation: pulse 1.3s ease-in-out infinite; pointer-events: none; z-index: 5;
+  }
+  #combo {
+    position: absolute; top: 30%; left: 0; right: 0; text-align: center;
+    font-size: 26px; font-weight: 900; color: var(--green);
+    text-shadow: 0 2px 10px rgba(0,0,0,.6); pointer-events: none; z-index: 6;
+  }
+  @keyframes comboPop { 0%{transform:scale(.6);opacity:0} 40%{transform:scale(1.15);opacity:1} 100%{transform:scale(1);opacity:1} }
+  #toast {
+    position: absolute; bottom: 16%; left: 50%; transform: translateX(-50%);
+    background: rgba(20,13,5,.92); color: var(--cream); border: 1px solid #5a4a2a;
+    padding: 10px 18px; border-radius: 12px; font-size: 14px; z-index: 30; white-space: nowrap;
   }
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
   .big { font-size: 44px; font-weight: 900; color: var(--gold2); margin: 0; }
@@ -45,6 +56,8 @@
     <div><div id="who"></div><div id="best"></div></div>
   </div>
   <div id="tapHint" class="hidden">Tippe zum Stapeln</div>
+  <div id="combo" class="hidden"></div>
+  <div id="toast" class="hidden"></div>
 
   <div id="startScreen" class="screen">
     <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
@@ -62,7 +75,10 @@
     <p class="lead" id="overMsg"></p>
     <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">🎉 Neue persönliche Bestleistung!</div>
     <button class="btn" id="againBtn">Nomal</button>
-    <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" id="shareBtn" style="padding:10px 22px;font-size:14px">📲 Teile</button>
+      <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+    </div>
     <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wächsle</button>
   </div>
 
@@ -158,7 +174,7 @@ let game = null;
 function newGame() {
   const baseW = BASE_W();
   const base = { x: (W - baseW) / 2, w: baseW, color: "#3a2c14" };
-  game = { stack: [base], score: 0, camera: 0, camTarget: 0, moving: null, speed: 2.2, dir: 1, falling: [], over: false, flash: 0 };
+  game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 2.2, dir: 1, falling: [], over: false, flash: 0 };
   spawnMoving();
 }
 function topLayer() { return game.stack[game.stack.length - 1]; }
@@ -183,9 +199,23 @@ function drop() {
   if (m.x < t.x) game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: t.x - m.x, color: m.color, vy: 0, vx: -2 });
   else if (m.x + m.w > t.x + t.w) game.falling.push({ x: t.x + t.w, y: layerScreenY(game.stack.length), w: (m.x + m.w) - (t.x + t.w), color: m.color, vy: 0, vx: 2 });
   const perfect = Math.abs(m.x - t.x) < 6;
-  game.stack.push({ x: left, w: overlap, color: m.color });
-  game.score++; game.flash = 1; updateHud();
-  if (perfect) { DFAudio.perfect(); vibrate([0, 12, 22, 12]); } else { DFAudio.hit(game.score); vibrate(8); }
+  let placedW = overlap, placedX = left;
+  if (perfect) {
+    game.combo++;
+    const extra = 14;                                  // perfekt = Zutat wächst wieder leicht
+    placedW = Math.min(overlap + extra, BASE_W());
+    placedX = left - (placedW - overlap) / 2;
+    game.score += 1 + game.combo;                       // Combo-Bonus
+    showCombo(game.combo);
+    DFAudio.perfect(); vibrate([0, 12, 22, 12]);
+  } else {
+    game.combo = 0;
+    game.score += 1;
+    DFAudio.hit(game.score); vibrate(8);
+  }
+  game.stack.push({ x: placedX, w: placedW, color: m.color });
+  game.flash = 1; updateHud();
+  if (game.score > 0) tapHint.classList.add("hidden");
   game.camTarget = Math.max(0, (game.stack.length - 1) * LAYER_H - (H * 0.45));
   game.moving = null; spawnMoving();
 }
@@ -232,6 +262,15 @@ const scoreEl = document.getElementById("score");
 const whoEl = document.getElementById("who");
 const bestEl = document.getElementById("best");
 const tapHint = document.getElementById("tapHint");
+const comboEl = document.getElementById("combo");
+let comboTimer = null;
+function showCombo(c) {
+  if (c < 2) return;
+  comboEl.textContent = "Combo ×" + c + "!  +" + c;
+  comboEl.classList.remove("hidden");
+  comboEl.style.animation = "none"; void comboEl.offsetWidth; comboEl.style.animation = "comboPop .5s ease";
+  clearTimeout(comboTimer); comboTimer = setTimeout(() => comboEl.classList.add("hidden"), 750);
+}
 function updateHud() {
   scoreEl.textContent = game ? game.score : 0;
   whoEl.textContent = member ? "▸ " + labelOf(member) : "";
@@ -264,7 +303,7 @@ function renderMembers() {
   });
   playBtn.disabled = !member;
 }
-function startPlay() { show(null); resize(); newGame(); updateHud(); if (!raf) loop(); }
+function startPlay() { comboEl.classList.add("hidden"); show(null); resize(); newGame(); updateHud(); if (!raf) loop(); }
 function endGame() {
   game.over = true; const sc = game.score;
   DFAudio.over();
@@ -304,6 +343,24 @@ async function showBoard() {
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
+// ---- Teilen ----
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg; toastEl.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800);
+}
+async function shareScore() {
+  const sc = game ? game.score : 0;
+  const text = `Ich han ${sc} Zutate gstaplet bim Dönerfriitig Döner-Stapler! 🥙 Schlahsch mi?`;
+  const url = location.origin + location.pathname;
+  try {
+    if (navigator.share) { await navigator.share({ title: "Döner-Stapler", text, url }); return; }
+  } catch { return; } // User hat abgebrochen
+  try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert! 📋"); }
+  catch { toast("Teile gaht nid uf däm Gerät 😅"); }
+}
+
 function onTap(e) { if (game && !game.over && !hud.classList.contains("hidden")) { e.preventDefault(); drop(); } }
 canvas.addEventListener("pointerdown", onTap);
 window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); drop(); } });
@@ -313,6 +370,7 @@ document.getElementById("againBtn").onclick = startPlay;
 document.getElementById("changeBtn").onclick = () => { renderMembers(); show(startScreen); };
 document.getElementById("boardBtn").onclick = showBoard;
 document.getElementById("overBoardBtn").onclick = showBoard;
+document.getElementById("shareBtn").onclick = shareScore;
 document.getElementById("backBtn").onclick = () => show(game ? overScreen : startScreen);
 
 resize();

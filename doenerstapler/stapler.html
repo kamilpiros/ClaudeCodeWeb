@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="gsw">
+<html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1a1208">
+<meta name="theme-color" content="#0a1120">
 <title>Döner-Stapler — Dönerfriitig</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
@@ -29,7 +29,7 @@
   @keyframes comboPop { 0%{transform:scale(.6);opacity:0} 40%{transform:scale(1.15);opacity:1} 100%{transform:scale(1);opacity:1} }
   #toast {
     position: absolute; bottom: 16%; left: 50%; transform: translateX(-50%);
-    background: rgba(20,13,5,.92); color: var(--cream); border: 1px solid #5a4a2a;
+    background: rgba(8,14,26,.92); color: var(--cream); border: 1px solid #2a4d80;
     padding: 10px 18px; border-radius: 12px; font-size: 14px; z-index: 30; white-space: nowrap;
   }
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
@@ -37,18 +37,18 @@
   .bussen { color: var(--red); font-weight: 700; }
   .board { width: 100%; max-width: 360px; }
   .row { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 10px;
-    padding: 11px 14px; border-radius: 12px; background: #261b0d; margin-bottom: 7px; font-size: 16px; }
-  .row.me { background: #3a2c14; border: 1px solid var(--gold); }
+    padding: 11px 14px; border-radius: 12px; background: #101c33; margin-bottom: 7px; font-size: 16px; }
+  .row.me { background: #16294a; border: 1px solid var(--blue); }
   .row .rank { font-weight: 800; opacity: .6; }
   .row .name { font-weight: 700; }
   .row .pts { font-weight: 800; color: var(--gold2); }
-  .row.gold .rank { color: #ffd95e; opacity: 1; }
+  .row.gold .rank { color: var(--blue2); opacity: 1; }
   .muted { opacity: .55; font-size: 13px; margin: 6px 0; }
 </style>
 </head>
 <body>
 <a class="back" href="index.html">‹ Menü</a>
-<button class="mute" id="muteBtn" title="Sound">🔊</button>
+<button class="mute" id="muteBtn" title="Sound">On</button>
 <div id="app">
   <canvas id="game"></canvas>
   <div id="hud" class="hidden">
@@ -60,30 +60,30 @@
   <div id="toast" class="hidden"></div>
 
   <div id="startScreen" class="screen">
-    <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
+    <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='DF'"></div>
     <div><h1>Döner-Stapler</h1><div class="sub">Dönerfriitig</div></div>
-    <p class="lead">Stapel die Zutaten aufeinander – tippe im richtigen Moment, sonst wird abgeschnitten. Wer am höchsten stapelt, gewinnt. 🥙</p>
+    <p class="lead">Stapel die Zutaten aufeinander – tippe im richtigen Moment, sonst wird abgeschnitten. Wer am höchsten stapelt, gewinnt.</p>
     <div style="font-size:13px;opacity:.7">Wähl dein Member-Kürzel:</div>
     <div class="members" id="members"></div>
     <button class="btn" id="playBtn" disabled>Spiele</button>
-    <button class="btn ghost" id="boardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+    <button class="btn ghost" id="boardBtn" style="padding:10px 22px;font-size:14px">Bestenliste</button>
   </div>
 
   <div id="overScreen" class="screen hidden">
     <div class="sub">Game Over</div>
     <p class="big" id="finalScore">0</p>
     <p class="lead" id="overMsg"></p>
-    <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">🎉 Neue persönliche Bestleistung!</div>
+    <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">Neue persönliche Bestleistung!</div>
     <button class="btn" id="againBtn">Nochmal</button>
     <div style="display:flex;gap:10px">
-      <button class="btn ghost" id="shareBtn" style="padding:10px 22px;font-size:14px">📲 Teile</button>
-      <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
+      <button class="btn ghost" id="shareBtn" style="padding:10px 22px;font-size:14px">Teilen</button>
+      <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">Bestenliste</button>
     </div>
     <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wechseln</button>
   </div>
 
   <div id="boardScreen" class="screen hidden">
-    <h1 style="font-size:24px">🏆 Bestenliste</h1>
+    <h1 style="font-size:24px">Bestenliste</h1>
     <div class="sub">Dönerfriitig</div>
     <div class="board" id="boardList"><div class="muted">Lade…</div></div>
     <button class="btn" id="backBtn">Zurück</button>
@@ -117,7 +117,7 @@ function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch
 // ---- Sound ----
 const muteBtn = document.getElementById("muteBtn");
 let muted = localStorage.getItem("df_muted") === "1";
-function paintMute() { muteBtn.textContent = muted ? "🔇" : "🔊"; }
+function paintMute() { muteBtn.textContent = muted ? "Off" : "On"; }
 paintMute();
 function startAudio() {
   DFAudio.unlock(); DFAudio.setMuted(muted);
@@ -173,8 +173,8 @@ let game = null;
 
 function newGame() {
   const baseW = BASE_W();
-  const base = { x: (W - baseW) / 2, w: baseW, color: "#3a2c14" };
-  game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 2.2, dir: 1, falling: [], over: false, flash: 0 };
+  const base = { x: (W - baseW) / 2, w: baseW, color: "#22304a" };
+  game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 3.2, dir: 1, falling: [], over: false, flash: 0 };
   spawnMoving();
 }
 function topLayer() { return game.stack[game.stack.length - 1]; }
@@ -185,7 +185,7 @@ function spawnMoving() {
   const fromLeft = (game.stack.length % 2 === 0);
   game.moving = { x: fromLeft ? -t.w : W, w: t.w, color: lay.c, name: lay.name, idx };
   game.dir = fromLeft ? 1 : -1;
-  game.speed = 2.0 + Math.min(game.score * 0.12, 6.5);
+  game.speed = 3.2 + Math.min(game.score * 0.22, 6.0);
 }
 function drop() {
   if (!game || game.over || !game.moving) return;
@@ -237,12 +237,12 @@ function loop() {
 }
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#241a0c"); g.addColorStop(1, "#140d05");
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0d1626"); g.addColorStop(1, "#080c14");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   for (let i = 0; i < game.stack.length; i++) { const l = game.stack[i]; drawLayer(l.x, layerScreenY(i), l.w, l.color); }
   for (const f of game.falling) drawLayer(f.x, f.y, f.w, f.color, true);
   if (game.moving && !game.over) drawLayer(game.moving.x, layerScreenY(game.stack.length), game.moving.w, game.moving.color);
-  if (game.flash > 0) { ctx.fillStyle = `rgba(246,205,114,${game.flash * 0.12})`; ctx.fillRect(0, 0, W, H); }
+  if (game.flash > 0) { ctx.fillStyle = `rgba(124,196,255,${game.flash * 0.10})`; ctx.fillRect(0, 0, W, H); }
 }
 function drawLayer(x, y, w, color, faded) {
   ctx.save(); if (faded) ctx.globalAlpha = 0.85;
@@ -319,11 +319,11 @@ function endGame() {
   api.submit(member, sc);
 }
 function overMessage(sc) {
-  if (sc === 0) return "Nicht mal das Brot getroffen? Das gibt eine <span class='bussen'>Busse von CHF 13.–</span> 😅";
-  if (sc < 5) return "Etwas mehr Übung, sonst kommst du als Letzter und gehst als Erster. 🥙";
+  if (sc === 0) return "Nicht mal das Brot getroffen? Das gibt eine <span class='bussen'>Busse von CHF 13.–</span>";
+  if (sc < 5) return "Etwas mehr Übung, sonst kommst du als Letzter und gehst als Erster.";
   if (sc < 12) return "Solide gestapelt! Das gibt Respekt am Dönerfriitig.";
-  if (sc < 20) return "Stark! Das reicht fast für die DF Chlöpfete. 🎉";
-  return "Legendär! Du bist der Döner-King. 👑";
+  if (sc < 20) return "Stark! Das reicht fast für die DF Chlöpfete.";
+  return "Legendär! Du bist der Döner-King.";
 }
 const boardList = document.getElementById("boardList");
 async function showBoard() {
@@ -331,10 +331,10 @@ async function showBoard() {
   boardList.innerHTML = '<div class="muted">Lade…</div>';
   const data = await api.top();
   const scores = data.scores || [];
-  if (!scores.length) { boardList.innerHTML = '<div class="muted">Noch kein Score. Spiel die erste Runde! 🥙</div>'; return; }
+  if (!scores.length) { boardList.innerHTML = '<div class="muted">Noch kein Score. Spiel die erste Runde!</div>'; return; }
   let html = "";
   scores.slice(0, 12).forEach((row, i) => {
-    const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
+    const medal = (i + 1) + ".";
     const me = row.name === member ? " me" : ""; const gold = i < 3 ? " gold" : "";
     html += `<div class="row${me}${gold}"><span class="rank">${medal}</span><span class="name">${escapeHtml(labelOf(row.name))}</span><span class="pts">${row.score}</span></div>`;
   });
@@ -352,12 +352,12 @@ function toast(msg) {
 }
 async function shareScore() {
   const sc = game ? game.score : 0;
-  const text = `Ich habe ${sc} Zutaten gestapelt beim Dönerfriitig Döner-Stapler! 🥙 Schlägst du mich?`;
+  const text = `Ich habe ${sc} Zutaten gestapelt beim Dönerfriitig Döner-Stapler! Schlägst du mich?`;
   const url = location.origin + location.pathname;
   try {
     if (navigator.share) { await navigator.share({ title: "Döner-Stapler", text, url }); return; }
   } catch { return; } // User hat abgebrochen
-  try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert! 📋"); }
+  try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert!"); }
   catch { toast("Teilen geht auf diesem Gerät nicht 😅"); }
 }
 

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="gsw">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1208">
+<title>Dönerfriitig — Games</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<style>
+  .games { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 340px; }
+  .game-card {
+    display: flex; align-items: center; gap: 16px; text-align: left;
+    padding: 18px; border-radius: 18px; background: #261b0d; border: 1.5px solid #3a2c14;
+    cursor: pointer; transition: transform .08s, border-color .15s; color: var(--cream);
+    text-decoration: none;
+  }
+  .game-card:active { transform: scale(.97); }
+  .game-card .ico { font-size: 40px; flex: 0 0 auto; }
+  .game-card .t { display: block; font-size: 19px; font-weight: 800; color: var(--gold2); }
+  .game-card .d { display: block; font-size: 13px; opacity: .75; margin-top: 3px; line-height: 1.4; }
+  .cd {
+    font-size: 14px; opacity: .85; background: #261b0d; border: 1.5px solid #3a2c14;
+    border-radius: 14px; padding: 12px 18px; max-width: 340px;
+  }
+  .cd b { color: var(--gold2); font-size: 17px; display: block; margin-top: 3px; }
+</style>
+</head>
+<body>
+<button class="mute" id="muteBtn" title="Sound">🔊</button>
+<div class="screen">
+  <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
+  <div>
+    <h1>Dönerfriitig</h1>
+    <div class="sub">Games</div>
+  </div>
+  <p class="lead">Wähl ein Spiel. Am besten mit Sound. 🎧🌴</p>
+  <div class="cd" id="countdown">…</div>
+  <div class="games">
+    <a class="game-card" href="dash.html">
+      <span class="ico">🏃</span>
+      <span><span class="t">Döner-Dash</span><span class="d">Renn zum Züri Bistro am Albisriederplatz, drängle, zahle & bestelle – auf Zeit. Geteilte Bestenliste.</span></span>
+    </a>
+    <a class="game-card" href="gluecksrad.html">
+      <span class="ico">🎰</span>
+      <span><span class="t">Bussen-Glücksrad</span><span class="d">Rad drehen: Bussen verteilen oder auslosen, wer zahlt.</span></span>
+    </a>
+    <a class="game-card" href="stapler.html" style="opacity:.6">
+      <span class="ico">🥙</span>
+      <span><span class="t">Döner-Stapler</span><span class="d">Der alte Stapel-Klassiker (zum Vergleichen).</span></span>
+    </a>
+  </div>
+</div>
+<script src="audio.js"></script>
+<script>
+  // ---- Freitags-Countdown (jede Freitag 12.15 Uhr) ----
+  const cdEl = document.getElementById("countdown");
+  function updateCountdown() {
+    const now = new Date();
+    const fri = new Date(now); fri.setHours(12, 15, 0, 0);
+    fri.setDate(now.getDate() + ((5 - now.getDay() + 7) % 7)); // nächster (oder heutiger) Freitag
+    const windowEnd = new Date(fri.getTime() + 75 * 60000);     // bis ~13.30 Uhr läuft's noch
+    if (now >= fri && now <= windowEnd) {
+      cdEl.innerHTML = "🥙 <b>Jetzt ist Dönerfriitig! Guten Appetit!</b>";
+      return;
+    }
+    const target = now > windowEnd ? new Date(fri.getTime() + 7 * 86400000) : fri;
+    const s = Math.max(0, Math.floor((target - now) / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
+          m = Math.floor((s % 3600) / 60), sec = s % 60;
+    cdEl.innerHTML = "Nächster Dönerfriitig 🥙<b>" +
+      (d > 0 ? d + " Tg " : "") + h + " Std " + m + " Min " + sec + " Sek</b>";
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  const muteBtn = document.getElementById("muteBtn");
+  let muted = localStorage.getItem("df_muted") === "1";
+  function paintMute() { muteBtn.textContent = muted ? "🔇" : "🔊"; }
+  paintMute();
+  function startAudio() {
+    DFAudio.unlock();
+    DFAudio.setMuted(muted);
+    if (!muted) DFAudio.startMusic();
+    window.removeEventListener("pointerdown", startAudio);
+  }
+  window.addEventListener("pointerdown", startAudio);
+  muteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    muted = DFAudio.toggleMute();
+    localStorage.setItem("df_muted", muted ? "1" : "0");
+    paintMute();
+    if (!muted) DFAudio.startMusic();
+  });
+</script>
+</body>
+</html>

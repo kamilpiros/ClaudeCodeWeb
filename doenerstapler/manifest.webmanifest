@@ -1,0 +1,13 @@
+{
+  "name": "Dönerfriitig — Döner-Stapler",
+  "short_name": "Döner-Stapler",
+  "description": "Stapel-Game vom Dönerfriitig-Verein.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1208",
+  "theme_color": "#1a1208",
+  "icons": [
+    { "src": "logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

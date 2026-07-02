@@ -34,20 +34,20 @@
     <h1>Dönerfriitig</h1>
     <div class="sub">Games</div>
   </div>
-  <p class="lead">Wähl es Spiel. Mit Sound am beschte. 🎧🌴</p>
+  <p class="lead">Wähl ein Spiel. Am besten mit Sound. 🎧🌴</p>
   <div class="cd" id="countdown">…</div>
   <div class="games">
     <a class="game-card" href="dash.html">
       <span class="ico">🏃</span>
-      <span><span class="t">Döner-Dash</span><span class="d">Renn zum Züri Bistro am Albisriederplatz, drängel, zahl & bstell – uf Ziit. Geteilti Bestenliste.</span></span>
+      <span><span class="t">Döner-Dash</span><span class="d">Renn zum Züri Bistro am Albisriederplatz, drängle, zahle & bestelle – auf Zeit. Geteilte Bestenliste.</span></span>
     </a>
     <a class="game-card" href="gluecksrad.html">
       <span class="ico">🎰</span>
-      <span><span class="t">Bussen-Glücksrad</span><span class="d">Rad dräihe: Bussen verteile oder uslose wer zahlt.</span></span>
+      <span><span class="t">Bussen-Glücksrad</span><span class="d">Rad drehen: Bussen verteilen oder auslosen, wer zahlt.</span></span>
     </a>
     <a class="game-card" href="stapler.html" style="opacity:.6">
       <span class="ico">🥙</span>
-      <span><span class="t">Döner-Stapler</span><span class="d">Dr alt Stapel-Klassiker (zum Vergliiche).</span></span>
+      <span><span class="t">Döner-Stapler</span><span class="d">Der alte Stapel-Klassiker (zum Vergleichen).</span></span>
     </a>
   </div>
 </div>
@@ -61,14 +61,14 @@
     fri.setDate(now.getDate() + ((5 - now.getDay() + 7) % 7)); // nächster (oder heutiger) Freitag
     const windowEnd = new Date(fri.getTime() + 75 * 60000);     // bis ~13.30 Uhr läuft's noch
     if (now >= fri && now <= windowEnd) {
-      cdEl.innerHTML = "🥙 <b>Jetz isch Dönerfriitig! En Guete!</b>";
+      cdEl.innerHTML = "🥙 <b>Jetzt ist Dönerfriitig! Guten Appetit!</b>";
       return;
     }
     const target = now > windowEnd ? new Date(fri.getTime() + 7 * 86400000) : fri;
     const s = Math.max(0, Math.floor((target - now) / 1000));
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
           m = Math.floor((s % 3600) / 60), sec = s % 60;
-    cdEl.innerHTML = "Nächste Dönerfriitig 🥙<b>" +
+    cdEl.innerHTML = "Nächster Dönerfriitig 🥙<b>" +
       (d > 0 ? d + " Tg " : "") + h + " Std " + m + " Min " + sec + " Sek</b>";
   }
   updateCountdown();

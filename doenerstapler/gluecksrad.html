@@ -52,25 +52,34 @@
   <div class="wheelBox">
     <div class="pointer"></div>
     <canvas id="wheel"></canvas>
-    <button class="hubBtn" id="spinBtn">DRÄIH</button>
+    <button class="hubBtn" id="spinBtn">DREHEN</button>
   </div>
-  <div class="result" id="result">Dräih am Rad! 🌴</div>
-  <div class="hint">Tipp: aufs Rad oder de Knopf drücke.</div>
+  <div class="result" id="result">Dreh am Rad! 🌴</div>
+  <div class="hint">Tipp: aufs Rad oder den Knopf drücken.</div>
 </div>
 
 <script src="audio.js"></script>
 <script>
+// Pro Segment ein eigener Untertitel – so stimmt die Botschaft immer
+// (früher entschied eine Regex und lag z.B. bei "Frei – keine Busse" falsch).
+const BUSSEN_SEGMENTS = [
+  { t: "CHF 13.– Busse 💸", sub: "Ab in die Vereinskasse! 😄" },
+  { t: "Frei – keine Busse 😅", sub: "Nichts zu zahlen. 🍀" },
+  { t: "Zahlt die Getränke 🥤", sub: "Eine Runde für alle!" },
+  { t: "CHF 5.– in die Kasse 🪙", sub: "Kleiner Beitrag, grosse Wirkung." },
+  { t: "Sucht das Restaurant aus 🍽️", sub: "Nächsten Freitag bist du dran." },
+  { t: "Glück gehabt! 🍀", sub: "Nichts zu zahlen." },
+  { t: "Bringt das Dessert 🍰", sub: "Baklava zählt doppelt." },
+  { t: "Doppelte Busse 😈", sub: "CHF 26.– – autsch!" },
+];
 const SETS = {
-  bussen: [
-    "CHF 13.- Busse 💸", "Frei – kei Busse 😅", "Zahlt d'Getränk 🥤", "CHF 5.- is Kässeli 🪙",
-    "Sucht's Restaurant us 🍽️", "Glück ghaa! 🍀", "Bringt s'Dessert 🍰", "Doppli Busse 😈",
-  ],
+  bussen: BUSSEN_SEGMENTS.map(s => s.t),
   wer: ["CBO", "SJU", "PKN", "YMI", "MST/MSO", "JWU 🥒"],
 };
 const COLORS = ["#e8b04b", "#c0392b", "#2a9d8f", "#e76f51", "#457b9d", "#f4a261", "#5fae4e", "#9b5de5"];
 const RESULT_MSG = {
-  bussen: (s) => `${s}<span class="small">${/Busse|Kässeli|Doppli/.test(s) ? "Zahle gly! 😄" : "Mues niemmer zahle. 🍀"}</span>`,
-  wer: (s) => `${s} zahlt! <span class="small">Pflästerli für d'Vereinskasse 🥙</span>`,
+  bussen: (s, i) => `${s}<span class="small">${BUSSEN_SEGMENTS[i].sub}</span>`,
+  wer: (s) => `${s} zahlt! <span class="small">Trostpflaster für die Vereinskasse 🥙</span>`,
 };
 
 function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch {} }
@@ -188,8 +197,8 @@ function step() {
 }
 function finish() {
   spinning = false; spinBtn.disabled = false;
-  const win = segments[winnerIndex()];
-  resultEl.innerHTML = RESULT_MSG[mode](win);
+  const wi = winnerIndex();
+  resultEl.innerHTML = RESULT_MSG[mode](segments[wi], wi);
   DFAudio.win();
   vibrate([0, 40, 50, 40, 50, 90]);
   burstConfetti();
@@ -202,7 +211,7 @@ document.querySelectorAll(".mode").forEach(b => {
     document.querySelectorAll(".mode").forEach(x => x.classList.remove("active"));
     b.classList.add("active");
     mode = b.dataset.mode; segments = SETS[mode];
-    resultEl.innerHTML = "Dräih am Rad! 🌴"; draw();
+    resultEl.innerHTML = "Dreh am Rad! 🌴"; draw();
   };
 });
 spinBtn.onclick = spin;

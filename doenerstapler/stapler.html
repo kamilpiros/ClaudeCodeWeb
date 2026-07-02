@@ -62,8 +62,8 @@
   <div id="startScreen" class="screen">
     <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='🥙'"></div>
     <div><h1>Döner-Stapler</h1><div class="sub">Dönerfriitig</div></div>
-    <p class="lead">Stapf d'Zutate zäme – tippe im richtige Momänt, susch wird abgschnitte. Wer am höchste staplet, gwinnt. 🥙</p>
-    <div style="font-size:13px;opacity:.7">Wähl dis Member-Kürzel:</div>
+    <p class="lead">Stapel die Zutaten aufeinander – tippe im richtigen Moment, sonst wird abgeschnitten. Wer am höchsten stapelt, gewinnt. 🥙</p>
+    <div style="font-size:13px;opacity:.7">Wähl dein Member-Kürzel:</div>
     <div class="members" id="members"></div>
     <button class="btn" id="playBtn" disabled>Spiele</button>
     <button class="btn ghost" id="boardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
@@ -74,19 +74,19 @@
     <p class="big" id="finalScore">0</p>
     <p class="lead" id="overMsg"></p>
     <div id="newBest" class="hidden" style="color:var(--green);font-weight:800">🎉 Neue persönliche Bestleistung!</div>
-    <button class="btn" id="againBtn">Nomal</button>
+    <button class="btn" id="againBtn">Nochmal</button>
     <div style="display:flex;gap:10px">
       <button class="btn ghost" id="shareBtn" style="padding:10px 22px;font-size:14px">📲 Teile</button>
       <button class="btn ghost" id="overBoardBtn" style="padding:10px 22px;font-size:14px">🏆 Bestenliste</button>
     </div>
-    <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wächsle</button>
+    <button class="btn ghost" id="changeBtn" style="padding:8px 18px;font-size:13px">Member wechseln</button>
   </div>
 
   <div id="boardScreen" class="screen hidden">
     <h1 style="font-size:24px">🏆 Bestenliste</h1>
     <div class="sub">Dönerfriitig</div>
     <div class="board" id="boardList"><div class="muted">Lade…</div></div>
-    <button class="btn" id="backBtn">Zrugg</button>
+    <button class="btn" id="backBtn">Zurück</button>
   </div>
 </div>
 
@@ -162,9 +162,9 @@ function resize() {
 window.addEventListener("resize", resize);
 
 const LAYERS = [
-  { name: "Brot", c: "#d9a857" }, { name: "Fleisch", c: "#8b4a2b" }, { name: "Zwieble", c: "#e7d9c3" },
+  { name: "Brot", c: "#d9a857" }, { name: "Fleisch", c: "#8b4a2b" }, { name: "Zwiebeln", c: "#e7d9c3" },
   { name: "Tomate", c: "#c0392b" }, { name: "Salat", c: "#5fae4e" }, { name: "Gurke", c: "#7bb661" },
-  { name: "Sauce", c: "#f0c14b" }, { name: "Chäs", c: "#f4d35e" }, { name: "Pommes", c: "#e8b84b" },
+  { name: "Sauce", c: "#f0c14b" }, { name: "Käse", c: "#f4d35e" }, { name: "Pommes", c: "#e8b84b" },
   { name: "Peperoncini", c: "#3aa34a" },
 ];
 const BASE_W = () => Math.min(W * 0.55, 230);
@@ -312,18 +312,18 @@ function endGame() {
   vibrate(wasBest ? [0, 30, 40, 30, 40, 80] : [0, 50, 40, 50]);
   if (wasBest) { s.bests[member] = sc; store.set(s); best = sc; }
   state = store.get();
-  document.getElementById("finalScore").textContent = sc + " Zutate";
+  document.getElementById("finalScore").textContent = sc + " Punkte";
   document.getElementById("overMsg").innerHTML = overMessage(sc);
   document.getElementById("newBest").classList.toggle("hidden", !wasBest);
   setTimeout(() => show(overScreen), 550);
   api.submit(member, sc);
 }
 function overMessage(sc) {
-  if (sc === 0) return "Nid mal s'Brot troffe? Das git e <span class='bussen'>Busse vo CHF 13.-</span> 😅";
-  if (sc < 5) return "Chli mehr Übig, susch chunnsch als Letschte u gahsch als Erschte. 🥙";
-  if (sc < 12) return "Solide gstaplet! Das git Respekt am Dönerfriitig.";
-  if (sc < 20) return "Stark! Das längt fast für d'DF Chlöpfete. 🎉";
-  return "Legendär! Du bisch de Döner-King. 👑";
+  if (sc === 0) return "Nicht mal das Brot getroffen? Das gibt eine <span class='bussen'>Busse von CHF 13.–</span> 😅";
+  if (sc < 5) return "Etwas mehr Übung, sonst kommst du als Letzter und gehst als Erster. 🥙";
+  if (sc < 12) return "Solide gestapelt! Das gibt Respekt am Dönerfriitig.";
+  if (sc < 20) return "Stark! Das reicht fast für die DF Chlöpfete. 🎉";
+  return "Legendär! Du bist der Döner-King. 👑";
 }
 const boardList = document.getElementById("boardList");
 async function showBoard() {
@@ -331,7 +331,7 @@ async function showBoard() {
   boardList.innerHTML = '<div class="muted">Lade…</div>';
   const data = await api.top();
   const scores = data.scores || [];
-  if (!scores.length) { boardList.innerHTML = '<div class="muted">No kei Score. Spiel die erschti Rundi! 🥙</div>'; return; }
+  if (!scores.length) { boardList.innerHTML = '<div class="muted">Noch kein Score. Spiel die erste Runde! 🥙</div>'; return; }
   let html = "";
   scores.slice(0, 12).forEach((row, i) => {
     const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1);
@@ -352,13 +352,13 @@ function toast(msg) {
 }
 async function shareScore() {
   const sc = game ? game.score : 0;
-  const text = `Ich han ${sc} Zutate gstaplet bim Dönerfriitig Döner-Stapler! 🥙 Schlahsch mi?`;
+  const text = `Ich habe ${sc} Zutaten gestapelt beim Dönerfriitig Döner-Stapler! 🥙 Schlägst du mich?`;
   const url = location.origin + location.pathname;
   try {
     if (navigator.share) { await navigator.share({ title: "Döner-Stapler", text, url }); return; }
   } catch { return; } // User hat abgebrochen
   try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert! 📋"); }
-  catch { toast("Teile gaht nid uf däm Gerät 😅"); }
+  catch { toast("Teilen geht auf diesem Gerät nicht 😅"); }
 }
 
 function onTap(e) { if (game && !game.over && !hud.classList.contains("hidden")) { e.preventDefault(); drop(); } }

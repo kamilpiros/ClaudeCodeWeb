@@ -9,4 +9,4 @@ pages_build_output_dir = "."
 # Ohne Binding läuft das Spiel trotzdem – die Bestenliste ist dann nur lokal.
 [[kv_namespaces]]
 binding = "LEADERBOARD"
-id = "00000000000000000000000000000000"
+id = "82e392cdc16a4302acfb40f7e4f35ee4"

@@ -169,14 +169,14 @@ const LAYERS = [
   { name: "Sauce", c: "#f0c14b" }, { name: "Käse", c: "#f4d35e" }, { name: "Pommes", c: "#e8b84b" },
   { name: "Peperoncini", c: "#3aa34a" },
 ];
-const BASE_W = () => Math.min(W * 0.55, 230);
+const BASE_W = () => Math.min(W * 0.68, 300);
 const LAYER_H = 34;
 let game = null;
 
 function newGame() {
   const baseW = BASE_W();
   const base = { x: (W - baseW) / 2, w: baseW, color: "#cfd6dd", name: "__plate" };
-  game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 3.2, dir: 1, falling: [], over: false, flash: 0 };
+  game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 4.2, dir: 1, falling: [], over: false, flash: 0 };
   spawnMoving();
 }
 function topLayer() { return game.stack[game.stack.length - 1]; }
@@ -187,7 +187,7 @@ function spawnMoving() {
   const fromLeft = (game.stack.length % 2 === 0);
   game.moving = { x: fromLeft ? -t.w : W, w: t.w, color: lay.c, name: lay.name, idx };
   game.dir = fromLeft ? 1 : -1;
-  game.speed = 3.2 + Math.min(game.score * 0.22, 6.0);
+  game.speed = 4.2 + Math.min(game.score * 0.22, 5.5);
 }
 function drop() {
   if (!game || game.over || !game.moving) return;

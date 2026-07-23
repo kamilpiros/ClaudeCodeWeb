@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#0a1120">
 <title>Döner-Stapler — Dönerfriitig</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
@@ -173,7 +175,7 @@ let game = null;
 
 function newGame() {
   const baseW = BASE_W();
-  const base = { x: (W - baseW) / 2, w: baseW, color: "#22304a" };
+  const base = { x: (W - baseW) / 2, w: baseW, color: "#cfd6dd", name: "__plate" };
   game = { stack: [base], score: 0, combo: 0, camera: 0, camTarget: 0, moving: null, speed: 3.2, dir: 1, falling: [], over: false, flash: 0 };
   spawnMoving();
 }
@@ -193,11 +195,11 @@ function drop() {
   const left = Math.max(m.x, t.x); const right = Math.min(m.x + m.w, t.x + t.w);
   const overlap = right - left;
   if (overlap <= 0) {
-    game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: m.w, color: m.color, vy: 0, vx: game.dir * 2 });
+    game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: m.w, color: m.color, name: m.name, vy: 0, vx: game.dir * 2 });
     endGame(); return;
   }
-  if (m.x < t.x) game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: t.x - m.x, color: m.color, vy: 0, vx: -2 });
-  else if (m.x + m.w > t.x + t.w) game.falling.push({ x: t.x + t.w, y: layerScreenY(game.stack.length), w: (m.x + m.w) - (t.x + t.w), color: m.color, vy: 0, vx: 2 });
+  if (m.x < t.x) game.falling.push({ x: m.x, y: layerScreenY(game.stack.length), w: t.x - m.x, color: m.color, name: m.name, vy: 0, vx: -2 });
+  else if (m.x + m.w > t.x + t.w) game.falling.push({ x: t.x + t.w, y: layerScreenY(game.stack.length), w: (m.x + m.w) - (t.x + t.w), color: m.color, name: m.name, vy: 0, vx: 2 });
   const perfect = Math.abs(m.x - t.x) < 6;
   let placedW = overlap, placedX = left;
   if (perfect) {
@@ -213,7 +215,7 @@ function drop() {
     game.score += 1;
     DFAudio.hit(game.score); vibrate(8);
   }
-  game.stack.push({ x: placedX, w: placedW, color: m.color });
+  game.stack.push({ x: placedX, w: placedW, color: m.color, name: m.name });
   game.flash = 1; updateHud();
   if (game.score > 0) tapHint.classList.add("hidden");
   game.camTarget = Math.max(0, (game.stack.length - 1) * LAYER_H - (H * 0.45));
@@ -239,15 +241,142 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0d1626"); g.addColorStop(1, "#080c14");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < game.stack.length; i++) { const l = game.stack[i]; drawLayer(l.x, layerScreenY(i), l.w, l.color); }
-  for (const f of game.falling) drawLayer(f.x, f.y, f.w, f.color, true);
-  if (game.moving && !game.over) drawLayer(game.moving.x, layerScreenY(game.stack.length), game.moving.w, game.moving.color);
+  for (let i = 0; i < game.stack.length; i++) { const l = game.stack[i]; drawLayer(l.x, layerScreenY(i), l.w, l.color, l.name); }
+  for (const f of game.falling) drawLayer(f.x, f.y, f.w, f.color, f.name, true);
+  if (game.moving && !game.over) drawLayer(game.moving.x, layerScreenY(game.stack.length), game.moving.w, game.moving.color, game.moving.name);
   if (game.flash > 0) { ctx.fillStyle = `rgba(124,196,255,${game.flash * 0.10})`; ctx.fillRect(0, 0, W, H); }
+  const vg = ctx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.42, W / 2, H * 0.5, Math.max(W, H) * 0.8);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(3,6,12,.5)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 }
-function drawLayer(x, y, w, color, faded) {
+function srnd(i) { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }
+function tint(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) + amt, g = ((n >> 8) & 255) + amt, b = (n & 255) + amt;
+  r = Math.max(0, Math.min(255, r)); g = Math.max(0, Math.min(255, g)); b = Math.max(0, Math.min(255, b));
+  return `rgb(${r},${g},${b})`;
+}
+// Jede Zutat sieht nach echtem Doener-Belag aus (Texturen statt Farbbalken)
+function drawLayer(x, y, w, color, name, faded) {
+  const h = LAYER_H - 4;
   ctx.save(); if (faded) ctx.globalAlpha = 0.85;
-  ctx.fillStyle = color; roundRect(x, y, w, LAYER_H - 4, 7); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.12)"; roundRect(x, y, w, 7, 7); ctx.fill(); ctx.restore();
+  if (name === "__plate") {
+    ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h, w * 0.64, 7, 0, 0, 7); ctx.fill();
+    const pg = ctx.createLinearGradient(0, y, 0, y + h);
+    pg.addColorStop(0, "#f4f7fa"); pg.addColorStop(0.6, "#cfd6dd"); pg.addColorStop(1, "#a6afb8");
+    ctx.fillStyle = pg; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2 + 3, w * 0.60, h * 0.42, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#8d97a1"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = "rgba(120,132,144,.5)"; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h / 2 + 3, w * 0.44, h * 0.26, 0, 0, 7); ctx.stroke();
+    ctx.restore(); return;
+  }
+  const seed = Math.floor(x * 7 + w * 13);
+  roundRect(x, y, w, h, 8);
+  ctx.save(); ctx.clip();
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, tint(color, 26)); g.addColorStop(0.45, color); g.addColorStop(1, tint(color, -32));
+  ctx.fillStyle = g; ctx.fillRect(x - 2, y, w + 4, h);
+  if (name === "Brot") {
+    ctx.fillStyle = "rgba(150,95,40,.30)"; ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = "#fff6dd";
+    for (let i = 0; i < w / 16; i++) {
+      const sx = x + 8 + i * 16 + srnd(seed + i) * 6, sy = y + 8 + srnd(seed + i + 40) * (h - 14);
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(srnd(seed + i + 80) * 3);
+      ctx.beginPath(); ctx.ellipse(0, 0, 2.6, 1.4, 0, 0, 7); ctx.fill(); ctx.restore();
+    }
+  } else if (name === "Fleisch") {
+    for (let r = 0; r < 3; r++) {
+      const ly = y + 7 + r * (h / 3.2);
+      ctx.strokeStyle = "rgba(62,30,10,.55)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, ly);
+      for (let sx = 0; sx <= w; sx += 10) ctx.lineTo(x + sx, ly + Math.sin(sx * 0.3 + seed + r) * 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,200,140,.35)"; ctx.lineWidth = 2;
+    for (let i = 0; i < w / 34; i++) {
+      const sx = x + 10 + i * 34 + srnd(seed + i) * 10;
+      ctx.beginPath(); ctx.moveTo(sx, y + 6 + srnd(seed + i + 7) * 12); ctx.lineTo(sx + 7, y + 8 + srnd(seed + i + 7) * 12); ctx.stroke();
+    }
+  } else if (name === "Zwiebeln") {
+    for (let i = 0; i < w / 24; i++) {
+      const cx2 = x + 13 + i * 24, cy2 = y + h / 2 + (srnd(seed + i) - 0.5) * 6;
+      ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 8, 0, 7); ctx.stroke();
+      ctx.strokeStyle = "rgba(190,160,125,.6)"; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 4, 0, 7); ctx.stroke();
+    }
+  } else if (name === "Tomate") {
+    for (let i = 0; i < w / 30; i++) {
+      const cx2 = x + 16 + i * 30, cy2 = y + h / 2;
+      ctx.fillStyle = "#e8695e"; ctx.beginPath(); ctx.arc(cx2, cy2, 10, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#a92c22"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = "#f5c86e";
+      for (let k = 0; k < 5; k++) { const a = k * 1.256 + seed; ctx.beginPath(); ctx.arc(cx2 + Math.cos(a) * 4.5, cy2 + Math.sin(a) * 4.5, 1.2, 0, 7); ctx.fill(); }
+    }
+  } else if (name === "Salat") {
+    ctx.strokeStyle = "rgba(35,85,30,.5)"; ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(x + srnd(seed + i) * w * 0.3, y + h);
+      ctx.quadraticCurveTo(x + w * (0.3 + i * 0.25), y + 4, x + w * (0.4 + i * 0.28), y + h - 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.18)";
+    for (let i = 0; i < w / 22; i++) {
+      ctx.beginPath(); ctx.arc(x + 10 + i * 22 + srnd(seed + i) * 8, y + 6 + srnd(seed + i + 9) * 5, 5, 0, Math.PI, true); ctx.fill();
+    }
+  } else if (name === "Gurke") {
+    for (let i = 0; i < w / 28; i++) {
+      const cx2 = x + 15 + i * 28, cy2 = y + h / 2;
+      ctx.fillStyle = "#b8dba0"; ctx.beginPath(); ctx.arc(cx2, cy2, 9, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#3f7d33"; ctx.lineWidth = 2.2; ctx.stroke();
+      ctx.fillStyle = "#7bb661";
+      for (let k = 0; k < 6; k++) { const a = k * 1.047 + seed; ctx.beginPath(); ctx.arc(cx2 + Math.cos(a) * 4, cy2 + Math.sin(a) * 4, 1.1, 0, 7); ctx.fill(); }
+    }
+  } else if (name === "Sauce") {
+    ctx.fillStyle = "rgba(255,255,255,.45)";
+    ctx.beginPath(); ctx.ellipse(x + w * 0.3, y + 7, w * 0.22, 3.5, -0.05, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(190,150,60,.25)";
+    for (let i = 0; i < w / 26; i++) { ctx.beginPath(); ctx.arc(x + 12 + i * 26 + srnd(seed + i) * 8, y + h - 7 + srnd(seed + i + 3) * 3, 2, 0, 7); ctx.fill(); }
+  } else if (name === "Käse") {
+    ctx.fillStyle = "rgba(180,140,35,.5)";
+    for (let i = 0; i < w / 20; i++) {
+      const r = 2.5 + srnd(seed + i) * 3;
+      ctx.beginPath(); ctx.arc(x + 10 + i * 20 + srnd(seed + i + 5) * 8, y + 7 + srnd(seed + i + 11) * (h - 14), r, 0, 7); ctx.fill();
+    }
+  } else if (name === "Pommes") {
+    for (let i = 0; i < w / 15; i++) {
+      const sx = x + 6 + i * 15 + srnd(seed + i) * 5;
+      ctx.save(); ctx.translate(sx, y + h / 2); ctx.rotate((srnd(seed + i + 20) - 0.5) * 0.7);
+      ctx.fillStyle = "#f5d07a"; ctx.fillRect(-2.4, -h / 2 + 4, 4.8, h - 8);
+      ctx.strokeStyle = "rgba(160,105,30,.5)"; ctx.lineWidth = 1; ctx.strokeRect(-2.4, -h / 2 + 4, 4.8, h - 8);
+      ctx.restore();
+    }
+  } else if (name === "Peperoncini") {
+    for (let i = 0; i < w / 30; i++) {
+      const sx = x + 14 + i * 30, sy = y + h / 2 + (srnd(seed + i) - 0.5) * 5;
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate((srnd(seed + i + 6) - 0.5) * 1.2);
+      ctx.fillStyle = "#1f7d33";
+      ctx.beginPath(); ctx.moveTo(-8, -3);
+      ctx.quadraticCurveTo(4, -8, 9, 1); ctx.quadraticCurveTo(2, 5, -8, 1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#145223"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-8, -2); ctx.lineTo(-12, -5); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  // Kontur + weicher Glanz oben
+  roundRect(x, y, w, h, 8);
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.10)"; roundRect(x, y, w, 6, 6); ctx.fill();
+  // Sauce tropft unten raus
+  if (name === "Sauce") {
+    ctx.fillStyle = tint(color, 8);
+    for (let i = 0; i < 3; i++) {
+      const dx = x + w * (0.22 + i * 0.28) + srnd(seed + i) * 8;
+      const dr = 3 + srnd(seed + i + 30) * 3;
+      ctx.beginPath(); ctx.arc(dx, y + h, dr, 0, Math.PI); ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 function roundRect(x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);

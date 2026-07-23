@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#0a1120">
 <title>Döner-Dash — Züri Bistro Kebap</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   #app { position: fixed; inset: 0; background: #0a1120; }
@@ -93,6 +95,7 @@ function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch
 
 // UI-Farben (Zürich: Blau/Weiss)
 const UI = { text: "#eef4fb", blue: "#3b9dff", blue2: "#7cc4ff", dim: "#9fb4d0" };
+const FONT = '"Comic Sans MS","Comic Sans","Chalkboard SE","Comic Neue",cursive';
 
 // Sound
 const muteBtn = document.getElementById("muteBtn");
@@ -135,7 +138,7 @@ function resize() {
 window.addEventListener("resize", resize);
 function rr2(c, x, y, w, h, r) { r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2); c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 function rr(x, y, w, h, r) { rr2(ctx, x, y, w, h, r); }
-function text(t, x, y, size, col, align, weight) { ctx.fillStyle = col; ctx.textAlign = align || "center"; ctx.textBaseline = "middle"; ctx.font = `${weight || 800} ${size}px -apple-system, "Segoe UI", sans-serif`; ctx.fillText(t, x, y); }
+function text(t, x, y, size, col, align, weight) { ctx.fillStyle = col; ctx.textAlign = align || "center"; ctx.textBaseline = "middle"; ctx.font = `${weight || 800} ${size}px ${FONT}`; ctx.fillText(t, x, y); }
 function glowText(t, x, y, size, col, blur, weight) {
   ctx.save(); ctx.shadowColor = col; ctx.shadowBlur = blur;
   text(t, x, y, size, col, "center", weight || 900);
@@ -197,15 +200,20 @@ function drawGuy(cx, feetY, s, phase, shirt, opts) {
   opts = opts || {}; const skin = opts.skin || "#e0aa7e";
   const pants = opts.pants || "#232b36", shoe = opts.shoe || "#111418";
   ctx.save(); ctx.translate(cx, feetY);
+  if (opts.lean) ctx.rotate(opts.lean);
   const stride = Math.sin(phase) * 12 * s, stride2 = Math.sin(phase + Math.PI) * 12 * s;
   ctx.lineCap = "round"; ctx.strokeStyle = pants; ctx.lineWidth = 6.5 * s;
   for (const st of [stride, stride2]) {
-    const lift = Math.max(0, -Math.cos(phase + (st === stride ? 0 : Math.PI))) * 6 * s;
+    const lift = opts.tuck ? 13 * s : Math.max(0, -Math.cos(phase + (st === stride ? 0 : Math.PI))) * 6 * s;
     ctx.beginPath(); ctx.moveTo(0, -24 * s);
     ctx.quadraticCurveTo(st * 0.5 + 3 * s, -12 * s, st, -lift);
     ctx.stroke();
     ctx.fillStyle = shoe; rr(st - 5 * s, -lift - 3 * s, 12 * s, 5 * s, 2.5 * s); ctx.fill();
   }
+  // hinterer Arm (hinter dem Koerper)
+  ctx.strokeStyle = shade(shirt, -36); ctx.lineWidth = 6.5 * s;
+  const backX = (opts.tuck ? -9 : -Math.cos(phase) * 12) * s;
+  ctx.beginPath(); ctx.moveTo(0, -52 * s); ctx.quadraticCurveTo(backX * 0.6, -46 * s, backX, -33 * s); ctx.stroke();
   const bg = ctx.createLinearGradient(-14 * s, 0, 14 * s, 0);
   bg.addColorStop(0, shade(shirt, -28)); bg.addColorStop(0.45, shirt); bg.addColorStop(1, shade(shirt, 18));
   ctx.fillStyle = bg; rr(-14 * s, -60 * s, 28 * s, 40 * s, 9 * s); ctx.fill();
@@ -335,6 +343,11 @@ function drawPolice(x, groundY, t) {
   rr(2, -h - 31, 12, 5, 2); ctx.fill();
   ctx.restore();
   ctx.restore();
+  // Blaulicht-Schein auf dem Asphalt
+  const bl = Math.sin(t * 10) > 0;
+  const gl = ctx.createRadialGradient(x, groundY + 6, 4, x, groundY + 6, 95);
+  gl.addColorStop(0, `rgba(80,160,255,${bl ? 0.22 : 0.10})`); gl.addColorStop(1, "rgba(80,160,255,0)");
+  ctx.fillStyle = gl; ctx.fillRect(x - 100, groundY - 8, 200, 60);
 }
 
 // Hooligan-Gruppe mit blau-weissen Schals
@@ -383,10 +396,30 @@ function reflect(x, w, col, topY, len) {
   g.addColorStop(0, col); g.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = g; ctx.fillRect(x - w / 2, topY, w, len || 60);
 }
+let grainPat = null;
+function getGrain() {
+  if (grainPat) return grainPat;
+  const c = document.createElement("canvas"); c.width = 128; c.height = 128;
+  const x = c.getContext("2d"); const d = x.createImageData(128, 128);
+  for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i+1] = d.data[i+2] = v; d.data[i+3] = 255; }
+  x.putImageData(d, 0, 0);
+  grainPat = ctx.createPattern(c, "repeat"); return grainPat;
+}
 function vignette() {
+  // Farb-Grading: kuehles Licht oben, warmes Laden-Licht unten (Soft-Light)
+  ctx.save(); ctx.globalCompositeOperation = "soft-light";
+  const cg = ctx.createLinearGradient(0, 0, 0, H);
+  cg.addColorStop(0, "rgba(70,110,200,.55)"); cg.addColorStop(0.55, "rgba(0,0,0,0)"); cg.addColorStop(1, "rgba(230,140,60,.45)");
+  ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
   const g = ctx.createRadialGradient(W / 2, H * 0.42, Math.min(W, H) * 0.38, W / 2, H * 0.5, Math.max(W, H) * 0.78);
   g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(4,7,14,.6)");
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Film-Grain (leicht wandernd)
+  ctx.save(); ctx.globalAlpha = 0.045;
+  ctx.translate(-((anim * 90) % 128), -((anim * 55) % 128));
+  ctx.fillStyle = getGrain(); ctx.fillRect(0, 0, W + 128, H + 128);
+  ctx.restore();
 }
 
 // Zutaten-Icons (flach gezeichnet, keine Emojis)
@@ -486,7 +519,7 @@ function getShop() {
   fg.addColorStop(0, "rgba(90,200,255,.24)"); fg.addColorStop(1, "rgba(90,200,255,.06)");
   x.fillStyle = fg; rr2(x, fx + 5, fy + 26, fw - 10, fh - 34, 6); x.fill();
   x.save(); x.shadowColor = "#5ac8ff"; x.shadowBlur = 8;
-  x.fillStyle = "#dff2ff"; x.font = `800 ${Math.max(9, fw * 0.16)}px -apple-system, sans-serif`;
+  x.fillStyle = "#dff2ff"; x.font = `800 ${Math.max(9, fw * 0.16)}px ${FONT}`;
   x.textAlign = "center"; x.fillText("AYRAN", fx + fw / 2, fy + 17); x.restore();
   const canCols = ["#e74c3c", "#f1c40f", "#3498db", "#2ecc71", "#e67e22", "#ecf0f1"];
   for (let r = 0; r < 4; r++) {
@@ -526,7 +559,7 @@ function getShop() {
   x.save(); x.shadowColor = "#39d0c4"; x.shadowBlur = 14;
   x.strokeStyle = "rgba(57,208,196,.9)"; x.lineWidth = 2;
   rr2(x, W * 0.20, H * 0.30, 118, 30, 15); x.stroke();
-  x.shadowBlur = 10; x.fillStyle = "#39d0c4"; x.font = "800 13px -apple-system, sans-serif"; x.textAlign = "center";
+  x.shadowBlur = 10; x.fillStyle = "#39d0c4"; x.font = "800 13px " + FONT; x.textAlign = "center";
   x.fillText("ZÜRI BISTRO", W * 0.20 + 59, H * 0.30 + 19); x.restore();
   shopCache = c; return c;
 }
@@ -600,7 +633,7 @@ function banner(msg, sub) {
   text(msg, W / 2, H * 0.115, Math.min(28, W * 0.07), UI.text, "center", 900);
   ctx.shadowBlur = 0;
   if (sub) {
-    ctx.font = "600 13px -apple-system, sans-serif";
+    ctx.font = "600 13px " + FONT;
     const wdt = ctx.measureText(sub).width;
     rr(W / 2 - wdt / 2 - 14, H * 0.115 + 16, wdt + 28, 24, 12);
     ctx.fillStyle = "rgba(6,11,22,.6)"; ctx.fill();
@@ -734,6 +767,10 @@ SCENES.run = {
       }
     }
 
+    // Dunst ueber der Stadt (Tiefenwirkung)
+    const hz = ctx.createLinearGradient(0, tramBase - 170, 0, tramBase);
+    hz.addColorStop(0, "rgba(110,130,190,0)"); hz.addColorStop(1, "rgba(110,130,190,.13)");
+    ctx.fillStyle = hz; ctx.fillRect(0, tramBase - 170, W, 170);
     ctx.strokeStyle = "rgba(150,160,175,.4)"; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(0, tramBase - 92); ctx.lineTo(W, tramBase - 92); ctx.stroke();
     ctx.strokeStyle = "rgba(90,95,105,.8)"; ctx.lineWidth = 3;
@@ -825,9 +862,40 @@ SCENES.run = {
     ctx.beginPath(); ctx.ellipse(px, groundY + 3, 17 + S.py * 0.08, 4.5, 0, 0, 7); ctx.fill();
     ctx.save();
     if (S.stumble > 0) ctx.globalAlpha = 0.5 + Math.abs(Math.sin(anim * 30)) * 0.5;
-    drawGuy(px, groundY + S.py, 1, S.ground ? S.frame : 1.8, "#2a9d8f", { hood: true });
+    drawGuy(px, groundY + S.py, 1, S.ground ? S.frame : 1.8, "#2a9d8f", { hood: true, lean: 0.10 + (S.ground ? 0 : 0.10), tuck: !S.ground });
     ctx.restore();
     drawParts("dust");
+
+    // Vordergrund-Ebene: Poller & Buesche ziehen nah an der Kamera vorbei
+    const p3 = S.worldX * 1.55;
+    for (let i = Math.floor(p3 / 430) - 1; i < Math.floor(p3 / 430) + Math.ceil(W / 430) + 2; i++) {
+      const fx = i * 430 - p3;
+      ctx.fillStyle = "#060a14";
+      if (rnd(i + 700) < 0.55) {
+        rr(fx - 7, H * 0.885, 14, 70, 6); ctx.fill();
+        ctx.fillStyle = "rgba(124,196,255,.25)"; rr(fx - 7, H * 0.885, 14, 4, 2); ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(fx - 18, H * 0.945, 24, 0, 7); ctx.arc(fx + 6, H * 0.93, 30, 0, 7); ctx.arc(fx + 34, H * 0.95, 22, 0, 7);
+        ctx.fill();
+      }
+    }
+
+    // Zuercher Nieselregen + Spritzer am Boden
+    ctx.save(); ctx.strokeStyle = "rgba(170,195,230,.26)"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+    for (let i = 0; i < 64; i++) {
+      const spd = 520 + rnd(i) * 260, len = 13 + rnd(i + 30) * 13;
+      const oy = (anim * spd + rnd(i + 60) * 2000) % (H + 80) - 40;
+      const ox = ((rnd(i + 90) * (W + 120)) + oy * 0.20) % (W + 120) - 60;
+      ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox - len * 0.20, oy + len); ctx.stroke();
+    }
+    for (let i = 0; i < 8; i++) {
+      const cyc = (anim * 1.7 + rnd(i + 200) * 7) % 1;
+      const sx2 = rnd(i + 300) * W, sy2 = groundY + 8 + rnd(i + 400) * 34;
+      ctx.strokeStyle = `rgba(180,200,230,${0.25 * (1 - cyc)})`; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(sx2, sy2, 6 * cyc + 1, 2.4 * cyc + 0.4, 0, 0, 7); ctx.stroke();
+    }
+    ctx.restore();
 
     banner("Renn zum Züri Bistro!", "Tippen = springen · Münzen mitnehmen");
     progressBar(Math.min(1, S.worldX / S.goal), UI.blue);

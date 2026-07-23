@@ -6,6 +6,8 @@
 <meta name="theme-color" content="#0a1120">
 <title>Wer zahlt? — Dönerfriitig</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
@@ -137,7 +139,7 @@ function draw() {
     ctx.translate(cx, cy); ctx.rotate(a0 + seg / 2);
     ctx.textAlign = "right"; ctx.textBaseline = "middle";
     ctx.fillStyle = LABEL_COL[i % LABEL_COL.length];
-    ctx.font = `800 ${Math.max(13, SIZE * 0.055)}px -apple-system, sans-serif`;
+    ctx.font = `800 ${Math.max(13, SIZE * 0.055)}px "Comic Sans MS","Comic Sans","Chalkboard SE","Comic Neue",cursive`;
     ctx.fillText(segments[i], R - 16, 0);
     ctx.restore();
   }
@@ -197,6 +199,7 @@ muteBtn.addEventListener("click", (e) => {
 });
 
 resize();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
 </script>
 </body>
 </html>

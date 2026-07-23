@@ -201,6 +201,7 @@ function drawGuy(cx, feetY, s, phase, shirt, opts) {
   const pants = opts.pants || "#232b36", shoe = opts.shoe || "#111418";
   ctx.save(); ctx.translate(cx, feetY);
   if (opts.lean) ctx.rotate(opts.lean);
+  if (opts.duckPose) ctx.scale(1.05, 0.62);
   const stride = Math.sin(phase) * 12 * s, stride2 = Math.sin(phase + Math.PI) * 12 * s;
   ctx.lineCap = "round"; ctx.strokeStyle = pants; ctx.lineWidth = 6.5 * s;
   for (const st of [stride, stride2]) {
@@ -367,6 +368,41 @@ function drawDrunk(x, groundY, t) {
   if (Math.random() < 0.05) spawn({ kind: "puke", x: x + 14, y: groundY - 52, vx: 30 + Math.random() * 20, vy: -10, g: 160, r: 2.5, max: 0.7 });
 }
 
+function drawMiniDoner(x, y, s, rot) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0); ctx.scale(s, s);
+  ctx.fillStyle = "#ecd9ae";
+  ctx.beginPath(); ctx.moveTo(-9, -7); ctx.lineTo(9, -7); ctx.lineTo(0, 12); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.3)"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = "#9c5c30"; ctx.beginPath(); ctx.ellipse(0, -7, 9, 3.4, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#5fae4e"; ctx.beginPath(); ctx.arc(-3, -7.5, 1.6, 0, 7); ctx.fill();
+  ctx.fillStyle = "#c0392b"; ctx.beginPath(); ctx.arc(3, -7.5, 1.6, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function drawOfficer(x, gy, t, eating) {
+  drawGuy(x, gy, 0.9, 0, "#243b63", { cap: "#101827", arm: eating ? 7 : 11, armUp: eating, pants: "#1b2942" });
+  if (eating) {
+    drawMiniDoner(x + 7, gy - 55, 0.9, 0.5);
+    if (Math.random() < 0.05) spawn({ kind: "txt", t: "mmh…", col: "#7ee287", size: 12, x: x + 14, y: gy - 92, vy: -20, max: 0.9 });
+  }
+}
+// Baustellen-Schranke auf Kopfhoehe -> nur buecken hilft
+function drawSchranke(x, gy, t) {
+  ctx.fillStyle = "#3a4148";
+  rr(x - 31, gy - 94, 7, 94, 3); ctx.fill();
+  rr(x + 24, gy - 94, 7, 94, 3); ctx.fill();
+  ctx.save(); ctx.translate(x, gy - 76);
+  rr(-36, -8, 72, 16, 5); ctx.fillStyle = "#e8ecef"; ctx.fill();
+  ctx.save(); rr(-36, -8, 72, 16, 5); ctx.clip();
+  ctx.fillStyle = "#d13b3b";
+  for (let i = 0; i < 5; i++) { ctx.save(); ctx.translate(-36 + i * 17, 0); ctx.rotate(0.35); ctx.fillRect(-4, -14, 9, 28); ctx.restore(); }
+  ctx.restore();
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1.5; rr(-36, -8, 72, 16, 5); ctx.stroke();
+  ctx.restore();
+  const on = Math.sin(t * 6) > 0;
+  ctx.save(); if (on) { ctx.shadowColor = "#ffb020"; ctx.shadowBlur = 10; }
+  ctx.fillStyle = on ? "#ffb020" : "#6b5210";
+  ctx.beginPath(); ctx.arc(x - 27, gy - 100, 4, 0, 7); ctx.fill(); ctx.restore();
+}
 function drawLampPost(x, groundY, hgt) {
   ctx.strokeStyle = "#2a2d33"; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x, groundY - hgt); ctx.quadraticCurveTo(x, groundY - hgt - 18, x + 26, groundY - hgt - 18); ctx.stroke();
@@ -582,7 +618,7 @@ let lastTime = 0, lastScore = 0;
 let raf = null, lastFrame = 0;
 let shake = 0;
 const S = {};
-let R = { coins: 0, fell: false, payMode: null, payErr: false, orderErr: false, sauceErr: false };
+let R = { coins: 0, fell: false, payMode: null, payErr: false, orderErr: false, sauceErr: false, bribes: 0 };
 
 function setScene(name) { scene = name; sceneT0 = P(); S.init = false; hitButtons = []; }
 function elapsed() { return P() - totalStart + penaltyMs; }
@@ -590,7 +626,7 @@ function elapsed() { return P() - totalStart + penaltyMs; }
 function startGame() {
   document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden"));
   resize(); penaltyMs = 0; totalStart = P(); lastFrame = P(); parts = [];
-  R = { coins: 0, fell: false, payMode: null, payErr: false, orderErr: false, sauceErr: false };
+  R = { coins: 0, fell: false, payMode: null, payErr: false, orderErr: false, sauceErr: false, bribes: 0 };
   setScene("run");
   if (!raf) loop();
 }
@@ -683,6 +719,7 @@ SCENES.run = {
     if (!S.init) {
       S.init = true; S.worldX = 0; S.goal = 9000; S.py = 0; S.vy = 0; S.ground = true;
       S.obs = []; S.spawnT = 1.2; S.frame = 0; S.stumble = 0; S.tramX = W + 500; S.tramV = 90;
+      S.ammo = 3; S.projs = []; S.duck = 0; S.btnRect = null;
       S.coins = [];
       for (let i = 0; i < 14; i++) S.coins.push({ wx: 520 + i * 580, high: i % 4 === 2, got: false });
     }
@@ -690,6 +727,10 @@ SCENES.run = {
     S.speed = 280 + 60 * (S.worldX / S.goal);
     S.worldX += S.speed * dt; S.frame += dt * 12;
     if (S.stumble > 0) S.stumble -= dt;
+    if (S.duck > 0) {
+      S.duck -= dt;
+      if (Math.random() < 0.35) spawn({ kind: "dust", x: W * 0.26 - 16, y: H * 0.82, vx: -50, vy: -12, g: 70, r: 2, max: 0.4 });
+    }
     S.vy += 2400 * dt; const wasAir = !S.ground; S.py += S.vy * dt;
     if (S.py >= 0) {
       S.py = 0; S.vy = 0; S.ground = true;
@@ -701,17 +742,42 @@ SCENES.run = {
     if (S.spawnT <= 0 && S.worldX < S.goal - 500) {
       S.spawnT = 1.15 + Math.random() * 0.85;
       const r = Math.random();
-      S.obs.push({ x: S.worldX + W + 60, type: r < 0.30 ? "police" : r < 0.65 ? "hools" : "drunk" });
+      S.obs.push({ x: S.worldX + W + 60, type: r < 0.24 ? "police" : r < 0.46 ? "schranke" : r < 0.76 ? "hools" : "drunk" });
     }
     const px = W * 0.26;
-    const HW = { police: 54, hools: 36, drunk: 18 };
+    const HW = { police: 64, hools: 36, drunk: 18, schranke: 20 };
     for (const o of S.obs) {
+      if (o.hit) continue;
       const ox = o.x - S.worldX;
-      if (Math.abs(ox - px) < HW[o.type] && S.py > -50 && !o.hit) {
+      if (o.type === "schranke") {
+        if (Math.abs(ox - px) < HW.schranke && S.duck <= 0) {
+          o.hit = true; R.fell = true; S.stumble = 0.5; doFlash("#c0392b"); DFAudio.over(); vibrate(60);
+          penalty(900, "Kopf angeschlagen – bücken!");
+        }
+      } else if (Math.abs(ox - px) < HW[o.type] && S.py > -50) {
+        if (o.type === "police" && o.bribed) continue;
         o.hit = true; R.fell = true; S.stumble = 0.5; doFlash("#c0392b"); DFAudio.over(); vibrate(60);
         penalty(900, o.type === "police" ? "In die Kontrolle gerannt!" : o.type === "hools" ? "In die Hooligans gerannt!" : "Das war knapp daneben…");
       }
     }
+    // Doener-Wuerfe (Flugbahn + Treffer auf den Polizisten)
+    for (const p of S.projs) {
+      p.wx += (S.speed + 170) * dt; p.y += p.vy * dt; p.vy += 700 * dt; p.rot += 7 * dt;
+      if (!p.dead) for (const o of S.obs) {
+        if (o.type !== "police" || o.bribed) continue;
+        const offX = o.x - 66;
+        if (Math.abs(p.wx - offX) < 46 && p.y > H * 0.82 - 135 && p.y < H * 0.82 - 8) {
+          o.bribed = true; p.dead = true; R.bribes++;
+          DFAudio.perfect(); vibrate(25);
+          spawn({ kind: "txt", t: "Kontrolle gefüttert! +150", col: "#7ee287", size: 16, x: W * 0.55, y: H * 0.5, vy: -30, max: 1.3 });
+        }
+      }
+      if (!p.dead && p.y >= H * 0.82 - 6) {
+        p.dead = true;
+        spawn({ kind: "txt", t: "Daneben…", col: "#ff9d9d", size: 13, x: p.wx - S.worldX, y: H * 0.80, vy: -22, max: 0.8 });
+      }
+    }
+    S.projs = S.projs.filter(p => !p.dead && p.wx - S.worldX < W + 80);
     S.obs = S.obs.filter(o => o.x - S.worldX > -140);
     for (const c of S.coins) {
       if (c.got) continue;
@@ -851,18 +917,20 @@ SCENES.run = {
     for (const o of S.obs) {
       const x = o.x - S.worldX;
       if (x < -140 || x > W + 140) continue;
-      if (o.type === "police") drawPolice(x, groundY, anim);
+      if (o.type === "police") { drawPolice(x, groundY, anim); drawOfficer(x - 66, groundY, anim, o.bribed); }
+      else if (o.type === "schranke") drawSchranke(x, groundY, anim);
       else if (o.type === "hools") drawHools(x, groundY, anim);
       else drawDrunk(x, groundY, anim + o.x);
     }
     drawParts("puke");
+    for (const p of S.projs) drawMiniDoner(p.wx - S.worldX, p.y, 1.1, p.rot);
 
     const px = W * 0.26;
     ctx.fillStyle = "rgba(0,0,0,.35)";
     ctx.beginPath(); ctx.ellipse(px, groundY + 3, 17 + S.py * 0.08, 4.5, 0, 0, 7); ctx.fill();
     ctx.save();
     if (S.stumble > 0) ctx.globalAlpha = 0.5 + Math.abs(Math.sin(anim * 30)) * 0.5;
-    drawGuy(px, groundY + S.py, 1, S.ground ? S.frame : 1.8, "#2a9d8f", { hood: true, lean: 0.10 + (S.ground ? 0 : 0.10), tuck: !S.ground });
+    drawGuy(px, groundY + S.py, 1, S.duck > 0 ? S.frame * 1.4 : (S.ground ? S.frame : 1.8), "#2a9d8f", { hood: true, lean: 0.10 + (S.ground ? 0 : 0.10) + (S.duck > 0 ? 0.16 : 0), tuck: !S.ground, duckPose: S.duck > 0 });
     ctx.restore();
     drawParts("dust");
 
@@ -897,12 +965,48 @@ SCENES.run = {
     }
     ctx.restore();
 
-    banner("Renn zum Züri Bistro!", "Tippen = springen · Münzen mitnehmen");
+    // Wurf-Knopf (unten Mitte) + Steuerungs-Hinweise
+    const abtn = 62, abx = W / 2 - abtn / 2, aby = H * 0.900;
+    S.btnRect = { x: abx - 10, y: aby - 10, w: abtn + 20, h: abtn + 20 };
+    ctx.save();
+    ctx.fillStyle = "rgba(6,11,22,.78)"; ctx.beginPath(); ctx.arc(W / 2, aby + abtn / 2, abtn / 2 + 4, 0, 7); ctx.fill();
+    ctx.shadowColor = UI.blue; ctx.shadowBlur = S.ammo > 0 ? 10 : 0;
+    ctx.strokeStyle = S.ammo > 0 ? "rgba(124,196,255,.7)" : "rgba(124,196,255,.25)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(W / 2, aby + abtn / 2, abtn / 2 + 4, 0, 7); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.globalAlpha = S.ammo > 0 ? 1 : 0.4;
+    drawMiniDoner(W / 2, aby + abtn / 2 - 6, 1.5, 0);
+    ctx.globalAlpha = 1;
+    text("×" + S.ammo, W / 2, aby + abtn - 4, 13, UI.text, "center", 800);
+    ctx.restore();
+    if (S.worldX < 1700) {
+      text("links: BÜCKEN", W * 0.17, H * 0.935, 12, "rgba(238,244,251,.6)", "center", 800);
+      text("rechts: SPRINGEN", W * 0.83, H * 0.935, 12, "rgba(238,244,251,.6)", "center", 800);
+    }
+
+    banner("Renn zum Züri Bistro!", "Springen · Bücken · Knopf: Döner auf die Polizei werfen");
     progressBar(Math.min(1, S.worldX / S.goal), UI.blue);
     drawFlash();
     vignette();
   },
-  tap() { if (S.ground) { S.vy = -780; S.ground = false; DFAudio.tick(); vibrate(8); } },
+  tap(x, y) {
+    const b = S.btnRect;
+    if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+      if (S.ammo > 0) {
+        S.ammo--;
+        S.projs.push({ wx: S.worldX + W * 0.30, y: H * 0.82 - 70, vy: -180, rot: 0 });
+        DFAudio.hit(10); vibrate(12);
+      } else {
+        spawn({ kind: "txt", t: "Keine Döner mehr!", col: "#ff9d9d", size: 13, x: W / 2, y: H * 0.83, vy: -24, max: 1 });
+        DFAudio.tick();
+      }
+      return;
+    }
+    if (x < W / 2) {
+      if (S.ground && S.duck <= 0) { S.duck = 0.55; DFAudio.tick(); vibrate(6); }
+    } else {
+      if (S.ground && S.duck <= 0) { S.vy = -780; S.ground = false; DFAudio.tick(); vibrate(8); }
+    }
+  },
 };
 
 // --- 2) QUEUE: Lücken-Reaktionsspiel ---
@@ -1404,7 +1508,8 @@ function computeScore() {
   const payClean = (R.payMode !== "cash" && !R.payErr) ? 300 : 0;
   const orderClean = !R.orderErr ? 300 : 0;
   const shoeClean = !R.sauceErr ? 300 : 0;
-  return { timeBonus, coinBonus, runClean, payClean, orderClean, shoeClean, total: timeBonus + coinBonus + runClean + payClean + orderClean + shoeClean };
+  const bribeBonus = R.bribes * 150;
+  return { timeBonus, coinBonus, runClean, payClean, orderClean, shoeClean, bribeBonus, total: timeBonus + coinBonus + runClean + payClean + orderClean + shoeClean + bribeBonus };
 }
 function finishGame() {
   lastTime = elapsed();
@@ -1421,6 +1526,7 @@ function finishGame() {
     ["Zeitbonus", sc.timeBonus, sc.timeBonus > 0],
     ["Münzen (" + R.coins + " × 100)", sc.coinBonus, R.coins > 0],
     ["Sauber gerannt", sc.runClean, sc.runClean > 0],
+    ["Polizei gefüttert (" + R.bribes + " × 150)", sc.bribeBonus, R.bribes > 0],
     [R.payMode === "cash" ? "Zahl-Bonus (nur Karte/TWINT)" : "Zahlung fehlerfrei", sc.payClean, sc.payClean > 0],
     ["Bestellung fehlerfrei", sc.orderClean, sc.orderClean > 0],
     ["Saubere Schuhe", sc.shoeClean, sc.shoeClean > 0],

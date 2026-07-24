@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a1120">
-<title>Döner-Stapler — Dönerfriitig</title>
+<title>Döner-Stapler · Dönerfriitig</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
@@ -64,7 +64,7 @@
   <div id="startScreen" class="screen">
     <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='DF'"></div>
     <div><h1>Döner-Stapler</h1><div class="sub">Dönerfriitig</div></div>
-    <p class="lead">Stapel die Zutaten aufeinander – tippe im richtigen Moment, sonst wird abgeschnitten. Wer am höchsten stapelt, gewinnt.</p>
+    <p class="lead">Stapel die Zutaten aufeinander: tippe im richtigen Moment, sonst wird abgeschnitten. Wer am höchsten stapelt, gewinnt.</p>
     <div style="font-size:13px;opacity:.7">Wähl dein Member-Kürzel:</div>
     <div class="members" id="members"></div>
     <button class="btn" id="playBtn" disabled>Spiele</button>
@@ -448,7 +448,7 @@ function endGame() {
   api.submit(member, sc);
 }
 function overMessage(sc) {
-  if (sc === 0) return "Nicht mal das Brot getroffen? Das gibt eine <span class='bussen'>Busse von CHF 13.–</span>";
+  if (sc === 0) return "Nicht mal das Brot getroffen? Das gibt eine <span class='bussen'>Busse von CHF 13</span>";
   if (sc < 5) return "Etwas mehr Übung, sonst kommst du als Letzter und gehst als Erster.";
   if (sc < 12) return "Solide gestapelt! Das gibt Respekt am Dönerfriitig.";
   if (sc < 20) return "Stark! Das reicht fast für die DF Chlöpfete.";
@@ -467,7 +467,7 @@ async function showBoard() {
     const me = row.name === member ? " me" : ""; const gold = i < 3 ? " gold" : "";
     html += `<div class="row${me}${gold}"><span class="rank">${medal}</span><span class="name">${escapeHtml(labelOf(row.name))}</span><span class="pts">${row.score}</span></div>`;
   });
-  if (data.offline) html += '<div class="muted">⚠️ Offline – nur lokali Scores (geteilti Bestenliste sobald online).</div>';
+  if (data.offline) html += '<div class="muted">Offline, nur lokale Scores.</div>';
   boardList.innerHTML = html;
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }

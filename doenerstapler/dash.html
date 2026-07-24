@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a1120">
-<title>Döner-Dash — Züri Bistro Kebap</title>
+<title>Döner-Dash · Züri Bistro Kebap</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@
   <div id="startScreen" class="screen">
     <div class="logo"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='DF'"></div>
     <div><h1>Döner-Dash</h1><div class="sub">Züri Bistro · Albisriederplatz</div></div>
-    <p class="lead">Freitag, 12.13 Uhr. Renn zum <b>Züri Bistro</b>: spring über Penner, rutsch unter Schranken durch und putz Hooligans mit Döner-Würfen weg. Dann drängeln, zahlen, bestellen – und den Döner schnell essen, bevor die Sauce auf die Schuhe tropft.</p>
+    <p class="lead">Freitag, 12.13 Uhr. Renn zum <b>Züri Bistro</b>: spring über Penner, rutsch unter Schranken durch und putz Hooligans mit Döner-Würfen weg. Dann drängeln, zahlen, bestellen und den Döner schnell essen, bevor die Sauce auf die Schuhe tropft.</p>
     <div style="font-size:13px;opacity:.7">Wähl dein Member-Kürzel:</div>
     <div class="members" id="members"></div>
     <button class="btn" id="playBtn" disabled>Los!</button>
@@ -118,7 +118,7 @@ function localTop() { const b = store.get().boardDash || {}; return Object.entri
 const toastEl = document.getElementById("toast"); let toastTimer = null;
 function toast(m) { toastEl.textContent = m; toastEl.classList.remove("hidden"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.add("hidden"), 1800); }
 async function shareScore() {
-  const text = `Döner im Züri Bistro in ${(lastTime/1000).toFixed(1)}s geholt und gegessen – ${lastScore} Punkte im Döner-Dash. Schlägst du mich?`;
+  const text = `Döner im Züri Bistro in ${(lastTime/1000).toFixed(1)}s geholt und gegessen, ${lastScore} Punkte im Döner-Dash. Schlägst du mich?`;
   const url = location.origin + location.pathname;
   try { if (navigator.share) { await navigator.share({ title: "Döner-Dash", text, url }); return; } } catch { return; }
   try { await navigator.clipboard.writeText(text + " " + url); toast("Text kopiert!"); } catch { toast("Teilen geht auf diesem Gerät nicht"); }
@@ -707,7 +707,7 @@ SCENES.run = {
     if (!S.init) {
       S.init = true; S.worldX = 0; S.goal = 9000; S.py = 0; S.vy = 0; S.ground = true;
       S.obs = []; S.spawnT = 1.2; S.frame = 0; S.stumble = 0; S.tramX = W + 500; S.tramV = 90;
-      S.ammo = 3; S.projs = []; S.duck = 0; S.btnRect = null; S.slowT = 0;
+      S.projs = []; S.duck = 0; S.btnRect = null; S.slowT = 0;
       S.coins = [];
       for (let i = 0; i < 14; i++) S.coins.push({ wx: 520 + i * 580, high: i % 4 === 2, got: false });
     }
@@ -744,7 +744,7 @@ SCENES.run = {
       if (o.hit || o.thrown) continue;
       const ox = o.x - S.worldX;
       if (o.type === "schranke") {
-        if (Math.abs(ox - px) < 20 && S.duck <= 0) slowHit(o, "Kopf angeschlagen – bücken!");
+        if (Math.abs(ox - px) < 20 && S.duck <= 0) slowHit(o, "Kopf angeschlagen, bücken!");
       } else if (o.type === "hools") {
         // Hooligans erwischen dich auch im Sprung – nur Abwerfen hilft
         if (Math.abs(ox - px) < 56) slowHit(o, "Von den Hooligans erwischt!");
@@ -965,18 +965,25 @@ SCENES.run = {
     S.btnRect = { x: abx - 10, y: aby - 10, w: abtn + 20, h: abtn + 20 };
     ctx.save();
     ctx.fillStyle = "rgba(6,11,22,.78)"; ctx.beginPath(); ctx.arc(W / 2, aby + abtn / 2, abtn / 2 + 4, 0, 7); ctx.fill();
-    ctx.shadowColor = UI.blue; ctx.shadowBlur = S.ammo > 0 ? 10 : 0;
-    ctx.strokeStyle = S.ammo > 0 ? "rgba(124,196,255,.7)" : "rgba(124,196,255,.25)"; ctx.lineWidth = 2;
+    ctx.shadowColor = UI.blue; ctx.shadowBlur = 10;
+    ctx.strokeStyle = "rgba(124,196,255,.7)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(W / 2, aby + abtn / 2, abtn / 2 + 4, 0, 7); ctx.stroke();
-    ctx.shadowBlur = 0; ctx.globalAlpha = S.ammo > 0 ? 1 : 0.4;
+    ctx.shadowBlur = 0;
     drawMiniDoner(W / 2, aby + abtn / 2 - 6, 1.5, 0);
-    ctx.globalAlpha = 1;
-    text("×" + S.ammo, W / 2, aby + abtn - 4, 13, UI.text, "center", 800);
+    text("WERFEN", W / 2, aby + abtn - 2, 11, UI.text, "center", 800);
     ctx.restore();
-    if (S.worldX < 1700) {
-      text("links: BÜCKEN", W * 0.17, H * 0.935, 12, "rgba(238,244,251,.6)", "center", 800);
-      text("rechts: SPRINGEN", W * 0.83, H * 0.935, 12, "rgba(238,244,251,.6)", "center", 800);
-    }
+    // Steuerungszonen: immer sichtbar
+    ctx.save();
+    rr(W * 0.045, H * 0.912, W * 0.27, 32, 12); ctx.fillStyle = "rgba(6,11,22,.62)"; ctx.fill();
+    ctx.strokeStyle = "rgba(124,196,255,.3)"; ctx.lineWidth = 1.5; rr(W * 0.045, H * 0.912, W * 0.27, 32, 12); ctx.stroke();
+    rr(W * 0.685, H * 0.912, W * 0.27, 32, 12); ctx.fillStyle = "rgba(6,11,22,.62)"; ctx.fill();
+    rr(W * 0.685, H * 0.912, W * 0.27, 32, 12); ctx.stroke();
+    ctx.fillStyle = "#7cc4ff";
+    ctx.beginPath(); ctx.moveTo(W * 0.085, H * 0.921); ctx.lineTo(W * 0.115, H * 0.921); ctx.lineTo(W * 0.10, H * 0.921 + 13); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.725, H * 0.921 + 13); ctx.lineTo(W * 0.755, H * 0.921 + 13); ctx.lineTo(W * 0.74, H * 0.921); ctx.closePath(); ctx.fill();
+    text("BÜCKEN", W * 0.215, H * 0.931, 12.5, "#eef4fb", "center", 800);
+    text("SPRINGEN", W * 0.855, H * 0.931, 12.5, "#eef4fb", "center", 800);
+    ctx.restore();
 
     banner("Renn zum Züri Bistro!", "Penner: springen · Schranke: bücken · Hooligans: abwerfen!");
     progressBar(Math.min(1, S.worldX / S.goal), UI.blue);
@@ -986,14 +993,8 @@ SCENES.run = {
   tap(x, y) {
     const b = S.btnRect;
     if (b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
-      if (S.ammo > 0) {
-        S.ammo--;
-        S.projs.push({ wx: S.worldX + W * 0.30, y: H * 0.82 - 70, vy: -180, rot: 0 });
-        DFAudio.hit(10); vibrate(12);
-      } else {
-        spawn({ kind: "txt", t: "Keine Döner mehr!", col: "#ff9d9d", size: 13, x: W / 2, y: H * 0.83, vy: -24, max: 1 });
-        DFAudio.tick();
-      }
+      S.projs.push({ wx: S.worldX + W * 0.30, y: H * 0.82 - 70, vy: -180, rot: 0 });
+      DFAudio.hit(10); vibrate(12);
       return;
     }
     if (x < W / 2) {
@@ -1018,7 +1019,7 @@ SCENES.queue = {
       DFAudio.tick();
     } else if (S.state === "cue" && S.timer <= 0) {
       S.state = "wait"; S.timer = 0.5 + Math.random() * 0.7;
-      penalty(300, "Zu langsam – Lücke zu!");
+      penalty(300, "Zu langsam, Lücke zu!");
     } else if (S.state === "pass" && S.timer <= 0) {
       S.idx++;
       if (S.idx >= S.total) { DFAudio.perfect(); setScene("pay"); return; }
@@ -1033,7 +1034,7 @@ SCENES.queue = {
     ctx.fillStyle = "#0d1526"; rr(mx, my, mw, 104, 6); ctx.fill();
     ctx.strokeStyle = "#2a4d80"; ctx.lineWidth = 3; rr(mx, my, mw, 104, 6); ctx.stroke();
     text("MENU", mx + mw / 2, my + 16, 12, UI.blue2, "center", 800);
-    const items = [["Döner Kebap", "13.–"], ["Dürüm", "15.–"], ["Kebap-Box", "14.–"], ["Ayran", "3.–"]];
+    const items = [["Döner Kebap", "13.00"], ["Dürüm", "15.00"], ["Kebap-Box", "14.00"], ["Ayran", "3.00"]];
     items.forEach((it, i) => {
       text(it[0], mx + 12, my + 36 + i * 17, 12, "#dfe9f5", "left", 600);
       text(it[1], mx + mw - 12, my + 36 + i * 17, 12, UI.blue2, "right", 800);
@@ -1064,7 +1065,7 @@ SCENES.queue = {
     } else if (S.state === "wait") {
       text("Warte auf die Lücke…", W / 2, H * 0.45, 15, UI.dim, "center", 600);
     }
-    banner("Drängle dich vor!", "Lücke abwarten – dann die richtige Seite tippen");
+    banner("Drängle dich vor!", "Lücke abwarten, dann die richtige Seite tippen");
     progressBar(S.idx / S.total + (S.state === "pass" ? (1 - S.timer / 0.35) / S.total : 0), "#4caf50");
     drawFlash();
     vignette();
@@ -1221,7 +1222,7 @@ SCENES.twint = {
       ctx.strokeRect(S.qx - p, S.qy - p, S.qs + p * 2, S.qs + p * 2);
       hitButtons.push({ x: S.qx - 16, y: S.qy - 16, w: S.qs + 32, h: S.qs + 32, id: "qr" });
     } else {
-      banner("TWINT: Bestätigen", "Regler ganz nach rechts ziehen – nicht loslassen!");
+      banner("TWINT: Bestätigen", "Regler ganz nach rechts ziehen und nicht loslassen!");
       // TWINT-Panel
       const pw = Math.min(W * 0.82, 330), px = W / 2 - pw / 2, py = H * 0.33, ph = 150;
       ctx.fillStyle = "#12141c"; rr(px, py, pw, ph, 16); ctx.fill();
@@ -1293,7 +1294,7 @@ SCENES.order = {
   },
   draw() {
     bgShop();
-    banner("Bestellung aufgeben", "Tipp das Richtige an – Finger weg vom OHNE");
+    banner("Bestellung aufgeben", "Tipp das Richtige an, Finger weg vom OHNE");
     const wish = S.need.map(i => INGR[i].n).join(" · ");
     const pw = Math.min(W * 0.84, 340), px = W / 2 - pw / 2, py = H * 0.225, ph = 74;
     ctx.save(); if (S.shake > 0) ctx.translate(Math.sin(anim * 40) * 5 * S.shake, 0);
@@ -1301,7 +1302,7 @@ SCENES.order = {
     ctx.fillStyle = "#f7f2e6"; ctx.fillRect(px, py, pw, ph); ctx.shadowBlur = 0;
     ctx.fillStyle = "#f7f2e6";
     for (let i = 0; i < pw / 12; i++) { ctx.beginPath(); ctx.moveTo(px + i * 12, py); ctx.lineTo(px + i * 12 + 6, py - 5); ctx.lineTo(px + i * 12 + 12, py); ctx.closePath(); ctx.fill(); }
-    text("ZÜRI BISTRO — Bestellung #13", W / 2, py + 14, 10, "#8a8272", "center", 700);
+    text("ZÜRI BISTRO · Bestellung #13", W / 2, py + 14, 10, "#8a8272", "center", 700);
     text(wish, W / 2, py + 35, Math.min(15, W * 0.038), "#3a2f1d", "center", 800);
     text("OHNE: " + INGR[S.banned].n, W / 2, py + 58, 13, "#b03030", "center", 900);
     ctx.restore();
@@ -1353,26 +1354,26 @@ SCENES.order = {
   },
 };
 
-// --- 5) EAT: schnell essen, sonst tropft die Sauce ---
+// --- 5) EAT: abwechselnd links und rechts haemmern, sonst tropft es ---
 SCENES.eat = {
   update(dt) {
     if (!S.init) {
-      S.init = true; S.bites = 0; S.need = 8;
-      S.chew = 0; S.sauce = 0; S.drop = null; S.stains = 0; S.splats = [];
+      S.init = true; S.nibbles = 0; S.need = 24; S.next = "L";
+      S.sauce = 0.15; S.drop = null; S.stains = 0; S.splats = []; S.wrongT = 0;
     }
-    if (S.chew > 0) S.chew -= dt;
-    S.sway = Math.sin(anim * 1.2) * W * 0.06;
-    // Sauce baut sich dauernd auf – je weiter gegessen, desto schneller
+    S.sway = Math.sin(anim * 1.2) * W * 0.05;
+    if (S.wrongT > 0) S.wrongT -= dt;
     if (!S.drop) {
-      S.sauce += dt * (0.55 + S.bites * 0.055);
+      // Sauce laeuft schnell voll, gegen Ende noch schneller
+      S.sauce += dt * (1.0 + (S.nibbles / S.need) * 0.5);
       if (S.sauce >= 1) {
         const tip = this.tipPos();
-        S.drop = { x: tip.x, y: tip.y, vy: 60 };
-        S.sauce = 0;
+        S.drop = { x: tip.x, y: tip.y, vy: 80 };
+        S.sauce = 0.25;
         DFAudio.tick();
       }
     } else {
-      S.drop.vy += 1600 * dt; S.drop.y += S.drop.vy * dt;
+      S.drop.vy += 1700 * dt; S.drop.y += S.drop.vy * dt;
       const floorY = H * 0.80;
       if (S.drop.y >= floorY) {
         S.stains++; R.sauceErr = true;
@@ -1384,16 +1385,16 @@ SCENES.eat = {
     }
   },
   tipPos() {
-    const dh = 150 * (1 - S.bites / (S.need + 2));
-    return { x: W / 2 + S.sway, y: H * 0.30 + dh };
+    const dh = 135 * (1 - S.nibbles / (S.need + 6));
+    return { x: W / 2 + S.sway, y: H * 0.24 + dh };
   },
   draw() {
     bgShop();
-    banner("Iss den Döner – schnell!", "Tippen = beissen · zögerst du, tropft die Sauce");
-    const cx = W / 2 + S.sway, topY = H * 0.30;
-    const frac = 1 - S.bites / (S.need + 2);
-    const dh = 150 * frac, dwTop = 62 * (0.7 + frac * 0.3), dwBot = 16;
-    ctx.fillStyle = "#e0aa7e"; ctx.beginPath(); ctx.ellipse(cx, topY + dh * 0.55, dwTop * 0.62, 20, 0.1, 0, 7); ctx.fill();
+    banner("Iss den Döner, schnell!", "Abwechselnd links und rechts tippen, Vollgas!");
+    const cx = W / 2 + S.sway, topY = H * 0.24;
+    const frac = 1 - S.nibbles / (S.need + 6);
+    const dh = 135 * frac, dwTop = 58 * (0.7 + frac * 0.3), dwBot = 15;
+    ctx.fillStyle = "#e0aa7e"; ctx.beginPath(); ctx.ellipse(cx, topY + dh * 0.55, dwTop * 0.62, 18, 0.1, 0, 7); ctx.fill();
     const wrap = ctx.createLinearGradient(cx - dwTop, 0, cx + dwTop, 0);
     wrap.addColorStop(0, "#cbb389"); wrap.addColorStop(0.5, "#ecd9ae"); wrap.addColorStop(1, "#b89f74");
     ctx.fillStyle = wrap;
@@ -1405,43 +1406,34 @@ SCENES.eat = {
     ctx.quadraticCurveTo(cx - dwTop * 0.5, topY + dh * 0.7, cx - dwTop, topY);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, topY, dwTop, 14, 0, 0, 7); ctx.clip();
-    ctx.fillStyle = "#9c5c30"; ctx.fillRect(cx - dwTop, topY - 14, dwTop * 2, 14);
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, topY, dwTop, 13, 0, 0, 7); ctx.clip();
+    ctx.fillStyle = "#9c5c30"; ctx.fillRect(cx - dwTop, topY - 13, dwTop * 2, 13);
     for (let i = 0; i < 8; i++) {
       ctx.fillStyle = ["#5fae4e", "#c0392b", "#e7d9c3", "#f0c14b"][i % 4];
-      ctx.beginPath(); ctx.arc(cx - dwTop + (i + 0.5) * (dwTop / 4), topY - 4 - rnd(i) * 6, 5, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx - dwTop + (i + 0.5) * (dwTop / 4), topY - 4 - rnd(i) * 5, 4.5, 0, 7); ctx.fill();
     }
     ctx.restore();
-    for (let i = 0; i < S.bites && i < 6; i++) {
+    for (let i = 0; i < Math.min(6, Math.floor(S.nibbles / 4)); i++) {
       const bx = cx + (i % 2 ? 1 : -1) * dwTop * (0.85 - i * 0.06);
       ctx.fillStyle = "rgba(10,17,32,.9)";
-      ctx.beginPath(); ctx.arc(bx, topY + 4 + i * 6, 9, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, topY + 4 + i * 5, 8, 0, 7); ctx.fill();
     }
-    // Sauce-Tropfen am Zipfel = deine Uhr
     const tip = this.tipPos();
     if (!S.drop) {
       const r = 2 + S.sauce * 8;
-      const wob = S.sauce > 0.65 ? Math.sin(anim * 22) * 2 : 0;
+      const wob = S.sauce > 0.6 ? Math.sin(anim * 22) * 2 : 0;
       ctx.fillStyle = "#c0392b";
       ctx.beginPath(); ctx.ellipse(tip.x + wob, tip.y + r * 0.6, r * 0.7, r, 0, 0, 7); ctx.fill();
-      if (S.sauce > 0.65) {
+      if (S.sauce > 0.6) {
         ctx.save(); ctx.shadowColor = "#ff6b6b"; ctx.shadowBlur = 14;
         ctx.strokeStyle = "rgba(255,107,107,.8)"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(tip.x, tip.y + r * 0.6, r + 5, 0, 7); ctx.stroke(); ctx.restore();
-        glowText("SCHNELL!", W / 2, H * 0.62, 22, "#ff6b6b", 12);
+        glowText("SCHNELLER!", W / 2, H * 0.57, 22, "#ff6b6b", 12);
       }
     } else {
       ctx.fillStyle = "#c0392b";
       ctx.beginPath(); ctx.ellipse(S.drop.x, S.drop.y, 5, 9, 0, 0, 7); ctx.fill();
     }
-    // Kau-Anzeige (kleiner Ring am Doener)
-    if (S.chew > 0) {
-      ctx.save(); ctx.strokeStyle = "rgba(238,244,251,.75)"; ctx.lineWidth = 4; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.arc(cx, topY + dh * 0.42, 22, -Math.PI / 2, -Math.PI / 2 + (1 - S.chew / 0.34) * Math.PI * 2); ctx.stroke();
-      text("mampf", cx, topY + dh * 0.42, 11, "rgba(238,244,251,.75)", "center", 700);
-      ctx.restore();
-    }
-    // Boden, Splats, Schuhe (fix in der Mitte)
     const floorY = H * 0.80;
     for (const sp of S.splats) {
       ctx.fillStyle = "rgba(150,40,30,.75)";
@@ -1457,23 +1449,43 @@ SCENES.eat = {
       ctx.fillStyle = "#b03030";
       ctx.beginPath(); ctx.arc(W / 2 - 14 + i * 12, floorY + 3, 4, 0, 7); ctx.fill();
     }
-    // Sauce-Balken unter dem Fortschritt
-    progressBar(S.bites / S.need, UI.blue);
+    // Tipp-Zonen unten: die naechste Seite leuchtet
+    const zy = H * 0.845, zh = H * 0.115;
+    for (const side of ["L", "R"]) {
+      const zx = side === "L" ? W * 0.03 : W * 0.52, zw = W * 0.45;
+      const active = S.next === side;
+      const pulse = active ? 0.7 + 0.3 * Math.sin(anim * 10) : 0.25;
+      ctx.save();
+      rr(zx, zy, zw, zh, 16);
+      ctx.fillStyle = active ? `rgba(76,175,80,${0.14 * pulse + 0.08})` : "rgba(6,11,22,.5)";
+      ctx.fill();
+      ctx.shadowColor = "#4caf50"; ctx.shadowBlur = active ? 12 * pulse : 0;
+      ctx.strokeStyle = active ? `rgba(126,226,135,${pulse})` : "rgba(124,196,255,.2)";
+      ctx.lineWidth = 2; rr(zx, zy, zw, zh, 16); ctx.stroke();
+      ctx.shadowBlur = 0;
+      text(active ? "TIPP!" : (side === "L" ? "LINKS" : "RECHTS"), zx + zw / 2, zy + zh / 2, active ? 21 : 14, active ? "#7ee287" : "rgba(238,244,251,.5)", "center", 900);
+      ctx.restore();
+    }
+    if (S.wrongT > 0) text("Abwechseln!", W / 2, H * 0.815, 15, "#ff9d9d", "center", 800);
+    progressBar(S.nibbles / S.need, UI.blue);
     const sx3 = W * 0.18, sw3 = W * 0.64, sy3 = H * 0.205 + 18;
     rr(sx3, sy3, sw3, 7, 3.5); ctx.fillStyle = "rgba(6,11,22,.6)"; ctx.fill();
     if (S.sauce > 0.02 && !S.drop) {
       rr(sx3 + 1, sy3 + 1, (sw3 - 2) * Math.min(1, S.sauce), 5, 2.5);
-      ctx.fillStyle = S.sauce > 0.65 ? "#ff6b6b" : "#c0392b"; ctx.fill();
+      ctx.fillStyle = S.sauce > 0.6 ? "#ff6b6b" : "#c0392b"; ctx.fill();
     }
     drawFlash();
     vignette();
   },
   tap(x, y) {
-    if (S.chew <= 0) {
-      S.bites++; S.chew = 0.34;
-      S.sauce = Math.max(0, S.sauce * 0.15);
-      DFAudio.hit(4 + S.bites * 2); vibrate(8);
-      if (S.bites >= S.need) { DFAudio.perfect(); finishGame(); }
+    const side = x < W / 2 ? "L" : "R";
+    if (side === S.next) {
+      S.nibbles++; S.next = side === "L" ? "R" : "L";
+      S.sauce = Math.max(0, S.sauce - 0.30);
+      DFAudio.tick(); vibrate(5);
+      if (S.nibbles >= S.need) { DFAudio.perfect(); finishGame(); }
+    } else {
+      S.wrongT = 0.5;
     }
   },
 };
@@ -1524,7 +1536,7 @@ function finishGame() {
     ["Saubere Schuhe", sc.shoeClean, sc.shoeClean > 0],
   ];
   document.getElementById("breakdown").innerHTML = rows.map(([label, val, hit]) =>
-    `<div class="r${hit ? "" : " miss"}"><span>${label}</span><b>${hit ? "+" + val : "–"}</b></div>`
+    `<div class="r${hit ? "" : " miss"}"><span>${label}</span><b>${hit ? "+" + val : "0"}</b></div>`
   ).join("");
   document.getElementById("overMsg").innerHTML = overMessage(lastTime);
   document.getElementById("newBest").classList.toggle("hidden", !wasBest);
@@ -1533,7 +1545,7 @@ function finishGame() {
 }
 function overMessage(ms) {
   const s = ms / 1000;
-  if (s < 48) return "Wahnsinn – der schnellste Döner vom Albisriederplatz.";
+  if (s < 48) return "Wahnsinn! Der schnellste Döner vom Albisriederplatz.";
   if (s < 56) return "Richtig schnell. Respekt am Dönerfriitig.";
   if (s < 66) return "Solide geholt. Aber da geht noch mehr.";
   return "Wieder getrödelt? Das grenzt an eine Busse…";
@@ -1577,7 +1589,7 @@ async function showBoard() {
   scores.slice(0, 12).forEach((row, i) => {
     html += `<div class="row${row.name === member ? " me" : ""}${i < 3 ? " gold" : ""}"><span class="rank">${i + 1}.</span><span class="name">${labelOf(row.name).replace(/[&<>]/g, "")}</span><span class="pts">${row.score}</span></div>`;
   });
-  if (data.offline) html += '<div class="muted">Offline – nur lokale Scores.</div>';
+  if (data.offline) html += '<div class="muted">Offline, nur lokale Scores.</div>';
   boardList.innerHTML = html;
 }
 document.getElementById("playBtn").onclick = startGame;

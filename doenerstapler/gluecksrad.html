@@ -172,7 +172,7 @@ function step() {
 function finish() {
   spinning = false; spinBtn.disabled = false;
   const wi = winnerIndex();
-  resultEl.innerHTML = `${segments[wi]} zahlt!<span class="small">Trostpflaster für die Vereinskasse.</span>`;
+  resultEl.innerHTML = `${segments[wi]} zahlt!`;
   DFAudio.win();
   vibrate([0, 40, 50, 40, 50, 90]);
   burstConfetti();

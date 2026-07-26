@@ -154,11 +154,28 @@
     }
   }
   function tick() {
+    // Nach Tab-Wechsel oder Suspend laeuft ctx.currentTime weiter, waehrend
+    // setInterval gedrosselt wird. Ohne Resync wuerden dutzende Schritte in der
+    // Vergangenheit auf einmal starten (Krachsalve). Darum: neu ansetzen.
+    if (nextTime < ctx.currentTime - 0.2) {
+      nextTime = ctx.currentTime + 0.05;
+      step = Math.round(step / 16) * 16; // sauber auf Taktanfang
+    }
     while (nextTime < ctx.currentTime + 0.12) {
-      scheduleStep(step % 16, nextTime);
+      if (!muted) scheduleStep(step % 16, nextTime); // stumm: keine Nodes bauen
       nextTime += STEP; step++;
     }
   }
+  // Bug 2: iOS/Android suspendieren den Context beim Sperren oder Tab-Wechsel.
+  // Ohne resume() bleibt die Musik danach still, bis zufaellig ein SFX greift.
+  function wake() {
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
+    if (musicOn) nextTime = Math.max(nextTime, ctx.currentTime + 0.05);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) wake(); });
+  window.addEventListener("focus", wake);
+  window.addEventListener("pageshow", wake);
   function startVinyl() {
     if (vinyl) return;
     const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
@@ -173,14 +190,20 @@
     get muted() { return muted; },
     unlock() {
       if (!ensure()) return;
-      if (ctx.state === "suspended") ctx.resume();
+      if (ctx.state === "suspended") ctx.resume().then(wake).catch(() => {});
     },
     startMusic() {
       if (!ensure() || musicOn) return;
-      if (ctx.state === "suspended") ctx.resume();
-      musicOn = true; step = 0; nextTime = ctx.currentTime + 0.08;
-      startVinyl();
-      timer = setInterval(tick, 25);
+      const begin = () => {
+        musicOn = true; step = 0; nextTime = ctx.currentTime + 0.08;
+        if (!muted) startVinyl();
+        if (timer) clearInterval(timer);
+        timer = setInterval(tick, 25);
+      };
+      // Erst starten, wenn der Context wirklich laeuft, sonst zeigt die Uhr
+      // noch den eingefrorenen Stand und alles feuert verspaetet auf einmal.
+      if (ctx.state === "suspended") ctx.resume().then(begin).catch(begin);
+      else begin();
     },
     stopMusic() {
       musicOn = false; if (timer) { clearInterval(timer); timer = null; }
@@ -188,7 +211,10 @@
     },
     setMuted(m) {
       muted = m;
-      if (master) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.02);
+      if (ctx && master) {
+        master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.02);
+        if (m) stopVinyl(); else if (musicOn) startVinyl();
+      }
       return muted;
     },
     toggleMute() { return this.setMuted(!muted); },

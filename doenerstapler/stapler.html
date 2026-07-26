@@ -110,6 +110,11 @@ const store = {
   set(o) { try { localStorage.setItem(LS_KEY, JSON.stringify(o)); } catch {} },
 };
 let state = store.get();
+// Altlasten aufraeumen: fruehere, vermischte Listen einmalig loeschen
+if (!state.boardsCleaned) {
+  delete state.board; delete state.boardDash; delete state.bestsDash; delete state.bestsDash2;
+  state.boardsCleaned = 1; store.set(state);
+}
 let member = state.member || null;
 let best = state.best || 0;
 
@@ -137,19 +142,19 @@ muteBtn.addEventListener("click", (e) => {
 // ---- Bestenliste-API (mit lokalem Fallback) ----
 const api = {
   async top() {
-    try { const r = await fetch("/api/scores", { cache: "no-store" }); if (!r.ok) throw 0; return await r.json(); }
+    try { const r = await fetch("/api/scores?game=stapler&metric=points", { cache: "no-store" }); if (!r.ok) throw 0; return await r.json(); }
     catch { return { scores: localTop(), offline: true }; }
   },
   async submit(name, score) {
     saveLocal(name, score);
     try {
-      const r = await fetch("/api/scores", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, score }) });
+      const r = await fetch("/api/scores", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, score, game: "stapler" }) });
       if (!r.ok) throw 0; return await r.json();
     } catch { return { scores: localTop(), offline: true }; }
   },
 };
-function localBoard() { const s = store.get(); return s.board || {}; }
-function saveLocal(name, score) { const s = store.get(); const b = s.board || {}; if (!b[name] || score > b[name]) b[name] = score; s.board = b; store.set(s); }
+function localBoard() { const s = store.get(); return s.staplerBoard || {}; }
+function saveLocal(name, score) { const s = store.get(); const b = s.staplerBoard || {}; if (!b[name] || score > b[name]) b[name] = score; s.staplerBoard = b; store.set(s); }
 function localTop() { const b = localBoard(); return Object.entries(b).map(([name, score]) => ({ name, score })).sort((a, c) => c.score - a.score).slice(0, 20); }
 
 // ---- Canvas ----

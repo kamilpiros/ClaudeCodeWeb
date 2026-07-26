@@ -1,13 +1,25 @@
 {
-  "name": "Dönerfriitig Games",
+  "name": "Dönerfriitig",
   "short_name": "Dönerfriitig",
-  "description": "Döner-Dash, Döner-Stapler und Wer zahlt? vom Dönerfriitig-Verein.",
+  "description": "Anwesenheitsstatistiken und Games vom Dönerfriitig-Verein.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#2c386d",
   "theme_color": "#2c386d",
   "icons": [
+    {
+      "src": "favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "icon.png",
       "sizes": "512x512",

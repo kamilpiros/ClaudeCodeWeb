@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a1120">
+<meta name="theme-color" content="#2c386d">
 <title>Dönerfriitig · Games</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,21 +13,21 @@
   .games { display: flex; flex-direction: column; gap: 13px; width: 100%; max-width: 340px; }
   .game-card {
     display: flex; align-items: center; gap: 16px; text-align: left;
-    padding: 17px 18px; border-radius: 16px; background: #101c33; border: 1.5px solid #1d3050;
+    padding: 17px 18px; border-radius: 16px; background: var(--card); border: 1.5px solid var(--line);
     cursor: pointer; transition: transform .08s, border-color .15s; color: var(--cream);
     text-decoration: none;
   }
   .game-card:active { transform: scale(.97); border-color: var(--blue); }
   .game-card .num {
     flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px;
-    background: linear-gradient(145deg, #1c3f62, #16294a);
+    background: linear-gradient(145deg, #34418a, #232d5a);
     display: flex; align-items: center; justify-content: center;
     font-weight: 900; font-size: 17px; color: var(--blue2);
   }
   .game-card .t { display: block; font-size: 18px; font-weight: 800; color: var(--cream); }
   .game-card .d { display: block; font-size: 13px; opacity: .7; margin-top: 3px; line-height: 1.4; }
   .cd {
-    font-size: 13px; opacity: .9; background: #101c33; border: 1.5px solid #1d3050;
+    font-size: 13px; opacity: .9; background: var(--card); border: 1.5px solid var(--line);
     border-radius: 14px; padding: 11px 18px; max-width: 340px;
   }
   .cd b { color: var(--blue2); font-size: 16px; display: block; margin-top: 3px; }

@@ -33,6 +33,12 @@
   .row .rank { font-weight: 800; opacity: .6; } .row .name { font-weight: 700; }
   .row .pts { font-weight: 800; color: var(--blue2); } .row.gold .rank { color: var(--blue2); opacity: 1; }
   .muted { opacity: .55; font-size: 13px; margin: 6px 0; }
+  .tabs { display: flex; gap: 8px; }
+  .tab {
+    padding: 9px 22px; border-radius: 12px; font-size: 15px; font-weight: 800;
+    background: #101c33; color: var(--cream); border: 2px solid transparent; cursor: pointer;
+  }
+  .tab.active { border-color: var(--blue); background: #16294a; color: var(--blue2); }
 </style>
 </head>
 <body>
@@ -69,6 +75,10 @@
   <div id="boardScreen" class="screen hidden">
     <h1 style="font-size:24px">Bestenliste</h1>
     <div class="sub">Döner-Dash</div>
+    <div class="tabs">
+      <button class="tab active" id="tabPoints">Punkte</button>
+      <button class="tab" id="tabTime">Zeit</button>
+    </div>
     <div class="board" id="boardList"><div class="muted">Lade…</div></div>
     <button class="btn" id="backBtn">Zurück</button>
   </div>
@@ -107,12 +117,49 @@ window.addEventListener("pointerdown", startAudio);
 muteBtn.addEventListener("click", (e) => { e.stopPropagation(); muted = DFAudio.toggleMute(); localStorage.setItem("df_muted", muted ? "1" : "0"); paintMute(); if (!muted) DFAudio.startMusic(); });
 
 // Leaderboard
+// Altlasten aufraeumen: die frueheren, vermischten Listen einmalig loeschen
+(function cleanupOldBoards() {
+  const o = store.get();
+  if (o.boardsCleaned) return;
+  delete o.board; delete o.boardDash; delete o.bestsDash; delete o.bestsDash2;
+  o.boardsCleaned = 1; store.set(o);
+})();
+
 const api = {
-  async top() { try { const r = await fetch("/api/scores?game=dash", { cache: "no-store" }); if (!r.ok) throw 0; return await r.json(); } catch { return { scores: localTop(), offline: true }; } },
-  async submit(name, score) { saveLocal(name, score); try { const r = await fetch("/api/scores", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, score, game: "dash" }) }); if (!r.ok) throw 0; return await r.json(); } catch { return { scores: localTop(), offline: true }; } },
+  async top(metric) {
+    try {
+      const r = await fetch("/api/scores?game=dash&metric=" + metric, { cache: "no-store" });
+      if (!r.ok) throw 0;
+      return await r.json();
+    } catch { return { scores: localTop(metric), metric, offline: true }; }
+  },
+  async submit(name, score, time) {
+    saveLocal(name, score, time);
+    try {
+      const r = await fetch("/api/scores", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name, score, time, game: "dash" }),
+      });
+      if (!r.ok) throw 0;
+      return await r.json();
+    } catch { return { scores: localTop("points"), offline: true }; }
+  },
 };
-function saveLocal(n, s) { const o = store.get(); const b = o.boardDash || {}; if (!b[n] || s > b[n]) b[n] = s; o.boardDash = b; store.set(o); }
-function localTop() { const b = store.get().boardDash || {}; return Object.entries(b).map(([name, score]) => ({ name, score })).sort((a, c) => c.score - a.score).slice(0, 20); }
+function boards() { const o = store.get(); return o.dashBoards || (o.dashBoards = { points: {}, time: {} }); }
+function saveLocal(n, score, time) {
+  const o = store.get();
+  const b = o.dashBoards || { points: {}, time: {} };
+  if (!b.points[n] || score > b.points[n]) b.points[n] = score;
+  if (time && (!b.time[n] || time < b.time[n])) b.time[n] = Math.floor(time);
+  o.dashBoards = b; store.set(o);
+}
+function localTop(metric) {
+  const b = boards()[metric === "time" ? "time" : "points"] || {};
+  const rows = Object.entries(b).map(([name, score]) => ({ name, score }));
+  rows.sort((a, c) => (metric === "time" ? a.score - c.score : c.score - a.score));
+  return rows.slice(0, 20);
+}
+const fmtTime = (ms) => (ms / 1000).toFixed(1) + " s";
 
 // Toast / Teilen
 const toastEl = document.getElementById("toast"); let toastTimer = null;
@@ -1520,9 +1567,9 @@ function finishGame() {
   const sc = computeScore();
   lastScore = sc.total;
   setScene("done");
-  const o = store.get(); o.bestsDash2 = o.bestsDash2 || {};
-  const wasBest = lastScore > (o.bestsDash2[member] || 0);
-  if (wasBest) { o.bestsDash2[member] = lastScore; store.set(o); best = lastScore; }
+  const o = store.get(); o.pbPoints = o.pbPoints || {};
+  const wasBest = lastScore > (o.pbPoints[member] || 0);
+  if (wasBest) { o.pbPoints[member] = lastScore; store.set(o); best = lastScore; }
   vibrate([0, 40, 50, 40]);
   document.getElementById("finalScore").textContent = lastScore + " Punkte";
   document.getElementById("finalTime").textContent = "Zeit: " + (lastTime / 1000).toFixed(1) + "s";
@@ -1541,7 +1588,7 @@ function finishGame() {
   document.getElementById("overMsg").innerHTML = overMessage(lastTime);
   document.getElementById("newBest").classList.toggle("hidden", !wasBest);
   setTimeout(() => { if (raf) { cancelAnimationFrame(raf); raf = null; } document.getElementById("overScreen").classList.remove("hidden"); DFAudio.win(); }, 900);
-  api.submit(member, lastScore);
+  api.submit(member, lastScore, lastTime);
 }
 function overMessage(ms) {
   const s = ms / 1000;
@@ -1574,34 +1621,49 @@ function renderMembers() {
   MEMBERS.forEach(m => {
     const b = document.createElement("button");
     b.className = "member" + (m.id === member ? " active" : ""); b.textContent = m.label;
-    b.onclick = () => { member = m.id; const o = store.get(); o.member = m.id; store.set(o); best = (store.get().bestsDash2 || {})[m.id] || 0; renderMembers(); playBtn.disabled = false; };
+    b.onclick = () => { member = m.id; const o = store.get(); o.member = m.id; store.set(o); best = (store.get().pbPoints || {})[m.id] || 0; renderMembers(); playBtn.disabled = false; };
     membersEl.appendChild(b);
   });
   playBtn.disabled = !member;
 }
 function showScreen(id) { document.querySelectorAll(".screen").forEach(s => s.classList.add("hidden")); if (id) document.getElementById(id).classList.remove("hidden"); }
 const boardList = document.getElementById("boardList");
-async function showBoard() {
-  showScreen("boardScreen"); boardList.innerHTML = '<div class="muted">Lade…</div>';
-  const data = await api.top(); const scores = data.scores || [];
-  if (!scores.length) { boardList.innerHTML = '<div class="muted">Noch kein Score. Hol den ersten Döner!</div>'; return; }
+let boardMetric = "points";
+async function showBoard(metric) {
+  if (metric) boardMetric = metric;
+  showScreen("boardScreen");
+  document.getElementById("tabPoints").classList.toggle("active", boardMetric === "points");
+  document.getElementById("tabTime").classList.toggle("active", boardMetric === "time");
+  boardList.innerHTML = '<div class="muted">Lade…</div>';
+  const want = boardMetric;
+  const data = await api.top(want);
+  if (want !== boardMetric) return; // zwischenzeitlich umgeschaltet
+  const scores = data.scores || [];
+  if (!scores.length) {
+    boardList.innerHTML = '<div class="muted">Noch kein Eintrag. Hol den ersten Döner!</div>';
+    return;
+  }
   let html = "";
   scores.slice(0, 12).forEach((row, i) => {
-    html += `<div class="row${row.name === member ? " me" : ""}${i < 3 ? " gold" : ""}"><span class="rank">${i + 1}.</span><span class="name">${labelOf(row.name).replace(/[&<>]/g, "")}</span><span class="pts">${row.score}</span></div>`;
+    const val = want === "time" ? fmtTime(row.score) : row.score;
+    html += `<div class="row${row.name === member ? " me" : ""}${i < 3 ? " gold" : ""}"><span class="rank">${i + 1}.</span><span class="name">${labelOf(row.name).replace(/[&<>]/g, "")}</span><span class="pts">${val}</span></div>`;
   });
-  if (data.offline) html += '<div class="muted">Offline, nur lokale Scores.</div>';
+  html += `<div class="muted">${want === "time" ? "Schnellste Zeit zählt." : "Höchste Punktzahl zählt."}</div>`;
+  if (data.offline) html += '<div class="muted">Offline, nur lokale Einträge.</div>';
   boardList.innerHTML = html;
 }
 document.getElementById("playBtn").onclick = startGame;
 document.getElementById("againBtn").onclick = startGame;
 document.getElementById("changeBtn").onclick = () => { renderMembers(); showScreen("startScreen"); };
-document.getElementById("boardBtn").onclick = showBoard;
-document.getElementById("overBoardBtn").onclick = showBoard;
+document.getElementById("boardBtn").onclick = () => showBoard("points");
+document.getElementById("overBoardBtn").onclick = () => showBoard("points");
+document.getElementById("tabPoints").onclick = () => showBoard("points");
+document.getElementById("tabTime").onclick = () => showBoard("time");
 document.getElementById("shareBtn").onclick = shareScore;
 document.getElementById("backBtn").onclick = () => showScreen(lastScore ? "overScreen" : "startScreen");
 
 resize();
-best = (store.get().bestsDash2 || {})[member] || 0;
+best = (store.get().pbPoints || {})[member] || 0;
 renderMembers();
 showScreen("startScreen");
 </script>

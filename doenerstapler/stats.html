@@ -570,18 +570,6 @@ function renderRecords() {
       <h2>Anwesenheit nach Monat</h2>
       <div class="sub2">Über alle Jahre. Zeigt, wann der Verein am fleissigsten ist.</div>
       ${barChart(seasonRows, { fmt: v => v.toFixed(0) + " %", rowH: 25, max: 100 })}
-    </div>
-    <div class="card">
-      <h2>Ämtli und Titel</h2>
-      <div class="sub2">Stand Vereinsjahr 2026.</div>
-      ${CUR.filter(m => D.roles[m]).map(m => {
-        const r = D.roles[m];
-        return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">
-          <div style="font-weight:800;color:${col(m)};display:flex;align-items:center;gap:8px">${dot(m)}${esc(m)}</div>
-          ${r.amt ? `<div style="font-size:12.5px;opacity:.8;margin-top:3px">${esc(r.amt)}</div>` : ""}
-          ${r.titel ? `<div style="font-size:12px;opacity:.55;margin-top:2px">Titel: ${esc(r.titel)}</div>` : ""}
-        </div>`;
-      }).join("")}
     </div>`;
 }
 

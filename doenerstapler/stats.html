@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2c386d">
+<title>Anwesenheitsstatistiken · Dönerfriitig</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { overflow: auto; height: auto; min-height: 100%; }
+  body { padding-bottom: 40px; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    background: rgba(44,56,109,.96); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .topbar img { width: 38px; height: 38px; object-fit: contain; }
+  .topbar .t { font-size: 17px; font-weight: 800; line-height: 1.1; }
+  .topbar .s { font-size: 11px; opacity: .6; letter-spacing: 1.5px; text-transform: uppercase; }
+  .topbar a.home {
+    margin-left: auto; color: var(--cream); opacity: .75; text-decoration: none;
+    font-size: 13px; border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 11px;
+  }
+
+  .tabs {
+    display: flex; gap: 7px; overflow-x: auto; padding: 12px 14px 4px;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button {
+    flex: 0 0 auto; padding: 9px 16px; border-radius: 11px; font-size: 14px; font-weight: 700;
+    background: var(--card); color: var(--cream); border: 2px solid transparent; cursor: pointer;
+    white-space: nowrap;
+  }
+  .tabs button.on { border-color: var(--blue2); background: #1d2750; color: var(--blue2); }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 8px 14px 0; }
+  .panel { display: none; } .panel.on { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .card h2 { margin: 0 0 3px; font-size: 17px; font-weight: 800; color: var(--cream); }
+  .card .sub2 { font-size: 12px; opacity: .6; margin-bottom: 14px; line-height: 1.4; }
+
+  .tw { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
+  .tw::-webkit-scrollbar { height: 5px; }
+  .tw::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { padding: 9px 5px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:last-child, td:last-child { padding-right: 0; }
+  th { font-size: 11px; opacity: .6; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+       border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; }
+  th.l, td.l { text-align: left; }
+  th.on { color: var(--blue2); opacity: 1; }
+  tbody tr { border-bottom: 1px solid rgba(255,255,255,.06); }
+  tbody tr:last-child { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .who { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+  .rk { opacity: .45; font-size: 12px; width: 22px; display: inline-block; }
+
+  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.09); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 4px; }
+
+  .podium { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; align-items: end; margin-bottom: 6px; }
+  .pod { background: #1d2750; border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px; text-align: center; }
+  .pod .m { font-size: 17px; font-weight: 800; }
+  .pod .p { font-size: 25px; font-weight: 800; line-height: 1.1; }
+  .pod .l { font-size: 11px; opacity: .6; }
+  .pod .medal { font-size: 13px; font-weight: 800; opacity: .8; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; }
+  .kpi { background: #1d2750; border: 1px solid var(--line); border-radius: 13px; padding: 12px; }
+  .kpi .v { font-size: 21px; font-weight: 800; color: var(--blue2); font-variant-numeric: tabular-nums; }
+  .kpi .k { font-size: 11px; opacity: .62; margin-top: 2px; line-height: 1.35; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+  .chip {
+    padding: 7px 13px; border-radius: 10px; font-size: 13px; font-weight: 700;
+    background: #1d2750; color: var(--cream); border: 2px solid transparent; cursor: pointer;
+  }
+  .chip.on { border-color: var(--blue2); color: var(--blue2); }
+  .chip.mem.on { border-color: currentColor; }
+
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .lg { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; font-size: 12px; }
+  .lg span { display: flex; align-items: center; gap: 6px; opacity: .85; }
+
+  select {
+    background: #1d2750; color: var(--cream); border: 1.5px solid var(--line);
+    border-radius: 10px; padding: 9px 11px; font-size: 14px; font-family: inherit; font-weight: 700;
+  }
+  .duel { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+  .duelbar { display: flex; height: 26px; border-radius: 8px; overflow: hidden; font-size: 11px; font-weight: 800; }
+  .duelbar i { display: flex; align-items: center; justify-content: center; color: #10163a; }
+  .note { font-size: 11.5px; opacity: .55; line-height: 1.5; margin-top: 10px; }
+  .rec { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0;
+         border-bottom: 1px solid rgba(255,255,255,.06); font-size: 14px; }
+  .rec:last-child { border-bottom: none; }
+  .rec b { color: var(--blue2); }
+  .rec .r { text-align: right; white-space: nowrap; }
+
+  /* Auf schmalen Geraeten den dekorativen Quotenbalken weglassen,
+     damit die Tabelle ohne seitliches Scrollen passt. */
+  @media (max-width: 439px) {
+    table { font-size: 12.5px; }
+    th, td { padding: 8px 4px; }
+    .rk { width: 17px; font-size: 11px; }
+    td .bar { display: none; }
+    .podium { gap: 6px; } .pod { padding: 10px 5px; }
+    .pod .m { font-size: 15px; } .pod .p { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <img src="logo.png" alt="DF" onerror="this.style.display='none'">
+  <div><div class="t">Anwesenheitsstatistiken</div><div class="s">Dönerfriitig · seit 2016</div></div>
+  <a class="home" href="index.html">Start</a>
+</div>
+
+<div class="tabs" id="tabs"></div>
+<div class="wrap">
+  <div class="panel on" id="p-overview"></div>
+  <div class="panel" id="p-years"></div>
+  <div class="panel" id="p-trend"></div>
+  <div class="panel" id="p-fines"></div>
+  <div class="panel" id="p-records"></div>
+  <div class="panel" id="p-duel"></div>
+</div>
+
+<script src="df-data.js"></script>
+<script>
+const D = window.DF_DATA;
+const COL = {
+  "MST/MSO": "#ffd166", "SJU": "#2ee6a8", "JWU": "#9ce33a",
+  "PKN": "#ff9f43", "CBO": "#ff6b8a", "YMI": "#b39dff", "JWI": "#8fa3c4",
+};
+const col = (m) => COL[m] || "#8fa3c4";
+const ALL = D.members.slice().sort((a, b) => D.alltime[b].att - D.alltime[a].att);
+const CUR = D.current.slice().sort((a, b) => D.alltime[b].att - D.alltime[a].att);
+const YEARS = D.years.map(y => y.year);
+const yearOf = (y) => D.years.find(x => x.year === y);
+
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (v) => (v * 100).toFixed(1).replace(".", ",") + " %";
+const chf = (v) => v.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const chf0 = (v) => Math.round(v).toLocaleString("de-CH");
+const dmy = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
+const dot = (m) => `<span class="dot" style="background:${col(m)}"></span>`;
+
+// ===================== Tabs =====================
+const TABS = [
+  ["overview", "Übersicht"], ["years", "Jahre"], ["trend", "Verlauf"],
+  ["fines", "Bussen"], ["records", "Rekorde"], ["duel", "Duell"],
+];
+document.getElementById("tabs").innerHTML =
+  TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
+document.getElementById("tabs").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === "p-" + b.dataset.t));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+// ===================== Diagramm-Helfer (SVG von Hand) =====================
+function lineChart(series, opts) {
+  // series: [{name, points:[{x,y}|null]}]  x = Index, y = Wert
+  const o = Object.assign({ w: 680, h: 260, pad: 34, yFmt: v => v, yMax: null, yMin: 0,
+                            xLabels: [], grid: 5 }, opts || {});
+  const { w, h, pad } = o;
+  const left = pad + 20, bottom = h - pad - 6, top = 10, right = w - 8;
+  let max = o.yMax, min = o.yMin;
+  if (max === null) {
+    max = 0; series.forEach(s => s.points.forEach(p => { if (p && p.y > max) max = p.y; }));
+    max = max * 1.08 || 1;
+  }
+  const X = (i) => left + (right - left) * (o.xLabels.length > 1 ? i / (o.xLabels.length - 1) : 0.5);
+  const Y = (v) => bottom - (bottom - top) * ((v - min) / (max - min || 1));
+  let g = "";
+  for (let i = 0; i <= o.grid; i++) {
+    const v = min + (max - min) * i / o.grid, y = Y(v);
+    g += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="rgba(255,255,255,.08)" stroke-width="1"/>`;
+    g += `<text x="${left - 7}" y="${y + 4}" fill="rgba(238,244,251,.5)" font-size="11" text-anchor="end">${o.yFmt(v)}</text>`;
+  }
+  o.xLabels.forEach((l, i) => {
+    g += `<text x="${X(i)}" y="${bottom + 18}" fill="rgba(238,244,251,.5)" font-size="11" text-anchor="middle">${l}</text>`;
+  });
+  series.forEach(s => {
+    const segs = []; let cur = [];
+    s.points.forEach((p, i) => {
+      if (p === null) { if (cur.length) segs.push(cur); cur = []; }
+      else cur.push(`${X(i)},${Y(p.y)}`);
+    });
+    if (cur.length) segs.push(cur);
+    segs.forEach(seg => {
+      g += `<polyline points="${seg.join(" ")}" fill="none" stroke="${col(s.name)}" stroke-width="2.6"
+             stroke-linejoin="round" stroke-linecap="round" opacity=".95"/>`;
+    });
+    s.points.forEach((p, i) => {
+      if (p) g += `<circle cx="${X(i)}" cy="${Y(p.y)}" r="3.4" fill="${col(s.name)}"/>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
+}
+
+function barChart(rows, opts) {
+  // rows: [{label, value, color}]
+  const o = Object.assign({ w: 680, rowH: 30, fmt: v => v, max: null }, opts || {});
+  const max = o.max || Math.max(...rows.map(r => r.value), 1);
+  const h = rows.length * o.rowH + 8, labelW = 74, right = o.w - 62;
+  let g = "";
+  rows.forEach((r, i) => {
+    const y = i * o.rowH + 6, bw = Math.max(2, (right - labelW) * (r.value / max));
+    g += `<text x="0" y="${y + 15}" fill="#eef4fb" font-size="13" font-weight="700">${esc(r.label)}</text>`;
+    g += `<rect x="${labelW}" y="${y + 4}" width="${right - labelW}" height="15" rx="7" fill="rgba(255,255,255,.07)"/>`;
+    g += `<rect x="${labelW}" y="${y + 4}" width="${bw}" height="15" rx="7" fill="${r.color}"/>`;
+    g += `<text x="${o.w - 4}" y="${y + 16}" fill="rgba(238,244,251,.85)" font-size="12.5" text-anchor="end"
+           font-weight="700">${o.fmt(r.value)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${o.w} ${h}" role="img">${g}</svg>`;
+}
+
+function stackChart(rows, keys, colors, opts) {
+  // rows: [{label, parts:{key:value}}]
+  const o = Object.assign({ w: 680, rowH: 34, fmt: v => v }, opts || {});
+  const tot = rows.map(r => keys.reduce((s, k) => s + (r.parts[k] || 0), 0));
+  const max = Math.max(...tot, 1);
+  const h = rows.length * o.rowH + 8, labelW = 74, right = o.w - 68;
+  let g = "";
+  rows.forEach((r, i) => {
+    const y = i * o.rowH + 6; let x = labelW;
+    g += `<text x="0" y="${y + 17}" fill="#eef4fb" font-size="13" font-weight="700">${esc(r.label)}</text>`;
+    g += `<rect x="${labelW}" y="${y + 5}" width="${right - labelW}" height="17" rx="8" fill="rgba(255,255,255,.07)"/>`;
+    keys.forEach((k, ki) => {
+      const v = r.parts[k] || 0; if (!v) return;
+      const bw = (right - labelW) * (v / max);
+      g += `<rect x="${x}" y="${y + 5}" width="${Math.max(1.5, bw)}" height="17" fill="${colors[ki]}"
+             ${ki === 0 ? 'rx="8"' : ""}/>`;
+      x += bw;
+    });
+    g += `<text x="${o.w - 4}" y="${y + 18}" fill="rgba(238,244,251,.85)" font-size="12.5" text-anchor="end"
+           font-weight="700">${o.fmt(tot[i])}</text>`;
+  });
+  return `<svg viewBox="0 0 ${o.w} ${h}" role="img">${g}</svg>`;
+}
+
+// ===================== Übersicht =====================
+function renderOverview() {
+  const rank = ALL.filter(m => D.current.includes(m));
+  const top = rank.slice(0, 3);
+  const order = [1, 0, 2]; // Silber, Gold, Bronze
+  const medals = ["1.", "2.", "3."];
+  const totPen = ALL.reduce((s, m) => s + D.alltime[m].pen, 0);
+  const totEv = D.totalEvents;
+
+  let podium = `<div class="podium">` + order.map(i => {
+    const m = top[i]; if (!m) return "<div></div>";
+    const a = D.alltime[m];
+    const hh = [96, 118, 84][i === 0 ? 1 : i === 1 ? 0 : 2];
+    return `<div class="pod" style="min-height:${hh}px;border-color:${col(m)}55">
+      <div class="medal" style="color:${col(m)}">${medals[i]}</div>
+      <div class="m">${esc(m)}</div>
+      <div class="p" style="color:${col(m)}">${a.att}</div>
+      <div class="l">Punkte · ${pct(a.rate)}</div></div>`;
+  }).join("") + `</div>`;
+
+  const kpis = `<div class="kpis">
+    <div class="kpi"><div class="v">${totEv}</div><div class="k">Dönerfriitige seit 2016</div></div>
+    <div class="kpi"><div class="v">${YEARS.length}</div><div class="k">Vereinsjahre</div></div>
+    <div class="kpi"><div class="v">${chf0(totPen)}</div><div class="k">CHF Bussen total</div></div>
+    <div class="kpi"><div class="v">${chf0(D.assets.total || 0)}</div><div class="k">CHF Vereinsvermögen</div></div>
+  </div>`;
+
+  document.getElementById("p-overview").innerHTML = `
+    <div class="card">
+      <h2>Ewige Rangliste</h2>
+      <div class="sub2">Ein Punkt pro besuchtem Dönerfriitig. ${totEv} Termine von ${dmy(D.years[0].start)} bis ${dmy(D.years[D.years.length - 1].end)}.</div>
+      ${podium}
+    </div>
+    <div class="card">${kpis}</div>
+    <div class="card">
+      <h2>Alle Mitglieder</h2>
+      <div class="sub2">Spaltentitel antippen zum Sortieren.</div>
+      <div id="allTable"></div>
+      <div class="note">JWI war nur in den Anfangsjahren dabei und wird separat geführt.</div>
+    </div>`;
+  sortTable("allTable", ALL);
+}
+
+let sortState = { key: "att", dir: -1 };
+function sortTable(hostId, list, key) {
+  if (key) { sortState.dir = (sortState.key === key) ? -sortState.dir : (key === "name" ? 1 : -1); sortState.key = key; }
+  const val = (m) => {
+    const a = D.alltime[m];
+    return { name: m, att: a.att, rate: a.rate, miss: a.miss, pen: a.pen, events: a.events }[sortState.key];
+  };
+  const sorted = list.slice().sort((x, y) => {
+    const a = val(x), b = val(y);
+    return (typeof a === "string" ? a.localeCompare(b) : a - b) * sortState.dir;
+  });
+  const rankMap = new Map(ALL.filter(m => D.current.includes(m)).map((m, i) => [m, i + 1]));
+  const maxAtt = Math.max(...list.map(m => D.alltime[m].att));
+  const cols = [["name", "Member", "l"], ["att", "Punkte"], ["rate", "Quote"], ["miss", "Absenz"], ["pen", "Bussen"]];
+  const head = cols.map(([k, l, c]) =>
+    `<th class="${c || ""} ${sortState.key === k ? "on" : ""}" data-k="${k}">${l}${sortState.key === k ? (sortState.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("");
+  const body = sorted.map(m => {
+    const a = D.alltime[m], r = rankMap.get(m);
+    return `<tr>
+      <td class="l"><div class="who"><span class="rk">${r ? r + "." : "–"}</span>${dot(m)}${esc(m)}</div></td>
+      <td class="num" style="font-weight:800">${a.att}</td>
+      <td class="num"><div style="display:flex;align-items:center;gap:7px;justify-content:flex-end">
+        <div class="bar" style="width:44px"><i style="width:${(a.rate * 100).toFixed(0)}%;background:${col(m)}"></i></div>
+        <span style="min-width:46px;display:inline-block">${pct(a.rate)}</span></div></td>
+      <td class="num">${a.miss}</td>
+      <td class="num">${chf0(a.pen)}</td></tr>`;
+  }).join("");
+  const host = document.getElementById(hostId);
+  host.innerHTML = `<div class="tw"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  host.querySelectorAll("th").forEach(th => th.onclick = () => sortTable(hostId, list, th.dataset.k));
+}
+
+// ===================== Jahre =====================
+let selYear = YEARS[YEARS.length - 1];
+function renderYears() {
+  const chips = YEARS.slice().reverse().map(y =>
+    `<button class="chip ${y === selYear ? "on" : ""}" data-y="${y}">${y}</button>`).join("");
+  document.getElementById("p-years").innerHTML = `
+    <div class="chips" id="yearChips">${chips}</div>
+    <div id="yearBody"></div>`;
+  document.getElementById("yearChips").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    selYear = +b.dataset.y; renderYears();
+  };
+  const y = yearOf(selYear);
+  const prev = yearOf(selYear - 1);
+  const mem = Object.keys(y.members).sort((a, b) => y.members[b].att - y.members[a].att);
+  const prevRank = prev ? Object.keys(prev.members).sort((a, b) => prev.members[b].att - prev.members[a].att) : null;
+  const totPen = mem.reduce((s, m) => s + y.members[m].pen, 0);
+
+  const rows = mem.map((m, i) => {
+    const d = y.members[m];
+    let delta = "";
+    if (prevRank) {
+      const pi = prevRank.indexOf(m);
+      if (pi >= 0) {
+        const dv = pi - i;
+        delta = dv === 0 ? `<span style="opacity:.35">–</span>`
+          : `<span style="color:${dv > 0 ? "#4caf50" : "#ff6b8a"};font-size:12px">${dv > 0 ? "▲" : "▼"}${Math.abs(dv)}</span>`;
+      }
+    }
+    return `<tr>
+      <td class="l"><div class="who"><span class="rk">${i + 1}.</span>${dot(m)}${esc(m)} ${delta}</div></td>
+      <td class="num" style="font-weight:800">${d.att}<span style="opacity:.4">/${d.events}</span></td>
+      <td class="num"><div style="display:flex;align-items:center;gap:7px;justify-content:flex-end">
+        <div class="bar" style="width:44px"><i style="width:${(d.rate * 100).toFixed(0)}%;background:${col(m)}"></i></div>
+        <span style="min-width:46px;display:inline-block">${pct(d.rate)}</span></div></td>
+      <td class="num">${d.miss}</td>
+      <td class="num">${chf0(d.pen)}</td></tr>`;
+  }).join("");
+
+  const chart = barChart(mem.map(m => ({ label: m, value: +(y.members[m].rate * 100).toFixed(1), color: col(m) })),
+    { fmt: v => v.toFixed(1).replace(".", ",") + " %", max: 100 });
+
+  document.getElementById("yearBody").innerHTML = `
+    <div class="card">
+      <h2>Vereinsjahr ${y.year}</h2>
+      <div class="sub2">${y.summaryOnly
+        ? "Für dieses Jahr liegt nur die Jahreszusammenfassung vor, keine einzelnen Termine."
+        : `${y.events} Termine · ${dmy(y.start)} bis ${dmy(y.end)}`}</div>
+      <div class="kpis" style="margin-bottom:14px">
+        <div class="kpi"><div class="v">${y.events}</div><div class="k">Termine</div></div>
+        <div class="kpi"><div class="v">${pct(mem.reduce((s, m) => s + y.members[m].rate, 0) / mem.length)}</div><div class="k">Schnitt Anwesenheit</div></div>
+        <div class="kpi"><div class="v">${chf0(totPen)}</div><div class="k">CHF Bussen</div></div>
+      </div>
+      <div class="tw"><table><thead><tr><th class="l">Member</th><th>Punkte</th><th>Quote</th><th>Absenz</th><th>Bussen</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    </div>
+    <div class="card"><h2>Anwesenheitsquote ${y.year}</h2><div class="sub2">Anteil der besuchten Termine.</div>${chart}</div>`;
+}
+
+// ===================== Verlauf =====================
+let trendSel = new Set(CUR);
+let trendMode = "rate";
+function renderTrend() {
+  const labels = YEARS.map(y => String(y).slice(2));
+  const series = ALL.filter(m => trendSel.has(m)).map(m => ({
+    name: m,
+    points: D.years.map(y => {
+      const d = y.members[m];
+      if (!d) return null;
+      if (trendMode === "rate") return { y: d.rate * 100 };
+      const c = D.cumulative[m].find(c => c.year === y.year);
+      return c && c.cum !== null ? { y: c.cum } : null;
+    }),
+  }));
+  const chart = lineChart(series, {
+    xLabels: labels,
+    yFmt: v => trendMode === "rate" ? Math.round(v) + "%" : Math.round(v),
+    yMax: trendMode === "rate" ? 100 : null,
+  });
+  const legend = ALL.map(m =>
+    `<button class="chip mem ${trendSel.has(m) ? "on" : ""}" data-m="${esc(m)}"
+      style="color:${trendSel.has(m) ? col(m) : "rgba(238,244,251,.55)"}">${dot(m)}&nbsp;${esc(m)}</button>`).join("");
+
+  document.getElementById("p-trend").innerHTML = `
+    <div class="card">
+      <h2>${trendMode === "rate" ? "Anwesenheitsquote über die Jahre" : "Punkte kumuliert"}</h2>
+      <div class="sub2">${trendMode === "rate"
+        ? "Jeder Punkt ist ein Vereinsjahr. Mitglieder unten an- und abwählen."
+        : "Aufsummierte Anwesenheiten seit dem ersten Vereinsjahr."}</div>
+      <div class="chips">
+        <button class="chip ${trendMode === "rate" ? "on" : ""}" data-mode="rate">Quote</button>
+        <button class="chip ${trendMode === "cum" ? "on" : ""}" data-mode="cum">Punkte kumuliert</button>
+      </div>
+      ${chart}
+      <div class="chips" style="margin-top:16px;margin-bottom:0" id="trendLegend">${legend}</div>
+    </div>
+    <div class="card">
+      <h2>Bestes und schwächstes Jahr</h2>
+      <div class="sub2">Höchste und tiefste Anwesenheitsquote je Mitglied.</div>
+      <div id="bestWorst"></div>
+    </div>`;
+
+  document.querySelectorAll("#p-trend [data-mode]").forEach(b =>
+    b.onclick = () => { trendMode = b.dataset.mode; renderTrend(); });
+  document.getElementById("trendLegend").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const m = b.dataset.m;
+    if (trendSel.has(m)) { if (trendSel.size > 1) trendSel.delete(m); } else trendSel.add(m);
+    renderTrend();
+  };
+
+  document.getElementById("bestWorst").innerHTML = CUR.map(m => {
+    const ys = Object.entries(D.alltime[m].perYear);
+    const best = ys.reduce((a, b) => b[1].rate > a[1].rate ? b : a);
+    const worst = ys.reduce((a, b) => b[1].rate < a[1].rate ? b : a);
+    return `<div class="rec"><span>${dot(m)} <b style="color:${col(m)}">${esc(m)}</b></span>
+      <span class="r"><span style="color:#4caf50">${best[0]}: ${pct(best[1].rate)}</span>
+      &nbsp;·&nbsp;<span style="color:#ff6b8a">${worst[0]}: ${pct(worst[1].rate)}</span></span></div>`;
+  }).join("");
+}
+
+// ===================== Bussen =====================
+const REASONS = ["Absenz", "LIFO", "LIFO+", "Last In", "Unentschuldigt", "Mitgliederbeitrag", "Übrige", "Pauschal"];
+const RCOL = ["#ff6b8a", "#ffd166", "#ff9f43", "#2ee6a8", "#b39dff", "#7cc4ff", "#8fa3c4", "#5c6a9e"];
+// In einzelnen Jahren wurden Bussen nur als Jahrespauschale gebucht statt Termin fuer
+// Termin. Die Differenz zum massgebenden Debitorensaldo kommt als "Pauschal" dazu,
+// damit die Balken die tatsaechliche Summe zeigen.
+function finesParts(m) {
+  const a = D.alltime[m];
+  const parts = Object.assign({}, a.penByReason);
+  const listed = Object.values(parts).reduce((s, v) => s + v, 0);
+  const rest = Math.round((a.pen - listed) * 100) / 100;
+  if (rest > 0.01) parts["Pauschal"] = rest;
+  return parts;
+}
+function renderFines() {
+  const rows = ALL.map(m => ({ label: m, parts: finesParts(m) }));
+  const present = REASONS.filter(r => rows.some(x => x.parts[r]));
+  const colors = present.map(r => RCOL[REASONS.indexOf(r)]);
+  const totalByReason = {};
+  present.forEach(r => totalByReason[r] = ALL.reduce((s, m) => s + (finesParts(m)[r] || 0), 0));
+  const grand = ALL.reduce((s, m) => s + D.alltime[m].pen, 0);
+
+  const perYear = D.years.map(y => ({
+    label: String(y.year),
+    value: Object.values(y.members).reduce((s, d) => s + d.pen, 0),
+    color: "#7cc4ff",
+  }));
+
+  document.getElementById("p-fines").innerHTML = `
+    <div class="card">
+      <h2>Bussen aller Zeiten</h2>
+      <div class="sub2">Summe aller erfassten Bussen und Beiträge: <b style="color:var(--blue2)">CHF ${chf(grand)}</b></div>
+      ${stackChart(rows, present, colors, { fmt: v => chf0(v) })}
+      <div class="lg">${present.map((r, i) =>
+        `<span><span class="dot" style="background:${colors[i]}"></span>${r} · ${chf0(totalByReason[r])}</span>`).join("")}</div>
+      <div class="note">In den Jahren 2016 sowie 2018 bis 2020 wurden Bussen teilweise nur als
+      Jahrespauschale verbucht. Dieser Anteil erscheint als <b>Pauschal</b>, damit die Summen
+      dem Debitorensaldo der Vereinsbuchhaltung entsprechen.</div>
+    </div>
+    <div class="card">
+      <h2>Bussen pro Vereinsjahr</h2>
+      <div class="sub2">Summe über alle Mitglieder.</div>
+      ${barChart(perYear, { fmt: v => chf0(v), rowH: 26 })}
+    </div>
+    <div class="card">
+      <h2>Wie teuer ist eine Absenz?</h2>
+      <div class="sub2">Bussen geteilt durch verpasste Termine.</div>
+      ${CUR.map(m => {
+        const a = D.alltime[m];
+        return `<div class="rec"><span>${dot(m)} <b style="color:${col(m)}">${esc(m)}</b></span>
+          <span class="r">CHF ${chf(a.penPerMiss || 0)} <span style="opacity:.5">bei ${a.miss} Absenzen</span></span></div>`;
+      }).join("")}
+      <div class="note">Die Absenzbusse betrug in den Anfangsjahren CHF 11 und liegt heute bei CHF 13.
+      Dazu kommen Zusatzbussen wie Last In und LIFO sowie der Mitgliederbeitrag.</div>
+    </div>`;
+}
+
+// ===================== Rekorde =====================
+function renderRecords() {
+  const s = (m) => D.alltime[m].streaks;
+  const bestP = CUR.slice().sort((a, b) => s(b).bestPresent - s(a).bestPresent);
+  const bestA = CUR.slice().sort((a, b) => s(b).bestAbsent - s(a).bestAbsent);
+
+  const yearRates = [];
+  D.years.forEach(y => Object.entries(y.members).forEach(([m, d]) => {
+    if (D.current.includes(m)) yearRates.push({ m, year: y.year, rate: d.rate, att: d.att, ev: d.events });
+  }));
+  const topYears = yearRates.slice().sort((a, b) => b.rate - a.rate).slice(0, 5);
+  const worstYears = yearRates.slice().sort((a, b) => a.rate - b.rate).slice(0, 5);
+
+  const months = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  const seasonRows = Object.entries(D.season).map(([k, v]) => ({
+    label: months[+k - 1], value: +(v.rate * 100).toFixed(1), color: "#7cc4ff",
+  }));
+
+  const perfect = [];
+  D.years.forEach(y => Object.entries(y.members).forEach(([m, d]) => {
+    if (d.rate === 1) perfect.push(`${m} (${y.year})`);
+  }));
+
+  document.getElementById("p-records").innerHTML = `
+    <div class="card">
+      <h2>Längste Serien</h2>
+      <div class="sub2">Aufeinanderfolgende Termine, ab Vereinsjahr 2017 auswertbar.</div>
+      ${bestP.map(m => `<div class="rec"><span>${dot(m)} <b style="color:${col(m)}">${esc(m)}</b></span>
+        <span class="r">${s(m).bestPresent}× in Folge da${s(m).bestPresentEnd ? `<span style="opacity:.5"> bis ${dmy(s(m).bestPresentEnd)}</span>` : ""}</span></div>`).join("")}
+    </div>
+    <div class="card">
+      <h2>Längste Abwesenheiten</h2>
+      <div class="sub2">Der wunde Punkt jedes Vereins.</div>
+      ${bestA.map(m => `<div class="rec"><span>${dot(m)} <b style="color:${col(m)}">${esc(m)}</b></span>
+        <span class="r">${s(m).bestAbsent}× in Folge weg${s(m).bestAbsentEnd ? `<span style="opacity:.5"> bis ${dmy(s(m).bestAbsentEnd)}</span>` : ""}</span></div>`).join("")}
+    </div>
+    <div class="card">
+      <h2>Aktuelle Serie</h2>
+      <div class="sub2">Stand ${dmy(D.years[D.years.length - 1].end)}.</div>
+      ${CUR.map(m => `<div class="rec"><span>${dot(m)} <b style="color:${col(m)}">${esc(m)}</b></span>
+        <span class="r" style="color:${s(m).currentKind === "da" ? "#4caf50" : "#ff6b8a"}">
+        ${s(m).current}× in Folge ${s(m).currentKind === "da" ? "dabei" : "gefehlt"}</span></div>`).join("")}
+    </div>
+    <div class="card">
+      <h2>Beste Einzeljahre</h2>
+      <div class="sub2">Höchste Quoten der Vereinsgeschichte.</div>
+      ${topYears.map((r, i) => `<div class="rec"><span><span class="rk">${i + 1}.</span>${dot(r.m)}
+        <b style="color:${col(r.m)}">${esc(r.m)}</b> <span style="opacity:.55">${r.year}</span></span>
+        <span class="r">${pct(r.rate)} <span style="opacity:.5">${r.att}/${r.ev}</span></span></div>`).join("")}
+      ${perfect.length ? `<div class="note">Perfekte Jahre ohne eine einzige Absenz: ${perfect.join(", ")}.</div>`
+        : `<div class="note">Ein perfektes Jahr ohne eine einzige Absenz hat noch niemand geschafft.</div>`}
+    </div>
+    <div class="card">
+      <h2>Schwächste Einzeljahre</h2>
+      <div class="sub2">Die Jahre, über die man nicht spricht.</div>
+      ${worstYears.map((r, i) => `<div class="rec"><span><span class="rk">${i + 1}.</span>${dot(r.m)}
+        <b style="color:${col(r.m)}">${esc(r.m)}</b> <span style="opacity:.55">${r.year}</span></span>
+        <span class="r">${pct(r.rate)} <span style="opacity:.5">${r.att}/${r.ev}</span></span></div>`).join("")}
+    </div>
+    <div class="card">
+      <h2>Anwesenheit nach Monat</h2>
+      <div class="sub2">Über alle Jahre. Zeigt, wann der Verein am fleissigsten ist.</div>
+      ${barChart(seasonRows, { fmt: v => v.toFixed(0) + " %", rowH: 25, max: 100 })}
+    </div>
+    <div class="card">
+      <h2>Ämtli und Titel</h2>
+      <div class="sub2">Stand Vereinsjahr 2026.</div>
+      ${CUR.filter(m => D.roles[m]).map(m => {
+        const r = D.roles[m];
+        return `<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <div style="font-weight:800;color:${col(m)};display:flex;align-items:center;gap:8px">${dot(m)}${esc(m)}</div>
+          ${r.amt ? `<div style="font-size:12.5px;opacity:.8;margin-top:3px">${esc(r.amt)}</div>` : ""}
+          ${r.titel ? `<div style="font-size:12px;opacity:.55;margin-top:2px">Titel: ${esc(r.titel)}</div>` : ""}
+        </div>`;
+      }).join("")}
+    </div>`;
+}
+
+// ===================== Duell =====================
+let duelA = CUR[0], duelB = CUR[1];
+function renderDuel() {
+  const opts = (sel) => CUR.map(m => `<option value="${esc(m)}" ${m === sel ? "selected" : ""}>${esc(m)}</option>`).join("");
+  const key = [duelA, duelB].sort().join("|");
+  const h = D.h2h[key];
+  const swapped = [duelA, duelB].sort()[0] !== duelA;
+  const onlyA = h ? (swapped ? h.onlyB : h.onlyA) : 0;
+  const onlyB = h ? (swapped ? h.onlyA : h.onlyB) : 0;
+  const both = h ? h.both : 0, neither = h ? h.neither : 0;
+  const tot = both + onlyA + onlyB + neither || 1;
+  const w = (v) => (v / tot * 100).toFixed(1) + "%";
+  const A = D.alltime[duelA], B = D.alltime[duelB];
+
+  const cmp = (label, va, vb, fmt, higherBetter = true) => {
+    const aw = higherBetter ? va >= vb : va <= vb;
+    return `<div class="rec">
+      <span style="color:${aw ? col(duelA) : "rgba(238,244,251,.65)"};font-weight:${aw ? 800 : 400};min-width:70px">${fmt(va)}</span>
+      <span style="opacity:.55;font-size:12px;text-align:center;flex:1">${label}</span>
+      <span class="r" style="color:${!aw ? col(duelB) : "rgba(238,244,251,.65)"};font-weight:${!aw ? 800 : 400};min-width:70px">${fmt(vb)}</span></div>`;
+  };
+
+  document.getElementById("p-duel").innerHTML = `
+    <div class="card">
+      <h2>Kopf an Kopf</h2>
+      <div class="sub2">Zwei Mitglieder direkt vergleichen.</div>
+      <div class="duel" style="margin-bottom:16px">
+        <select id="dA">${opts(duelA)}</select>
+        <span style="opacity:.5;font-weight:800">gegen</span>
+        <select id="dB">${opts(duelB)}</select>
+      </div>
+      ${cmp("Punkte", A.att, B.att, v => v)}
+      ${cmp("Anwesenheitsquote", A.rate, B.rate, pct)}
+      ${cmp("Absenzen", A.miss, B.miss, v => v, false)}
+      ${cmp("Bussen CHF", A.pen, B.pen, chf0, false)}
+      ${cmp("Längste Serie", A.streaks.bestPresent, B.streaks.bestPresent, v => v + "×")}
+      ${cmp("Längste Absenz", A.streaks.bestAbsent, B.streaks.bestAbsent, v => v + "×", false)}
+    </div>
+    <div class="card">
+      <h2>Gemeinsame Termine</h2>
+      <div class="sub2">Von ${tot} Terminen mit Einzelerfassung, ab Vereinsjahr 2017.</div>
+      <div class="duelbar">
+        <i style="width:${w(both)};background:#7cc4ff">${both}</i>
+        <i style="width:${w(onlyA)};background:${col(duelA)}">${onlyA}</i>
+        <i style="width:${w(onlyB)};background:${col(duelB)}">${onlyB}</i>
+        <i style="width:${w(neither)};background:rgba(255,255,255,.16);color:#eef4fb">${neither}</i>
+      </div>
+      <div class="lg">
+        <span><span class="dot" style="background:#7cc4ff"></span>beide da</span>
+        <span><span class="dot" style="background:${col(duelA)}"></span>nur ${esc(duelA)}</span>
+        <span><span class="dot" style="background:${col(duelB)}"></span>nur ${esc(duelB)}</span>
+        <span><span class="dot" style="background:rgba(255,255,255,.3)"></span>keiner</span>
+      </div>
+      <div class="note">Beide zusammen am Tisch: ${pct(both / tot)} aller gemeinsamen Termine.</div>
+    </div>
+    <div class="card">
+      <h2>Quote im Jahresvergleich</h2>
+      ${lineChart([duelA, duelB].map(m => ({
+        name: m,
+        points: D.years.map(y => y.members[m] ? { y: y.members[m].rate * 100 } : null),
+      })), { xLabels: YEARS.map(y => String(y).slice(2)), yFmt: v => Math.round(v) + "%", yMax: 100 })}
+      <div class="lg">
+        <span>${dot(duelA)}${esc(duelA)}</span><span>${dot(duelB)}${esc(duelB)}</span>
+      </div>
+    </div>`;
+
+  document.getElementById("dA").onchange = (e) => {
+    duelA = e.target.value; if (duelA === duelB) duelB = CUR.find(m => m !== duelA); renderDuel();
+  };
+  document.getElementById("dB").onchange = (e) => {
+    duelB = e.target.value; if (duelA === duelB) duelA = CUR.find(m => m !== duelB); renderDuel();
+  };
+}
+
+renderOverview(); renderYears(); renderTrend(); renderFines(); renderRecords(); renderDuel();
+</script>
+</body>
+</html>

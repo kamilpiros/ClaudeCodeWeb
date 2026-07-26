@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2c386d">
+<title>Dönerfriitig Games</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .games { display: flex; flex-direction: column; gap: 13px; width: 100%; max-width: 340px; }
+  .game-card {
+    display: flex; align-items: center; gap: 16px; text-align: left;
+    padding: 17px 18px; border-radius: 16px; background: var(--card); border: 1.5px solid var(--line);
+    cursor: pointer; transition: transform .08s, border-color .15s; color: var(--cream);
+    text-decoration: none;
+  }
+  .game-card:active { transform: scale(.97); border-color: var(--blue); }
+  .game-card .num {
+    flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px;
+    background: linear-gradient(145deg, #34418a, #232d5a);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 17px; color: var(--blue2);
+  }
+  .game-card .t { display: block; font-size: 18px; font-weight: 800; color: var(--cream); }
+  .game-card .d { display: block; font-size: 13px; opacity: .7; margin-top: 3px; line-height: 1.4; }
+  .cd {
+    font-size: 13px; opacity: .9; background: var(--card); border: 1.5px solid var(--line);
+    border-radius: 14px; padding: 11px 18px; max-width: 340px;
+  }
+  .cd b { color: var(--blue2); font-size: 16px; display: block; margin-top: 3px; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">‹ Start</a>
+<button class="mute" id="muteBtn" title="Sound">On</button>
+<div class="screen">
+  <div class="logo" style="width:92px;height:92px"><img src="logo.png" alt="DF" onerror="this.parentNode.textContent='DF'"></div>
+  <div>
+    <h1>Dönerfriitig</h1>
+    <div class="sub">Games</div>
+  </div>
+  <div class="games">
+    <a class="game-card" href="dash.html">
+      <span class="num">1</span>
+      <span><span class="t">Döner-Dash</span><span class="d">Renn zum Züri Bistro, drängle, zahle, bestelle und iss. Auf Zeit, mit geteilter Bestenliste.</span></span>
+    </a>
+    <a class="game-card" href="stapler.html">
+      <span class="num">2</span>
+      <span><span class="t">Döner-Stapler</span><span class="d">Stapel die Zutaten im richtigen Moment. Schnell, simpel, gemein.</span></span>
+    </a>
+    <a class="game-card" href="gluecksrad.html">
+      <span class="num">3</span>
+      <span><span class="t">Wer zahlt?</span><span class="d">Dreh das Rad. Es entscheidet, wer heute den Döner zahlt.</span></span>
+    </a>
+  </div>
+</div>
+<script src="audio.js"></script>
+<script>
+  const muteBtn = document.getElementById("muteBtn");
+  let muted = localStorage.getItem("df_muted") === "1";
+  function paintMute() { muteBtn.textContent = muted ? "Off" : "On"; }
+  paintMute();
+  function startAudio() {
+    DFAudio.unlock();
+    DFAudio.setMuted(muted);
+    if (!muted) DFAudio.startMusic();
+    window.removeEventListener("pointerdown", startAudio);
+  }
+  window.addEventListener("pointerdown", startAudio);
+  muteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    muted = DFAudio.toggleMute();
+    localStorage.setItem("df_muted", muted ? "1" : "0");
+    paintMute();
+    if (!muted) DFAudio.startMusic();
+  });
+</script>
+</body>
+</html>

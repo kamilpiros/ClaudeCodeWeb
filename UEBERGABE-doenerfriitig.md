@@ -48,7 +48,16 @@ gebraucht:
    Ohne den Parameter zeigt die Seite alte Zahlen, und wenn die Seite neue
    Felder erwartet, bleibt sie bei diesem Mitglied sogar leer. Genau das ist
    am 27.07.2026 zweimal passiert, einmal je Datensatz.
-3. `renderAll()` fängt Fehler je Reiter ab. Passen Seite und Datensatz einmal
+3. `renderAll()` fängt Fehler je Reiter ab.
+
+Die Übersicht zeigt neben dem Goldkurs eine zweite Anzeige mit dem zuletzt
+nachgetragenen Dönerfriitig. Sie wird grün, wenn dieser Termin auf oder nach dem
+letzten Freitag 12.15 Uhr liegt, und rot mit Tagesangabe, wenn seither nichts
+nachgetragen wurde. Damit sieht man auf einen Blick, ob die Automatik hängt.
+Der Wochentag stammt aus derselben Annahme wie der Countdown auf der Startseite.
+Fällt ein Dönerfriitig einmal aus, springt die Anzeige nach acht Tagen trotzdem
+auf rot. Das ist Absicht, denn von aussen ist ein Ausfall nicht von einem
+fehlenden Nachtrag zu unterscheiden. Passen Seite und Datensatz einmal
    nicht zusammen, meldet sich nur der betroffene Reiter statt der ganzen Seite.
 
 Ein Deploy braucht rund eine Minute. Wer danach die alte Fassung sieht, lädt mit

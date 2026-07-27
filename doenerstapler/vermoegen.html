@@ -106,8 +106,12 @@
             animation: pulse 1.8s ease-in-out infinite; }
   .live.off { border-color: rgba(238,244,251,.2); color: rgba(238,244,251,.5); }
   .live.off i { background: rgba(238,244,251,.4); animation: none; }
-  .live.stand { border-color: rgba(255,209,102,.45); color: #ffd166; }
-  .live.stand i { background: #ffd166; animation: none; }
+  /* Gedaempftes Gruen, damit der Live-Kurs daneben der auffaelligere bleibt */
+  .live.stand { border-color: rgba(126,226,135,.32); color: #9fd4a6; }
+  .live.stand i { background: #9fd4a6; animation: none; }
+  /* Rot, sobald seit dem letzten Doenerfriitig nichts nachgetragen wurde */
+  .live.stand.alt { border-color: rgba(255,107,138,.55); color: #ff6b8a; }
+  .live.stand.alt i { background: #ff6b8a; animation: pulse 1.8s ease-in-out infinite; }
   .badges { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
 
@@ -194,12 +198,12 @@
   <div class="panel" id="p-spend"></div>
 </div>
 
-<script src="df-data.js?v=20260727h"></script>
+<script src="df-data.js?v=20260727i"></script>
 <!-- Der Versionsparameter holt bereits gecachte Kopien aus dem Weg. Das _headers
      im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
      Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
      Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
-<script src="df-assets.js?v=20260727h"></script>
+<script src="df-assets.js?v=20260727i"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -228,6 +232,27 @@ const lastEvent = () => {
   const rows = A.ledger[fy] || [];
   return rows.length ? rows[rows.length - 1][0] : A.asOf;
 };
+
+// Ein Dönerfriitig ist freitags um 12.15 Uhr, gleiche Annahme wie der
+// Countdown auf der Startseite. Der letzte, der stattgefunden hat, ist der
+// Massstab: liegt der zuletzt nachgetragene Termin davor, hinkt die Seite
+// hinterher und die Anzeige wird rot.
+function letzterDF() {
+  const jetzt = new Date();
+  const d = new Date(jetzt);
+  d.setHours(12, 15, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() - 5 + 7) % 7));
+  if (d > jetzt) d.setDate(d.getDate() - 7);   // freitags vor 12.15 zählt der davor
+  return d;
+}
+
+function standInfo() {
+  const datum = lastEvent();
+  const eingetragen = new Date(datum + "T12:15:00");
+  const soll = letzterDF();
+  const tage = Math.round((soll - eingetragen) / 86400000);
+  return { datum, aktuell: tage <= 0, tage: Math.max(0, tage) };
+}
 const cur = Y[Y.length - 1];
 // Das Blatt 2026 rechnet die Reserve als Goldwert vom 05.12.2025 minus die Ausgaben
 // des laufenden Jahres. Diese Differenz brauchen wir für den Marktwert.
@@ -243,6 +268,20 @@ function px() {
 }
 const goldValue = () => G.xau * px().chfOz;
 const marketValue = () => cur.debitors + goldValue() - spent;
+
+function standBadge() {
+  const s = standInfo();
+  if (s.aktuell) {
+    return `<div class="live stand" title="Alle bisherigen Dönerfriitige sind nachgetragen.">`
+         + `<i></i>Stand ${dmy(s.datum)}</div>`;
+  }
+  const wie = s.tage === 1 ? "seit einem Tag" : `seit ${s.tage} Tagen`;
+  return `<div class="live stand alt" title="Der letzte Dönerfriitig war am `
+       + `${dmy(letzterDF().toISOString().slice(0, 10))}, nachgetragen ist erst der `
+       + `${dmy(s.datum)}. Die Statistik kommt jeweils per Mail und wird dann automatisch `
+       + `übernommen.">`
+       + `<i></i>Stand ${dmy(s.datum)}, ${wie} offen</div>`;
+}
 
 function liveBadge() {
   const p = px();
@@ -566,7 +605,7 @@ function renderOverview() {
         <div class="cur">CHF</div>
         <div class="big">${chf0(market)}</div>
         <div class="sub">Vereinsvermögen zum aktuellen Goldkurs, ${chf0(perMember)} je Mitglied</div>
-        <div class="badges">${liveBadge()}<div class="live stand"><i></i>Stand ${dmy(lastEvent())}</div></div>
+        <div class="badges">${liveBadge()}${standBadge()}</div>
       </div>
     </div>
     <div class="card">

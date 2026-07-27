@@ -164,6 +164,32 @@ function nachGithub(att, msg) {
   }
 }
 
+/**
+ * Einmalig fuer den ersten Anlauf. Ignoriert das Label und schiebt die neueste
+ * gefundene Mappe nach GitHub, damit die Kette einmal ganz durchlaeuft, ohne
+ * auf die naechste Mail zu warten. Danach nicht mehr noetig.
+ */
+function dfErstbefuellung() {
+  var suche = 'from:(' + ABSENDER.join(' OR ') + ') has:attachment newer_than:90d';
+  var threads = GmailApp.search(suche, 0, 50);
+  var kandidaten = [];
+  threads.forEach(function (thread) {
+    thread.getMessages().forEach(function (msg) {
+      msg.getAttachments().forEach(function (att) {
+        if (istExcel(att)) kandidaten.push({ msg: msg, att: att });
+      });
+    });
+  });
+  if (!kandidaten.length) {
+    Logger.log('Nichts gefunden. Zeitraum in der Suche vergroessern?');
+    return;
+  }
+  kandidaten.sort(function (a, b) { return b.msg.getDate() - a.msg.getDate(); });
+  var k = kandidaten[0];
+  Logger.log('Neueste Mappe: ' + stempel(k.msg) + '  ' + k.att.getName());
+  nachGithub(k.att, k.msg);
+}
+
 // ---------------------------------------------------------------------------
 // Probelauf: zeigt nur an, schreibt nichts und setzt kein Label
 // ---------------------------------------------------------------------------

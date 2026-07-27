@@ -92,8 +92,13 @@ Einrichtung:
 4. Funktion `dfProbelauf` ausführen. Fragt einmal nach Berechtigung für Gmail
    und Drive. Das Protokoll zeigt danach, was gefunden würde und ob der Token
    hinterlegt ist. Es schreibt nichts.
-5. Stimmt die Liste, `dfAnhaengeSichern` einmal von Hand ausführen.
+5. Für den ersten Anlauf `dfErstbefuellung` ausführen. Die ignoriert das Label
+   und schiebt die neueste gefundene Mappe nach GitHub, damit die Kette einmal
+   ganz durchläuft. Danach nicht mehr nötig.
 6. Trigger anlegen: Funktion `dfAnhaengeSichern`, zeitgesteuert, stündlich.
+
+Wird das Script später geändert, genügt es, den Inhalt im selben Projekt zu
+ersetzen. Autorisierung, Trigger und Label bleiben bestehen.
 
 Kommt ein Mitglied dazu, die Adresse in `ABSENDER` ergänzen.
 

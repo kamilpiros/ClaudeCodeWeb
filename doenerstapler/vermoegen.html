@@ -74,6 +74,17 @@
   .hero2 .cur { font-size: 15px; opacity: .5; font-weight: 700; }
   .hero2 .sub { font-size: 12px; opacity: .6; margin-top: 5px; }
 
+  .live {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .8px; text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    border: 1px solid rgba(126,226,135,.45); color: #7ee287; margin-top: 8px;
+  }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: #7ee287;
+            animation: pulse 1.8s ease-in-out infinite; }
+  .live.off { border-color: rgba(238,244,251,.2); color: rgba(238,244,251,.5); }
+  .live.off i { background: rgba(238,244,251,.4); animation: none; }
+  @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; }
   .kpi { background: #1d2750; border: 1px solid var(--line); border-radius: 13px; padding: 12px; }
   .kpi .v { font-size: 20px; font-weight: 800; color: var(--blue2); font-variant-numeric: tabular-nums; }
@@ -97,7 +108,6 @@
   .note { font-size: 11.5px; opacity: .55; line-height: 1.5; margin-top: 10px; }
   .up { color: #4caf50; } .down { color: #ff6b8a; }
 
-  /* Zeitstrahl der Anlageformen */
   .eras { display: grid; gap: 10px; }
   .era { display: flex; gap: 12px; align-items: flex-start; padding: 12px 13px;
          background: #1d2750; border: 1px solid var(--line); border-radius: 13px; }
@@ -114,6 +124,20 @@
   .keyrow:last-child { border-bottom: none; }
   .keyrow .kv { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
   .keyrow .kp { opacity: .5; font-size: 12px; min-width: 46px; text-align: right; }
+
+  /* Zeitstrahl der Anlagereise */
+  .steps { position: relative; padding-left: 22px; }
+  .steps::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px;
+                   width: 2px; background: rgba(255,255,255,.12); }
+  .step { position: relative; padding: 9px 0; }
+  .step::before { content: ""; position: absolute; left: -21px; top: 15px; width: 12px; height: 12px;
+                  border-radius: 50%; background: var(--card); border: 2.5px solid var(--blue2); }
+  .step.gold::before { border-color: #ffd166; }
+  .step.crypto::before { border-color: #2ee6a8; }
+  .step.now::before { border-color: #7ee287; background: #7ee287; }
+  .step .sd { font-size: 11px; opacity: .5; letter-spacing: .5px; text-transform: uppercase; }
+  .step .st { font-size: 14.5px; font-weight: 700; margin-top: 1px; }
+  .step .sv { font-size: 13px; opacity: .7; font-variant-numeric: tabular-nums; }
 
   @media (max-width: 439px) {
     table { font-size: 12.5px; }
@@ -135,6 +159,7 @@
   <div class="panel on" id="p-overview"></div>
   <div class="panel" id="p-alloc"></div>
   <div class="panel" id="p-gold"></div>
+  <div class="panel" id="p-return"></div>
 </div>
 
 <script src="df-data.js"></script>
@@ -143,14 +168,9 @@
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
 const G = A.gold;
+const OZ = 31.1034768;
 
-const C = {
-  deb: "#7cc4ff",        // offene Forderungen
-  gold: "#ffd166",
-  crypto: "#2ee6a8",
-  cash: "#8fa3c4",
-  prov: "#b39dff",       // Rückstellung Merchandise
-};
+const C = { deb: "#7cc4ff", gold: "#ffd166", crypto: "#2ee6a8", cash: "#8fa3c4", prov: "#b39dff" };
 const kindCol = (k) => k === "Gold" ? C.gold : k === "Krypto" ? C.crypto : C.cash;
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -158,21 +178,51 @@ const chf = (v) => v.toLocaleString("de-CH", { minimumFractionDigits: 2, maximum
 const chf0 = (v) => Math.round(v).toLocaleString("de-CH");
 const pct1 = (v) => (v * 100).toFixed(1).replace(".", ",") + " %";
 const sig = (v, f) => (v >= 0 ? "+" : "−") + f(Math.abs(v));
+const sigPct = (v) => sig(v, x => (x * 100).toFixed(1).replace(".", ",") + " %");
 const MON = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 const mLabel = (m) => MON[+m.slice(5) - 1] + " " + m.slice(0, 4);
 const dmy = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
 
 const Y = A.years;
 const cur = Y[Y.length - 1];
-const goldNow = G.grams * G.last.chfG;
-// Das Blatt 2026 rechnet die Reserve als Goldwert vom 05.12.2025 abzueglich der
-// Ausgaben des laufenden Jahres. Diese Differenz brauchen wir, um von der
-// Buchbewertung auf den Wert zum Tageskurs zu kommen.
-const spent = G.valuationChf - cur.reserves;
-const market = cur.debitors + goldNow - spent;
+// Das Blatt 2026 rechnet die Reserve als Goldwert vom 05.12.2025 minus die Ausgaben
+// des laufenden Jahres. Diese Differenz brauchen wir für den Marktwert.
+const spent = Math.round((G.valuationChf - cur.reserves) * 100) / 100;
+
+// ---------- Kurs: live wenn möglich, sonst der letzte Monatsdurchschnitt ----------
+let LIVE = null;
+function px() {
+  if (LIVE) return { chfG: LIVE.chfPerGram, chfOz: LIVE.chfPerOz, live: true,
+                     label: "Live-Kurs", ts: LIVE.ts, stale: !!LIVE.stale, source: LIVE.source };
+  return { chfG: G.last.chfG, chfOz: G.last.chfOz, live: false,
+           label: "Monatsdurchschnitt " + mLabel(G.last.m) };
+}
+const goldValue = () => G.xau * px().chfOz;
+const marketValue = () => cur.debitors + goldValue() - spent;
+
+function liveBadge() {
+  const p = px();
+  if (!p.live) return `<div class="live off"><i></i>${esc(p.label)}</div>`;
+  const age = Math.round((Date.now() - p.ts) / 60000);
+  return `<div class="live"><i></i>Live${p.stale ? ", letzter bekannter Kurs" : ""}${age > 1 ? ` · vor ${age} Min` : ""}</div>`;
+}
+
+// Interner Zinsfuss über die beiden Kryptoeinzahlungen und den heutigen Goldwert
+function irr(endValue) {
+  const flows = [[new Date(A.crypto.in1Date), -A.crypto.in1],
+                 [new Date(A.crypto.in2Date), -A.crypto.in2]];
+  const t0 = flows[0][0], end = new Date();
+  const yrs = (d) => (d - t0) / (365.25 * 86400000);
+  const npv = (r) => flows.reduce((s, [d, cf]) => s + cf / Math.pow(1 + r, yrs(d)), 0)
+                     + endValue / Math.pow(1 + r, yrs(end));
+  let lo = -0.95, hi = 5;
+  for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (npv(m) > 0) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+const yearsHeld = () => (new Date() - new Date(A.crypto.in1Date)) / (365.25 * 86400000);
 
 // ===================== Tabs =====================
-const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"]];
+const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"], ["return", "Rendite"]];
 document.getElementById("tabs").innerHTML =
   TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
 document.getElementById("tabs").onclick = (e) => {
@@ -183,10 +233,7 @@ document.getElementById("tabs").onclick = (e) => {
 };
 
 // ===================== Diagramme, von Hand als SVG =====================
-
-// Gestapelte Säulen je Vereinsjahr
 function columnStack(rows, keys, colors, opts) {
-  // rows: [{label, parts:{key:value}}]
   const o = Object.assign({ w: 680, h: 250, fmt: v => v, share: false }, opts || {});
   const { w, h } = o;
   const left = 44, right = w - 6, top = 22, bottom = h - 24;
@@ -204,7 +251,7 @@ function columnStack(rows, keys, colors, opts) {
   rows.forEach((r, i) => {
     const cx = left + step * (i + 0.5);
     const base = o.share ? (tot[i] || 1) : 1;
-    const cols = r.colors || colors;   // je Jahr eigene Farben, sonst die Vorgabe
+    const cols = r.colors || colors;
     let y = bottom;
     keys.forEach((k, ki) => {
       const v = (r.parts[k] || 0) / base; if (!v) return;
@@ -223,13 +270,13 @@ function columnStack(rows, keys, colors, opts) {
   return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
 }
 
-// Flächen- und Linienbild für lange Monatsreihen
+let gradSeq = 0;
 function areaChart(pts, opts) {
-  // pts: [{x:label, y:value}]
   const o = Object.assign({ w: 680, h: 250, color: C.gold, yFmt: v => chf0(v),
                             marks: [], yMin: null, fill: true }, opts || {});
   const { w, h } = o;
   const left = 46, right = w - 8, top = 14, bottom = h - 26;
+  const id = "ac" + (++gradSeq);
   const vals = pts.map(p => p.y);
   let max = Math.max(...vals), min = o.yMin !== null ? o.yMin : Math.min(...vals);
   const padY = (max - min) * 0.12 || 1;
@@ -245,14 +292,13 @@ function areaChart(pts, opts) {
   }
   const line = pts.map((p, i) => `${X(i).toFixed(1)},${Yv(p.y).toFixed(1)}`).join(" ");
   if (o.fill) {
-    g += `<defs><linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+    g += `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="${o.color}" stop-opacity=".38"/>
       <stop offset="100%" stop-color="${o.color}" stop-opacity="0"/></linearGradient></defs>`;
-    g += `<polygon points="${X(0)},${bottom} ${line} ${X(pts.length - 1)},${bottom}" fill="url(#grad)"/>`;
+    g += `<polygon points="${X(0)},${bottom} ${line} ${X(pts.length - 1)},${bottom}" fill="url(#${id})"/>`;
   }
   g += `<polyline points="${line}" fill="none" stroke="${o.color}" stroke-width="2.4"
          stroke-linejoin="round" stroke-linecap="round"/>`;
-  // Senkrechte Marken für Kauf, Bewertung und heute
   o.marks.forEach(mk => {
     const i = pts.findIndex(p => p.x === mk.at); if (i < 0) return;
     const x = X(i), y = Yv(pts[i].y);
@@ -260,13 +306,10 @@ function areaChart(pts, opts) {
            stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/>`;
     g += `<circle cx="${x}" cy="${y}" r="4.2" fill="${mk.color || "#eef4fb"}" stroke="#26315e" stroke-width="2"/>`;
     const anchor = i > pts.length * 0.62 ? "end" : "start";
-    const dx = anchor === "end" ? -6 : 6;
-    g += `<text x="${x + dx}" y="${top + (mk.row || 0) * 13 + 9}" fill="${mk.color || "#eef4fb"}"
-           font-size="10.5" font-weight="700" text-anchor="${anchor}">${esc(mk.label)}</text>`;
+    g += `<text x="${x + (anchor === "end" ? -6 : 6)}" y="${top + (mk.row || 0) * 13 + 9}"
+           fill="${mk.color || "#eef4fb"}" font-size="10.5" font-weight="700"
+           text-anchor="${anchor}">${esc(mk.label)}</text>`;
   });
-  // Nur wenige X-Beschriftungen, sonst wird es unleserlich. Bei kurzen Reihen
-  // reicht die Jahreszahl nicht, dann kommt der Monat dazu. Wiederholungen
-  // derselben Beschriftung werden ausgelassen.
   const short = pts.length <= 30;
   const every = Math.max(1, Math.round(pts.length / (short ? 5 : 6)));
   let lastLbl = null;
@@ -282,7 +325,6 @@ function areaChart(pts, opts) {
 }
 
 function donut(parts) {
-  // parts: [{label, value, color}]
   const R = 62, r = 38, cx = 76, cy = 76;
   const tot = parts.reduce((s, p) => s + p.value, 0) || 1;
   let a0 = -Math.PI / 2, g = "";
@@ -301,11 +343,25 @@ function donut(parts) {
   return `<svg viewBox="0 0 152 152" role="img">${g}</svg>`;
 }
 
+// Monatsreihe plus, falls vorhanden, der Live-Kurs als zusätzlicher Punkt
+function goldPoints() {
+  const s = G.series.map(p => ({ x: p.m, y: p.chfG, oz: p.chfOz }));
+  const p = px();
+  if (p.live) {
+    const now = new Date();
+    const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (m > G.last.m) s.push({ x: m, y: p.chfG, oz: p.chfOz });
+    else s[s.length - 1] = { x: m, y: p.chfG, oz: p.chfOz };
+  }
+  return s;
+}
+
 // ===================== Übersicht =====================
 function renderOverview() {
   const first = Y[0];
   const growth = cur.total / first.total - 1;
-  const perMember = cur.total / D.current.length;
+  const market = marketValue();
+  const perMember = market / D.current.length;
   const yoy = cur.total - Y[Y.length - 2].total;
 
   const rows = Y.map(y => ({
@@ -315,8 +371,7 @@ function renderOverview() {
   }));
 
   const table = Y.map((y, i) => {
-    const prev = i ? Y[i - 1].total : null;
-    const d = prev === null ? null : y.total - prev;
+    const d = i ? y.total - Y[i - 1].total : null;
     return `<tr>
       <td class="l" style="font-weight:700">${y.year}</td>
       <td class="num">${chf0(y.debitors)}</td>
@@ -332,19 +387,21 @@ function renderOverview() {
     <div class="card">
       <div class="hero2">
         <div class="cur">CHF</div>
-        <div class="big">${chf(cur.total)}</div>
-        <div class="sub">Vereinsvermögen im Fiskaljahr ${cur.year}, Buchwert gemäss Statistik</div>
+        <div class="big">${chf(market)}</div>
+        <div class="sub">Vereinsvermögen zum aktuellen Goldkurs</div>
+        ${liveBadge()}
       </div>
     </div>
     <div class="card">
       <div class="kpis">
-        <div class="kpi"><div class="v">${chf0(market)}</div><div class="k">CHF zum Goldkurs von ${mLabel(G.last.m)}</div></div>
+        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">CHF Buchwert laut Statistik</div></div>
         <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">CHF pro Mitglied</div></div>
         <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">seit dem Fiskaljahr ${first.year}</div></div>
-        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">CHF gegenüber dem Vorjahr</div></div>
+        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">CHF Buchwert gegenüber Vorjahr</div></div>
       </div>
-      <div class="note">Der Buchwert bewertet die Goldreserve unverändert per ${dmy(G.valuationDate)}.
-      Zum Goldkurs von ${mLabel(G.last.m)} sind die ${chf0(G.grams)} Gramm heute CHF ${chf0(goldNow)} wert.</div>
+      <div class="note">Der Buchwert in der Statistik bewertet das Gold unverändert per ${dmy(G.valuationDate)}.
+      Oben steht stattdessen der Marktwert: Debitoren CHF ${chf0(cur.debitors)} plus
+      ${G.xau} XAU Gold zu CHF ${chf(px().chfOz)} je Unze, abzüglich CHF ${chf0(spent)} bereits verwendeter Mittel.</div>
     </div>
     <div class="card">
       <h2>Vermögen je Vereinsjahr</h2>
@@ -374,12 +431,13 @@ function renderOverview() {
 
 // ===================== Allokation =====================
 function renderAlloc() {
+  const goldNow = goldValue();
   const parts = [
-    { label: "Gold", value: cur.reserves - cur.provision, color: C.gold,
-      hint: `${chf0(G.grams)} g, bewertet per ${dmy(G.valuationDate)}` },
+    { label: "Gold", value: goldNow - cur.provision, color: C.gold,
+      hint: `${G.xau} XAU, das sind ${chf(G.grams)} Gramm im Revolut-Depot` },
     { label: "Rückstellung Merchandise", value: cur.provision, color: C.prov,
-      hint: "zweckgebunden, für Vereinsartikel reserviert" },
-    { label: "Debitoren", value: cur.debitors, color: C.deb,
+      hint: "zweckgebunden, ebenfalls in Gold gehalten" },
+    { label: "Debitoren", value: cur.debitors - spent, color: C.deb,
       hint: "offene Bussen und Beiträge der Mitglieder" },
   ];
   const tot = parts.reduce((s, p) => s + p.value, 0);
@@ -396,30 +454,13 @@ function renderAlloc() {
     colors: [C.deb, kindCol(y.reserveKind)],
   }));
 
-  // "Livepeer (alive)" wird zu Name plus kleinem Zusatz, sonst wird die Tabelle zu breit
-  const coinName = (s) => {
-    const m = s.match(/^(.*?)\s*\((.*)\)\s*$/);
-    return m ? `${esc(m[1])}<span style="display:block;font-size:11px;opacity:.45">${esc(m[2])}</span>`
-             : esc(s);
-  };
-  const cp = A.crypto.positions.concat([A.crypto.bitcoin]);
-  const cryptoRows = cp.map(p => `<tr>
-    <td class="l" style="font-weight:700">${esc(p.member)}</td>
-    <td class="l" style="opacity:.85">${coinName(p.coin)}</td>
-    <td class="num">${chf0(p.startChf)}</td>
-    <td class="num">${chf0(p.valueChf)}</td>
-    <td class="num ${p.delta >= 0 ? "up" : "down"}" style="font-weight:700">${sig(p.delta, v => Math.round(v * 100) + "%")}</td>
-  </tr>`).join("");
-  const cStart = cp.reduce((s, p) => s + p.startChf, 0);
-  const cEnd = cp.reduce((s, p) => s + p.valueChf, 0);
-
   const eras = [
     { y: `${Y[2].year} bis ${Y[5].year}`, n: "Bargeld", c: C.cash,
       d: `Die eingezogenen Bussen lagen als Kasse herum. Von CHF ${chf0(Y[2].reserves)} auf CHF ${chf0(Y[5].reserves)}, ganz ohne Rendite.` },
     { y: `${Y[6].year} bis ${Y[7].year}`, n: "Krypto", c: C.crypto,
-      d: `Jedes Mitglied durfte eine Kryptowährung für rund CHF ${chf0(A.crypto.startPerMember)} auswählen, dazu kam Bitcoin für den Verein. Nach einem Jahr lag das Depot im Minus, danach drehte es kräftig ins Plus.` },
-    { y: `seit ${Y[8].year}`, n: "Gold", c: C.gold,
-      d: `Die Reserve wurde in physisches Gold umgeschichtet, rund ${chf0(G.grams)} Gramm zum Preis von etwa CHF ${chf0(G.buyChf / G.grams)} je Gramm.` },
+      d: `Jedes Mitglied wählte eine Kryptowährung für CHF ${chf(A.crypto.in1 / 6)}, ein Jahr später kam Bitcoin für CHF ${chf(A.crypto.in2)} dazu. Zusammen CHF ${chf(A.crypto.totalIn)} Einsatz.` },
+    { y: `seit ${Y[8].year}`, n: "Gold über Revolut", c: C.gold,
+      d: `Die Reserve wurde in ${G.xau} XAU umgeschichtet, Einstand rund CHF ${chf0(G.costChf)}. Das Gold liegt nicht im Tresor, sondern als Rohstoffposition im Revolut-Depot des Vereins.` },
   ].map(e => `<div class="era"><span class="bulb" style="background:${e.c}"></span>
     <div><div class="y">${esc(e.y)}</div><div class="n">${esc(e.n)}</div>
     <div class="d">${e.d}</div></div></div>`).join("");
@@ -427,10 +468,11 @@ function renderAlloc() {
   document.getElementById("p-alloc").innerHTML = `
     <div class="card">
       <h2>Wo das Geld heute liegt</h2>
-      <div class="sub2">Aufteilung im Fiskaljahr ${cur.year}.</div>
+      <div class="sub2">Zum aktuellen Goldkurs.</div>
       <div class="donutRow">${donut(parts)}<div class="keys">${keys}</div></div>
-      <div class="note">Rund ${pct1((cur.reserves) / tot)} des Vermögens sind angelegt,
-      der Rest sind Forderungen an die eigenen Mitglieder.</div>
+      <div class="note">Rund ${pct1(goldNow / tot)} des Vermögens stecken in Gold,
+      der Rest sind Forderungen an die eigenen Mitglieder. Die Merchandise-Rückstellung
+      ist kein separater Topf, sie ist Teil derselben Goldposition.</div>
     </div>
     <div class="card">
       <h2>Anlageform im Wandel</h2>
@@ -439,7 +481,7 @@ function renderAlloc() {
     </div>
     <div class="card">
       <h2>Forderungen gegen Reserven</h2>
-      <div class="sub2">Anteile am Gesamtvermögen. Je höher der gelbe Anteil, desto mehr Vermögen ist tatsächlich eingezogen und angelegt.</div>
+      <div class="sub2">Anteile am Gesamtvermögen. Je grösser der obere Anteil, desto mehr Vermögen ist eingezogen und angelegt.</div>
       ${columnStack(shareRows, ["deb", "res"], [C.deb, C.gold], { share: true, h: 210 })}
       <div class="lg">
         <span class="i"><span class="dot" style="background:${C.deb}"></span>Debitoren</span>
@@ -447,82 +489,65 @@ function renderAlloc() {
         <span class="i"><span class="dot" style="background:${C.crypto}"></span>in Krypto</span>
         <span class="i"><span class="dot" style="background:${C.gold}"></span>in Gold</span>
       </div>
-    </div>
-    <div class="card">
-      <h2>Das Kryptodepot ${Y[6].year}</h2>
-      <div class="sub2">Jeder wählte einen Coin, Bewertung per ${dmy(A.crypto.valueDate)}.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">Member</th><th class="l">Position</th><th>Einsatz</th><th>Wert</th><th>±</th></tr></thead>
-        <tbody>${cryptoRows}</tbody>
-        <tfoot><tr style="border-top:1px solid var(--line)">
-          <td class="l" style="font-weight:800">Total</td><td></td>
-          <td class="num" style="font-weight:800">${chf0(cStart)}</td>
-          <td class="num" style="font-weight:800">${chf0(cEnd)}</td>
-          <td class="num ${cEnd >= cStart ? "up" : "down"}" style="font-weight:800">${sig(cEnd / cStart - 1, v => (v * 100).toFixed(1).replace(".", ",") + "%")}</td>
-        </tr></tfoot></table></div>
-      <div class="note">Bis zum Abschluss ${Y[7].year} erholte sich das Depot auf CHF ${chf0(Y[7].reserves)},
-      danach wurde es in Gold umgeschichtet.</div>
     </div>`;
 }
 
 // ===================== Gold =====================
 let goldRange = "all";
 function renderGold() {
-  const S = G.series;
-  const cut = { "1j": 12, "3j": 36, "5j": 60, "all": S.length }[goldRange];
+  const p = px();
+  const S = goldPoints();
+  const cut = { "1j": 13, "3j": 37, "5j": 61, "all": S.length }[goldRange];
   const view = S.slice(Math.max(0, S.length - cut));
+  const goldNow = goldValue();
 
-  const buy = S.find(p => p.m === G.buyMonth) || S[0];
-  const sinceBuy = G.last.chfG / buy.chfG - 1;
-  const gain = goldNow - G.buyChf;
+  const buy = G.series.find(x => x.m === G.buyMonth) || G.series[0];
+  const sinceBuy = goldNow / G.costChf - 1;
+  const gain = goldNow - G.costChf;
 
   const marks = [];
-  if (view.some(p => p.m === G.buyMonth)) marks.push({ at: G.buyMonth, label: "Kauf", color: "#7ee287", row: 0 });
-  marks.push({ at: G.last.m, label: "heute", color: C.gold, row: 0 });
+  if (view.some(x => x.x === G.buyMonth)) marks.push({ at: G.buyMonth, label: "Kauf", color: "#7ee287" });
+  marks.push({ at: S[S.length - 1].x, label: "jetzt", color: C.gold });
 
   const perfRows = [["m1", "1 Monat"], ["m3", "3 Monate"], ["m6", "6 Monate"], ["y1", "1 Jahr"],
                     ["y3", "3 Jahre"], ["y5", "5 Jahre"], ["y10", "10 Jahre"]]
     .filter(([k]) => G.perf[k] !== null)
     .map(([k, l]) => `<div class="rec"><span style="opacity:.8">${l}</span>
-      <span class="r ${G.perf[k] >= 0 ? "up" : "down"}" style="font-weight:800">${sig(G.perf[k], v => (v * 100).toFixed(1).replace(".", ",") + " %")}</span></div>`).join("");
+      <span class="r ${G.perf[k] >= 0 ? "up" : "down"}" style="font-weight:800">${sigPct(G.perf[k])}</span></div>`).join("");
 
-  // Wert der Vereinsposition seit dem Kauf
-  const posSeries = S.filter(p => p.m >= G.buyMonth).map(p => ({ x: p.m, y: G.grams * p.chfG }));
+  const posSeries = S.filter(x => x.x >= G.buyMonth).map(x => ({ x: x.x, y: G.xau * x.oz }));
   const bestM = posSeries.reduce((a, b) => b.y > a.y ? b : a);
   const worstM = posSeries.reduce((a, b) => b.y < a.y ? b : a);
-
-  const contribution = goldNow / market;
 
   document.getElementById("p-gold").innerHTML = `
     <div class="card">
       <div class="hero2">
         <div class="cur">CHF je Gramm</div>
-        <div class="big" style="color:${C.gold}">${chf(G.last.chfG)}</div>
-        <div class="sub">Stand ${mLabel(G.last.m)} ·
-          <span class="${G.perf.y1 >= 0 ? "up" : "down"}">${sig(G.perf.y1, v => (v * 100).toFixed(1).replace(".", ",") + " %")}</span>
-          gegenüber dem Vorjahr</div>
+        <div class="big" style="color:${C.gold}">${chf(p.chfG)}</div>
+        <div class="sub">CHF ${chf(p.chfOz)} je Feinunze</div>
+        ${liveBadge()}
       </div>
     </div>
     <div class="card">
       <h2>Goldpreis in Franken</h2>
-      <div class="sub2">Monatswerte des Londoner Goldfixings, umgerechnet zum Monatskurs des US-Dollars.</div>
+      <div class="sub2">Monatswerte des Londoner Goldfixings, umgerechnet zum Dollarkurs${p.live ? ", der letzte Punkt ist der Live-Kurs" : ""}.</div>
       <div class="chips" id="rangeChips">
         ${[["1j", "1 Jahr"], ["3j", "3 Jahre"], ["5j", "5 Jahre"], ["all", "seit 2016"]]
           .map(([k, l]) => `<button class="chip ${goldRange === k ? "on" : ""}" data-r="${k}">${l}</button>`).join("")}
       </div>
-      ${areaChart(view.map(p => ({ x: p.m, y: p.chfG })), { marks, yFmt: v => Math.round(v) })}
-      <div class="note">Der Verein kaufte im ${mLabel(G.buyMonth)} zu rund CHF ${chf(buy.chfG)} je Gramm.
-      Seither ${sinceBuy >= 0 ? "stieg" : "fiel"} der Preis um
-      <b class="${sinceBuy >= 0 ? "up" : "down"}">${sig(sinceBuy, v => Math.round(v * 100) + " %")}</b>.</div>
+      ${areaChart(view, { marks, yFmt: v => Math.round(v) })}
+      <div class="note">Der Verein kaufte Anfang ${mLabel(G.buyMonth)} zu rund CHF ${chf(G.costChf / G.grams)} je Gramm.
+      Seither ${sinceBuy >= 0 ? "stieg" : "fiel"} der Wert der Position um
+      <b class="${sinceBuy >= 0 ? "up" : "down"}">${sigPct(sinceBuy)}</b>.</div>
     </div>
     <div class="card">
       <h2>Die Position des Vereins</h2>
-      <div class="sub2">Rund ${chf0(G.grams)} Gramm physisches Gold.</div>
+      <div class="sub2">${G.xau} XAU, das sind ${chf(G.grams)} Gramm, gehalten als Rohstoffposition bei Revolut.</div>
       <div class="kpis" style="margin-bottom:14px">
-        <div class="kpi"><div class="v">${chf0(goldNow)}</div><div class="k">CHF Wert heute</div></div>
-        <div class="kpi"><div class="v">${chf0(G.buyChf)}</div><div class="k">CHF Einstand</div></div>
+        <div class="kpi"><div class="v" style="color:${C.gold}">${chf0(goldNow)}</div><div class="k">CHF Wert jetzt</div></div>
+        <div class="kpi"><div class="v">${chf0(G.costChf)}</div><div class="k">CHF Einstand</div></div>
         <div class="kpi"><div class="v" style="color:${gain >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(gain, chf0)}</div><div class="k">CHF Buchgewinn</div></div>
-        <div class="kpi"><div class="v">${pct1(contribution)}</div><div class="k">Anteil am Vereinsvermögen</div></div>
+        <div class="kpi"><div class="v">${pct1(goldNow / marketValue())}</div><div class="k">Anteil am Vereinsvermögen</div></div>
       </div>
       ${areaChart(posSeries, { color: "#7ee287", yFmt: v => chf0(v) })}
       <div class="lg">
@@ -532,37 +557,26 @@ function renderGold() {
     </div>
     <div class="card">
       <h2>Rendite des Goldpreises</h2>
-      <div class="sub2">In Franken, ohne Lager- und Kaufkosten.</div>
+      <div class="sub2">In Franken, ohne Depot- und Handelskosten.</div>
       ${perfRows}
-    </div>
-    <div class="card">
-      <h2>Was wäre wenn</h2>
-      <div class="sub2">Die CHF ${chf0(G.buyChf)} vom ${mLabel(G.buyMonth)} in verschiedenen Varianten.</div>
-      <div class="rec"><span><span class="dot" style="background:${C.gold}"></span> Gold, so wie geschehen</span>
-        <span class="r" style="font-weight:800;color:${C.gold}">${chf0(goldNow)}</span></div>
-      <div class="rec"><span><span class="dot" style="background:#7ee287"></span> Gold, verkauft am Höchststand im ${mLabel(bestM.x)}</span>
-        <span class="r" style="font-weight:800;color:#7ee287">${chf0(bestM.y)}</span></div>
-      <div class="rec"><span><span class="dot" style="background:${C.cash}"></span> Bargeld unter der Matratze</span>
-        <span class="r" style="font-weight:800">${chf0(G.buyChf)}</span></div>
-      <div class="note">Die Umschichtung von der Kasse über Krypto ins Gold hat dem Verein bisher
-      rund CHF ${chf0(gain)} eingebracht, ohne dass jemand einen einzigen Dönerfriitig zusätzlich besuchen musste.</div>
+      <div class="note">Bezugspunkt ist der Monatsdurchschnitt ${mLabel(G.last.m)}.</div>
     </div>
     <div class="card">
       <h2>Woher die Zahlen kommen</h2>
       <div class="sub2">Damit niemand dem Revisor Fragen stellen muss.</div>
       <div class="note" style="opacity:.72;font-size:12px">
-        Die Vereinsbilanz stammt aus ${esc(A.source)}. Der Revisionsbericht zum Fiskaljahr ${Y[8].year}
+        Die Bilanz stammt aus ${esc(A.source)}. Der Revisionsbericht zum Fiskaljahr ${Y[8].year}
         weist die Goldreserve per ${dmy(G.valuationDate)} mit CHF ${chf(G.valuationChf)} aus.
-        Das Gewicht von ${chf0(G.grams)} Gramm ist nicht direkt erfasst, sondern aus zwei
-        Bewertungen abgeleitet: CHF ${chf0(G.buyChf)} beim Wechsel von Krypto zu Gold entsprechen
-        CHF ${chf(G.buyChf / G.grams)} je Gramm, exakt dem Kurs im ${mLabel(G.buyMonth)};
-        und CHF ${chf(G.valuationChf)} per ${dmy(G.valuationDate)} entsprechen
-        CHF ${chf(G.impliedChfPerGram)} je Gramm, was genau zwischen den Monatskursen von
-        November und Dezember ${G.valuationDate.slice(0, 4)} liegt.
-        Beide Stichtage ergeben unabhängig voneinander ${chf0(G.grams)} Gramm, also einen
-        handelsüblichen Barren. Sollte das Gewicht anders sein, bitte melden, dann rechnen wir neu.
-        Preise: Londoner Goldfixing in US-Dollar je Feinunze und Wechselkurs des Federal Reserve,
-        beides Monatsdurchschnitte, letzter Wert ${mLabel(G.last.m)}.
+        Der Bestand von ${G.xau} XAU stammt aus dem Revolut-Depot, dort mit CHF ${chf(G.snapshot.valueChf)}
+        und ${sigPct(G.snapshot.gain)} ausgewiesen. Daraus folgt ein Einstand von CHF ${chf(G.costChf)},
+        also CHF ${chf(G.costChf / G.xau)} je Unze. Das passt zwischen die Monatsdurchschnitte von
+        Januar und Februar 2025 und damit genau zum Start des Fiskaljahrs ${Y[8].year}.
+        Gegenprobe: CHF ${chf(G.valuationChf)} für ${G.xau} XAU sind CHF ${chf(G.valuationChf / G.xau)}
+        je Unze, was zwischen November und Dezember ${G.valuationDate.slice(0, 4)} liegt, passend
+        zum Stichtag ${dmy(G.valuationDate)}. Die beiden Angaben stützen sich also gegenseitig.
+        Der Live-Kurs kommt über eine eigene Schnittstelle der Seite, die mehrere offene
+        Kursquellen abfragt. Fällt sie aus, zeigt die Seite den letzten Monatsdurchschnitt
+        und kennzeichnet das oben.
       </div>
     </div>`;
 
@@ -572,7 +586,137 @@ function renderGold() {
   };
 }
 
-renderOverview(); renderAlloc(); renderGold();
+// ===================== Rendite =====================
+function renderReturn() {
+  const K = A.crypto;
+  const goldNow = goldValue();
+  const mult = goldNow / K.totalIn;
+  const r = irr(goldNow);
+  const held = yearsHeld();
+
+  const stageCols = K.stages;
+  const rows = K.coins.concat([K.bitcoin]).map(c => {
+    const cells = stageCols.map(s => {
+      const v = c[s.k];
+      if (v === null) return `<td class="num" style="opacity:.3">–</td>`;
+      const d = v / c.startChf - 1;
+      return `<td class="num ${d >= 0 ? "up" : "down"}">${chf0(v)}</td>`;
+    }).join("");
+    const lastV = c.v2802;
+    return `<tr>
+      <td class="l" style="font-weight:700">${esc(c.member)}</td>
+      <td class="l" style="opacity:.85">${coinName(c.coin)}</td>
+      <td class="num">${chf0(c.startChf)}</td>
+      ${cells}
+      <td class="num ${lastV >= c.startChf ? "up" : "down"}" style="font-weight:700">${sig(lastV / c.startChf - 1, v => Math.round(v * 100) + "%")}</td>
+    </tr>`;
+  }).join("");
+  const sumStart = K.totalIn;
+  const sum2802 = K.coins.concat([K.bitcoin]).reduce((s, c) => s + c.v2802, 0);
+
+  const steps = [
+    { c: "crypto", d: dmy(K.in1Date), t: "Sechs Coins, einer pro Mitglied",
+      v: `Einsatz CHF ${chf(K.in1)}` },
+    { c: "crypto", d: dmy(K.stages[0].d), t: "Erste Zwischenbilanz",
+      v: `CHF ${chf0(K.coins.reduce((s, c) => s + c.v0501, 0))}, das Depot lag im Minus` },
+    { c: "crypto", d: dmy(K.in2Date), t: "Bitcoin kommt dazu",
+      v: `zusätzlich CHF ${chf(K.in2)} für ${K.bitcoin.units} BTC` },
+    { c: "crypto", d: dmy(K.stages[1].d), t: "Die Erholung",
+      v: `CHF ${chf0(sum2802)} gegenüber CHF ${chf0(sumStart)} Einsatz` },
+    { c: "crypto", d: dmy(K.outDate), t: `Abschluss Fiskaljahr ${Y[7].year}`,
+      v: `Reserve CHF ${chf0(K.out)}` },
+    { c: "gold", d: "Anfang " + mLabel(G.buyMonth), t: "Umschichtung in Gold",
+      v: `${G.xau} XAU für CHF ${chf(G.costChf)}` },
+    { c: "gold", d: dmy(G.valuationDate), t: `Revisionsbericht Fiskaljahr ${Y[8].year}`,
+      v: `Goldreserve CHF ${chf(G.valuationChf)}` },
+    { c: "now", d: "jetzt", t: "Aktueller Wert",
+      v: `CHF ${chf(goldNow)} zu CHF ${chf(px().chfOz)} je Unze` },
+  ].map(s => `<div class="step ${s.c}"><div class="sd">${esc(s.d)}</div>
+    <div class="st">${esc(s.t)}</div><div class="sv">${esc(s.v)}</div></div>`).join("");
+
+  document.getElementById("p-return").innerHTML = `
+    <div class="card">
+      <div class="hero2">
+        <div class="cur">Aus CHF ${chf0(K.totalIn)} wurden</div>
+        <div class="big" style="color:#7ee287">${chf(goldNow)}</div>
+        <div class="sub">seit ${dmy(K.in1Date)}, das ist das ${mult.toFixed(2).replace(".", ",")}-fache</div>
+        ${liveBadge()}
+      </div>
+    </div>
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><div class="v" style="color:#7ee287">${mult.toFixed(2).replace(".", ",")}×</div><div class="k">Multiple auf den Einsatz</div></div>
+        <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(mult - 1)}</div><div class="k">Gesamtrendite</div></div>
+        <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(r)}</div><div class="k">pro Jahr, interner Zinsfuss</div></div>
+        <div class="kpi"><div class="v">${held.toFixed(1).replace(".", ",")}</div><div class="k">Jahre angelegt</div></div>
+      </div>
+      <div class="note">Der interne Zinsfuss rechnet ein, dass die beiden Einzahlungen zu
+      verschiedenen Zeitpunkten kamen. Ohne diese Gewichtung wäre die Zahl zu schmeichelhaft.
+      Nicht enthalten sind Handelsspesen und der Unterschied zwischen Kauf- und Verkaufskurs.</div>
+    </div>
+    <div class="card">
+      <h2>Die Reise des Vereinsvermögens</h2>
+      <div class="sub2">Von sechs zufällig gewählten Coins zur Goldreserve.</div>
+      <div class="steps">${steps}</div>
+    </div>
+    <div class="card">
+      <h2>Das Kryptodepot im Detail</h2>
+      <div class="sub2">Wert je Position an den beiden im Vereinsdokument erfassten Stichtagen.</div>
+      <div class="tw"><table>
+        <thead><tr><th class="l">Member</th><th class="l">Position</th><th>Einsatz</th>
+          ${stageCols.map(s => `<th>${s.d.slice(8)}.${s.d.slice(5, 7)}.</th>`).join("")}<th>±</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="border-top:1px solid var(--line)">
+          <td class="l" style="font-weight:800">Total</td><td></td>
+          <td class="num" style="font-weight:800">${chf0(sumStart)}</td>
+          ${stageCols.map((s, i) => `<td class="num" style="font-weight:800">${i === stageCols.length - 1 ? chf0(sum2802) : ""}</td>`).join("")}
+          <td class="num ${sum2802 >= sumStart ? "up" : "down"}" style="font-weight:800">${sig(sum2802 / sumStart - 1, v => Math.round(v * 100) + "%")}</td>
+        </tr></tfoot></table></div>
+      <div class="note">Am ${dmy(K.stages[0].d)} stand das Depot der sechs Coins bei
+      CHF ${chf0(K.coins.reduce((s, c) => s + c.v0501, 0))} gegenüber CHF ${chf0(K.in1)} Einsatz,
+      also ${sigPct(K.coins.reduce((s, c) => s + c.v0501, 0) / K.in1 - 1)}. Zwei Monate später
+      war der Rückstand aufgeholt. Bis zum Abschluss des Fiskaljahrs ${Y[7].year} wuchs die
+      Reserve auf CHF ${chf0(K.out)}, das ${(K.out / K.totalIn).toFixed(2).replace(".", ",")}-fache
+      des Einsatzes. Für die Zeit nach dem ${dmy(K.stages[1].d)} sind im Vereinsdokument keine
+      Einzelbewertungen erfasst, nur der Jahresschlusswert.
+      Beim Kauf gingen je nach Coin zwischen ${pct1(Math.min(...K.coins.map(c => c.fee)))} und
+      ${pct1(Math.max(...K.coins.map(c => c.fee)))} an Gebühren weg, im Schnitt
+      ${pct1(K.coins.reduce((s, c) => s + c.fee, 0) / K.coins.length)}.</div>
+    </div>
+    <div class="card">
+      <h2>Beitrag zum Vereinsvermögen</h2>
+      <div class="sub2">Was die Anlagen gegenüber dem blossen Horten von Bargeld gebracht haben.</div>
+      <div class="rec"><span>Eingesetzte Bussengelder</span>
+        <span class="r">${chf0(K.totalIn)}</span></div>
+      <div class="rec"><span>Wert heute</span>
+        <span class="r" style="font-weight:800;color:#7ee287">${chf0(goldNow)}</span></div>
+      <div class="rec"><span>Gewinn aus der Anlage</span>
+        <span class="r" style="font-weight:800;color:#7ee287">${sig(goldNow - K.totalIn, chf0)}</span></div>
+      <div class="rec"><span>Anteil am heutigen Vermögen</span>
+        <span class="r">${pct1((goldNow - K.totalIn) / marketValue())}</span></div>
+      <div class="note">Anders gesagt: ${pct1((goldNow - K.totalIn) / marketValue())} des heutigen
+      Vereinsvermögens stammen nicht aus Bussen, sondern daraus, dass das Geld angelegt wurde.
+      Das entspricht ungefähr ${Math.round((goldNow - K.totalIn) / 13)} Absenzbussen zu CHF 13.</div>
+    </div>`;
+}
+
+const coinName = (s) => {
+  const m = s.match(/^(.*?)\s*\((.*)\)\s*$/);
+  return m ? `${esc(m[1])}<span style="display:block;font-size:11px;opacity:.45">${esc(m[2])}</span>` : esc(s);
+};
+
+function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); }
+renderAll();
+
+// Live-Kurs nachladen und alles neu zeichnen, sobald er da ist
+fetch("/api/gold", { cache: "no-store" })
+  .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+  .then(d => {
+    if (!d || !(d.chfPerGram > 0) || !(d.chfPerOz > 0)) return;
+    LIVE = d;
+    renderAll();
+  })
+  .catch(() => { /* ohne Live-Kurs bleiben die Monatswerte stehen */ });
 </script>
 </body>
 </html>

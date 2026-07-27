@@ -37,21 +37,27 @@ import argparse
 import collections
 import csv
 import datetime
-import io
 import json
 import os
 import re
 import sys
 import urllib.request
-import zipfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    import openpyxl
-except ImportError:
-    sys.exit("openpyxl fehlt:  pip install openpyxl")
+    import df_stats as S
+    import df_data
+except ImportError as err:
+    sys.exit(f"Baustein fehlt ({err}). openpyxl installiert?  pip install openpyxl")
+
+open_workbook = S.open_workbook
+year_sheets = S.year_sheets
+parse_date = S.parse_date
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(HERE, "doenerstapler", "df-assets.js")
+DATA = os.path.join(HERE, "doenerstapler", "df-data.js")
 OZ = 31.1034768
 
 GOLD_CSV = "https://raw.githubusercontent.com/datasets/gold-prices/main/data/monthly.csv"
@@ -61,60 +67,8 @@ FX_CSV = "https://raw.githubusercontent.com/datasets/exchange-rates/main/data/mo
 # --------------------------------------------------------------------------- #
 # Mappe oeffnen
 # --------------------------------------------------------------------------- #
-def open_workbook(path):
-    """Laedt die Mappe, nachdem Zeichnungen und Medien entfernt wurden."""
-    drop = ("xl/drawings/", "xl/charts/", "xl/media/", "xl/embeddings/",
-            "xl/ctrlProps/", "xl/activeX/")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(path) as zin, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name in zin.namelist():
-            if name.startswith(drop):
-                continue
-            data = zin.read(name)
-            if name.endswith(".rels"):
-                t = data.decode("utf-8")
-                t = re.sub(r'<Relationship[^>]*Target="[^"]*'
-                           r'(drawings|charts|media|embeddings|ctrlProps|activeX)/[^"]*"[^>]*/>',
-                           "", t)
-                data = t.encode("utf-8")
-            elif name.startswith("xl/worksheets/") and name.endswith(".xml"):
-                t = data.decode("utf-8")
-                t = re.sub(r"<drawing [^>]*/>", "", t)
-                t = re.sub(r"<legacyDrawing [^>]*/>", "", t)
-                t = re.sub(r"<controls>.*?</controls>", "", t, flags=re.S)
-                t = re.sub(r"<oleObjects>.*?</oleObjects>", "", t, flags=re.S)
-                data = t.encode("utf-8")
-            elif name == "[Content_Types].xml":
-                t = data.decode("utf-8")
-                t = re.sub(r'<Override[^>]*PartName="/xl/'
-                           r'(drawings|charts|media|embeddings|ctrlProps|activeX)/[^"]*"[^>]*/>',
-                           "", t)
-                data = t.encode("utf-8")
-            zout.writestr(name, data)
-    buf.seek(0)
-    return openpyxl.load_workbook(buf, data_only=True)
 
 
-def year_sheets(wb):
-    out = []
-    for name in wb.sheetnames:
-        m = re.match(r"^Stats (\d{4})$", name.strip())
-        if m:
-            out.append((int(m.group(1)), name))
-    return sorted(out)
-
-
-def parse_date(v):
-    if isinstance(v, datetime.datetime):
-        return v.date()
-    if isinstance(v, datetime.date):
-        return v
-    if isinstance(v, str):
-        m = re.match(r"^\s*(\d{1,2})\.(\d{1,2})\.(\d{2,4})\s*$", v)
-        if m:
-            d, mo, y = map(int, m.groups())
-            return datetime.date(y + 2000 if y < 100 else y, mo, d)
-    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -278,6 +232,16 @@ def fetch_gold_series():
 # --------------------------------------------------------------------------- #
 # Hauptlauf
 # --------------------------------------------------------------------------- #
+def load_json_var(path):
+    raw = open(path, encoding="utf-8").read()
+    return json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+
+
+def save_json_var(path, name, obj):
+    open(path, "w", encoding="utf-8").write(
+        f"window.{name} = " + json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + ";\n")
+
+
 def load_assets():
     raw = open(ASSETS, encoding="utf-8").read()
     return json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
@@ -392,7 +356,26 @@ def main():
 
     save_assets(a)
     print(f"\ndf-assets.js geschrieben, {os.path.getsize(ASSETS)} Bytes.")
-    print("Nicht vergessen: den Versionsparameter an df-assets.js in "
+
+    # ---- Anwesenheiten ----------------------------------------------------
+    alt_daten = load_json_var(DATA)
+    neu = df_data.build(wb, alt_daten)
+    neu["generatedFrom"] = os.path.basename(args.workbook)
+    neu["assets"] = {
+        "total": cur["total"],
+        "available": round(cur["total"] - (cur["provision"] or 0), 2),
+        "reserves": cur["provision"],
+        # Netto ohne die Rueckstellung, so steht es auch im Blatt 2026
+        "investments": round((cur["reserves"] or 0) - (cur["provision"] or 0), 2),
+        "openDebitors": cur["debitors"],
+        "asOf": alt_daten.get("assets", {}).get("asOf"),
+    }
+    save_json_var(DATA, "DF_DATA", neu)
+    print(f"df-data.js geschrieben, {os.path.getsize(DATA)} Bytes. "
+          f"{neu['totalEvents']} Termine, {len(neu['members'])} Mitglieder, "
+          f"letzter Termin {neu['years'][-1]['end']}.")
+
+    print("\nNicht vergessen: den Versionsparameter an df-assets.js in "
           "doenerstapler/vermoegen.html hochzaehlen.")
 
 

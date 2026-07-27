@@ -69,9 +69,34 @@ identischen Datensatz. Wer es ändert, sollte diesen Test wiederholen.
 Danach den Versionsparameter an `df-assets.js` in `vermoegen.html` hochzählen,
 sonst sehen die Mitglieder die alten Zahlen.
 
-**Noch nicht abgedeckt:** `df-data.js` mit den Anwesenheitsdaten. Dafür gibt es
-kein Skript im Repository, der Aufbau mit `h2h`, `cumulative` und `season` ist
-umfangreicher. Wer `stats.html` nachführen will, muss das zuerst bauen.
+Das Skript führt **beide** Datensätze nach, `df-assets.js` und `df-data.js`.
+Die Bausteine liegen in `scripts/df_stats.py` (Mappe lesen) und
+`scripts/df_data.py` (Anwesenheiten rechnen).
+
+Aus den Jahresblättern kommen Anwesenheitsmatrix, Bussenjournal, Ämtli, Titel
+und Shirtstatus. Daraus werden Jahreswerte, Bestenlisten, kumulierte Reihen,
+Kopf an Kopf, Serien und die Saisonauswertung gerechnet. Das Vereinsjahr 2016
+hat kein Blatt und wird als Zusammenfassung aus dem bestehenden Datensatz
+übernommen.
+
+Weitere Eigenheiten, die dabei abgefangen werden:
+
+- Im Blatt 2026 steht in der Kürzelzeile des Bussenjournals ein `#VALUE!`
+  statt `JWU`. Die Lücke wird aus der Reihenfolge der Anwesenheitsspalten
+  gefüllt.
+- Im Blatt 2018 hat das Bussenjournal sieben Spalten, die siebte gehört JWI
+  und trägt kein Kürzel. Sie bleibt unzugeordnet, so wie es sein soll.
+- Leere Zellen in der Anwesenheitsmatrix zählen als abwesend. Ohne das fehlen
+  Termine in Kopf an Kopf und in der Saisonauswertung.
+- `pen` je Mitglied kommt aus der Summenzeile des Blattes, `penItemised` aus
+  dem Journal. Wo pauschal gebucht wurde, klaffen die beiden auseinander.
+
+**Eine Zahl ändert sich gegenüber dem alten Aufbau:** JWU hatte im Blatt 2018
+eine LIFO-Buchung über CHF 5.00 vom 22.12.2017, deren Datum als Text statt als
+Datum erfasst ist. Der alte Aufbau hat die Zeile deshalb übersprungen. Jetzt
+zählt sie mit, JWUs LIFO 2018 steigt von 5.50 auf 10.50 und `penItemised` von
+211.50 auf 216.50. Das Bussentotal 216.50 bleibt gleich, Ränge und Summen
+ändern sich nicht.
 
 Die beiden alten Python-Skripte lagen im Container unter `/tmp` und sind nach
 einem Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen

@@ -37,12 +37,17 @@ gebraucht:
    `Cache-Control: public, max-age=0, must-revalidate`. Cloudflare Pages liest
    die Datei aus dem Wurzelverzeichnis der Seite. Das regelt nur, was ab jetzt
    gecacht wird.
-2. Der Verweis auf `df-assets.js` in `vermoegen.html` trägt einen
-   Versionsparameter. **Bei jeder Änderung an `df-assets.js` das Datum dort
-   mitziehen.** Nur das erreicht eine Kopie, die schon im Browser eines
-   Mitglieds liegt. Wird der Parameter weggelassen, während `vermoegen.html`
-   neue Felder erwartet, bleibt die Seite bei diesem Mitglied leer. Genau das
-   ist am 27.07.2026 einmal passiert.
+2. Die Verweise auf `df-assets.js` und `df-data.js` tragen einen
+   Versionsparameter, in `index.html`, `stats.html` und `vermoegen.html`.
+   **Nach jedem Lauf des Skripts das Datum in allen drei Dateien mitziehen:**
+
+       cd doenerstapler
+       sed -i "s/?v=[0-9]*/?v=$(date +%Y%m%d)/g" index.html stats.html vermoegen.html
+
+   Nur das erreicht eine Kopie, die schon im Browser eines Mitglieds liegt.
+   Ohne den Parameter zeigt die Seite alte Zahlen, und wenn die Seite neue
+   Felder erwartet, bleibt sie bei diesem Mitglied sogar leer. Genau das ist
+   am 27.07.2026 zweimal passiert, einmal je Datensatz.
 3. `renderAll()` fängt Fehler je Reiter ab. Passen Seite und Datensatz einmal
    nicht zusammen, meldet sich nur der betroffene Reiter statt der ganzen Seite.
 

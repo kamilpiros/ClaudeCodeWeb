@@ -38,6 +38,11 @@
   .cd .u span { font-size: 10.5px; opacity: .55; letter-spacing: .5px; text-transform: uppercase; }
   .cd.now { border-color: #4caf50; }
   .cd.now .big { font-size: 20px; font-weight: 800; color: #7ee287; margin-top: 4px; }
+  /* Hinweis, wenn ein Freitag wegen eines Feiertags ausfaellt */
+  .cd .skip {
+    margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line);
+    font-size: 11.5px; line-height: 1.45; color: #ffd166;
+  }
 
   /* Zwei Eingänge */
   .gates { display: grid; gap: 12px; width: 100%; }
@@ -112,22 +117,26 @@
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="df-data.js?v=20260727i"></script>
+<script src="df-kalender.js?v=20260727k"></script>
+<script src="df-data.js?v=20260727k"></script>
 <script>
 // ---------- Countdown auf Freitag 12.15 Uhr ----------
+// Faellt der Freitag auf einen nationalen Feiertag, gibt es keinen
+// Doenerfriitig. Der Countdown springt dann auf den naechsten moeglichen
+// Termin und sagt darunter, warum es diesmal laenger dauert.
 const cd = document.getElementById("cd");
 const cdBody = document.getElementById("cdBody");
 const cdLabel = document.getElementById("cdLabel");
 const pad = (n) => String(n).padStart(2, "0");
+const K = window.DF_KALENDER;
+const TAG = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const kurz = (d) => `${TAG[d.getDay()]} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
 
 function tick() {
   const now = new Date();
-  const fri = new Date(now);
-  fri.setHours(12, 15, 0, 0);
-  fri.setDate(now.getDate() + ((5 - now.getDay() + 7) % 7));
-  const end = new Date(fri.getTime() + 75 * 60000);
+  const n = K.naechster(now);
 
-  if (now >= fri && now <= end) {
+  if (n.laeuft) {
     cd.classList.add("now");
     cdLabel.textContent = "Es ist so weit";
     cdBody.innerHTML = '<div class="big">Jetzt ist Dönerfriitig. Guten Appetit!</div>';
@@ -135,16 +144,23 @@ function tick() {
   }
   cd.classList.remove("now");
   cdLabel.textContent = "Nächster Dönerfriitig";
-  const target = now > end ? new Date(fri.getTime() + 7 * 86400000) : fri;
-  let s = Math.max(0, Math.floor((target - now) / 1000));
+
+  let s = Math.max(0, Math.floor((n.datum - now) / 1000));
   const d = Math.floor(s / 86400); s -= d * 86400;
   const h = Math.floor(s / 3600); s -= h * 3600;
   const m = Math.floor(s / 60); s -= m * 60;
+
+  let hinweis = "";
+  if (n.uebersprungen.length) {
+    const teile = n.uebersprungen.map(u => `${kurz(u.datum)} ${u.name}`).join(", ");
+    hinweis = `<div class="skip">Kein Dönerfriitig am ${teile}. `
+            + `Darum diesmal ${d + 1} statt sieben Tage.</div>`;
+  }
   cdBody.innerHTML = `<div class="units">
     <div class="u"><b>${d}</b><span>Tage</span></div>
     <div class="u"><b>${pad(h)}</b><span>Std</span></div>
     <div class="u"><b>${pad(m)}</b><span>Min</span></div>
-    <div class="u"><b>${pad(s)}</b><span>Sek</span></div></div>`;
+    <div class="u"><b>${pad(s)}</b><span>Sek</span></div></div>${hinweis}`;
 }
 tick(); setInterval(tick, 1000);
 

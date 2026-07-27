@@ -50,15 +50,25 @@ gebraucht:
    am 27.07.2026 zweimal passiert, einmal je Datensatz.
 3. `renderAll()` fängt Fehler je Reiter ab.
 
-Die Übersicht zeigt neben dem Goldkurs eine zweite Anzeige mit dem zuletzt
-nachgetragenen Dönerfriitig. Sie wird grün, wenn dieser Termin auf oder nach dem
-letzten Freitag 12.15 Uhr liegt, und rot mit Tagesangabe, wenn seither nichts
-nachgetragen wurde. Damit sieht man auf einen Blick, ob die Automatik hängt.
-Der Wochentag stammt aus derselben Annahme wie der Countdown auf der Startseite.
-Fällt ein Dönerfriitig einmal aus, springt die Anzeige nach acht Tagen trotzdem
-auf rot. Das ist Absicht, denn von aussen ist ein Ausfall nicht von einem
-fehlenden Nachtrag zu unterscheiden. Passen Seite und Datensatz einmal
-   nicht zusammen, meldet sich nur der betroffene Reiter statt der ganzen Seite.
+`doenerstapler/df-kalender.js` weiss, wann Dönerfriitig ist: jeden Freitag um
+12.15 Uhr, ausser der Freitag ist ein nationaler Feiertag. Das ist belegt, nicht
+vermutet: von 2016 bis 2026 fielen sechzehn Freitage auf einen solchen Feiertag,
+und an keinem einzigen wurde ein Termin gebucht. Berücksichtigt sind Neujahr,
+Karfreitag, Ostermontag, Auffahrt, Pfingstmontag, Nationalfeiertag, Weihnachten
+und Stephanstag. Kantonale wie der Berchtoldstag bewusst nicht, sonst würden
+Termine wegfallen, die stattgefunden haben.
+
+Der Countdown auf der Startseite überspringt solche Freitage und schreibt
+darunter, warum es diesmal länger dauert. Der nächste Fall ist Weihnachten 2026
+und Neujahr 2027, beide fallen auf einen Freitag, der Countdown zeigt dann
+19 Tage.
+
+Die Übersicht in `stats.html` zeigt, ob die Statistik nachgetragen ist. Grün,
+wenn der zuletzt gebuchte Termin auf oder nach dem letzten stattgefundenen
+Dönerfriitig liegt, rot mit Tagesangabe, wenn nicht. Weil der Kalender die
+Feiertage kennt, gibt es an einem ausgefallenen Freitag keinen Fehlalarm.
+Auf der Vermögensseite steht nur noch der Goldkurs, die Anwesenheit gehört
+inhaltlich zur Statistikseite.
 
 Ein Deploy braucht rund eine Minute. Wer danach die alte Fassung sieht, lädt mit
 Umschalt und Neu laden hart nach.

@@ -53,6 +53,18 @@
   .card h2 { margin: 0 0 3px; font-size: 17px; font-weight: 800; color: var(--cream); }
   .card .sub2 { font-size: 12px; opacity: .6; margin-bottom: 14px; line-height: 1.4; }
 
+  /* Statusanzeige, ob die Statistik nachgetragen ist */
+  .badges { display: flex; gap: 7px; flex-wrap: wrap; margin: 0 0 14px; }
+  .live {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .8px; text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    border: 1px solid rgba(126,226,135,.32); color: #9fd4a6;
+  }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: #9fd4a6; }
+  .live.alt { border-color: rgba(255,107,138,.55); color: #ff6b8a; }
+  .live.alt i { background: #ff6b8a; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
+
   .tw { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
   .tw::-webkit-scrollbar { height: 5px; }
   .tw::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
@@ -141,7 +153,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-data.js?v=20260727i"></script>
+<script src="df-kalender.js?v=20260727k"></script>
+<script src="df-data.js?v=20260727k"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -258,6 +271,30 @@ function stackChart(rows, keys, colors, opts) {
 }
 
 // ===================== Übersicht =====================
+
+// ---------- Ist die Statistik auf dem neuesten Stand? ----------
+// Verglichen wird der zuletzt gebuchte Termin mit dem letzten Doenerfriitig,
+// der laut Kalender tatsaechlich stattgefunden hat. Feiertage sind dort schon
+// beruecksichtigt, ein ausgefallener Freitag loest also keinen Fehlalarm aus.
+function standBadge() {
+  const K = window.DF_KALENDER;
+  const letzterEintrag = D.years[D.years.length - 1].end;
+  const eingetragen = new Date(letzterEintrag + "T12:15:00");
+  const soll = K.letzter();
+  const tage = Math.round((soll - eingetragen) / 86400000);
+
+  if (tage <= 0) {
+    return `<div class="live stand" title="Alle bisherigen Dönerfriitige sind nachgetragen.">`
+         + `<i></i>Nachgetragen bis ${dmy(letzterEintrag)}</div>`;
+  }
+  const wie = tage === 1 ? "seit einem Tag" : `seit ${tage} Tagen`;
+  const t = `Der letzte Dönerfriitig war am ${dmy(K.iso(soll))}, nachgetragen ist erst der `
+          + `${dmy(letzterEintrag)}. Die Statistik kommt jeweils per Mail und wird dann `
+          + `automatisch übernommen.`;
+  return `<div class="live stand alt" title="${t}"><i></i>Nachgetragen bis `
+       + `${dmy(letzterEintrag)}, ${wie} offen</div>`;
+}
+
 function renderOverview() {
   const rank = ALL.filter(m => D.current.includes(m));
   const top = rank.slice(0, 3);
@@ -288,6 +325,7 @@ function renderOverview() {
     <div class="card">
       <h2>Ewige Rangliste</h2>
       <div class="sub2">Ein Punkt pro besuchtem Dönerfriitig. ${totEv} Termine von ${dmy(D.years[0].start)} bis ${dmy(D.years[D.years.length - 1].end)}.</div>
+      <div class="badges">${standBadge()}</div>
       ${podium}
     </div>
     <div class="card">${kpis}</div>

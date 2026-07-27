@@ -257,6 +257,10 @@ def main():
     ap.add_argument("workbook", help="Pfad zur DF_STATS Datei")
     ap.add_argument("--gold", action="store_true", help="Goldkursreihe mitnachfuehren")
     ap.add_argument("--dry-run", action="store_true", help="nur zeigen, nichts schreiben")
+    ap.add_argument("--check", action="store_true",
+                    help="nur pruefen, ob die Mappe neuer ist. Rueckgabe 0 wenn ja, 1 wenn nein")
+    ap.add_argument("--force", action="store_true",
+                    help="auch schreiben, wenn die Pruefungen anschlagen")
     args = ap.parse_args()
 
     wb = open_workbook(args.workbook)
@@ -266,6 +270,20 @@ def main():
     sheets = year_sheets(wb)
     if not sheets:
         sys.exit("Keine Blaetter im Muster 'Stats JJJJ' gefunden")
+
+    # Der Dateiname entscheidet nichts. Massgebend ist der letzte Termin, der
+    # im Bussenjournal des laufenden Vereinsjahrs steht.
+    letztes_blatt = wb[sheets[-1][1]]
+    _, stand_neu, _ = fiscal_range(letztes_blatt)
+    stand_alt = a.get("asOf")
+    if args.check:
+        neuer = bool(stand_neu and stand_alt and stand_neu > stand_alt)
+        print(f"Mappe {os.path.basename(args.workbook)}: Stand {stand_neu}, "
+              f"Website {stand_alt} -> {'neuer' if neuer else 'nicht neuer'}")
+        sys.exit(0 if neuer else 1)
+    if stand_neu and stand_alt and stand_neu <= stand_alt and not args.force:
+        sys.exit(f"Die Mappe endet am {stand_neu}, die Website steht schon auf "
+                 f"{stand_alt}. Nichts zu tun. Mit --force trotzdem schreiben.")
 
     years, fiscal, led, residual = [], [], {}, {}
     for fy, name in sheets:
@@ -349,6 +367,33 @@ def main():
             delta = f"Debitoren {v.get('debitors')} -> {y['debitors']}"
         print(f"{y['year']:>5} {y['debitors']:>11.2f} "
               f"{(y['reserves'] or 0):>10.2f} {y['total']:>10.2f}   {delta}")
+
+    # ---- Sicherungen ------------------------------------------------------
+    # Ein abgeschlossenes Vereinsjahr darf sich nicht mehr bewegen, und die
+    # Debitoren des laufenden Jahres duerfen nicht schrumpfen. Passiert es doch,
+    # steckt entweder ein Fehler in der Mappe oder einer hier im Skript.
+    laufend = years[-1]["year"]
+    warnungen = []
+    for y in years:
+        v = alt.get(y["year"])
+        if not v or y["year"] == laufend:
+            continue
+        for feld in ("debitors", "reserves", "total"):
+            av, nv = v.get(feld) or 0, y.get(feld) or 0
+            if abs(av - nv) > 0.005:
+                warnungen.append(f"Fiskaljahr {y['year']}: {feld} {av} -> {nv}, "
+                                 f"aber das Jahr ist abgeschlossen")
+    v = alt.get(laufend)
+    if v and years[-1]["debitors"] + 0.005 < (v.get("debitors") or 0):
+        warnungen.append(f"Fiskaljahr {laufend}: Debitoren sinken von "
+                         f"{v['debitors']} auf {years[-1]['debitors']}")
+    if warnungen:
+        print("\nPruefung angeschlagen:")
+        for w in warnungen:
+            print("  " + w)
+        if not args.force:
+            sys.exit("\nNichts geschrieben. Erst pruefen, dann mit --force wiederholen.")
+        print("  --force gesetzt, es wird trotzdem geschrieben.")
 
     if args.dry_run:
         print("\nProbelauf, nichts geschrieben.")

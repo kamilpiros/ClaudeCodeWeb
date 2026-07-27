@@ -54,6 +54,45 @@ gebraucht:
 Ein Deploy braucht rund eine Minute. Wer danach die alte Fassung sieht, lädt mit
 Umschalt und Neu laden hart nach.
 
+## Automatischer Abgleich
+
+Damit die Seite von selbst aktuell bleibt, greifen drei Teile ineinander:
+
+1. **`scripts/gmail-nach-drive.gs`**, ein Google Apps Script im Konto des
+   Nutzers. Es sucht stündlich Mails von den Vereinsmitgliedern mit einem
+   Excel-Anhang und legt diesen im Drive-Ordner ab, mit dem Maildatum
+   vorangestellt. **Es prüft keinen Dateinamen**, nur Absender, Anhangstyp und
+   ob die Unterhaltung schon das Label `df-gesichert` trägt. Nötig ist das,
+   weil der Gmail-Connector keine Anhänge herunterladen kann, Drive dagegen
+   schon.
+2. **Die geplante Aufgabe `doenerfriitig-stats-abgleich`**, täglich um 18:00.
+   Sie holt die neuesten xlsx aus dem Drive-Ordner und fragt für jede das
+   Skript, ob sie neuer ist.
+3. **`scripts/update_from_workbook.py --check`** entscheidet. Es öffnet die
+   Mappe, liest den letzten Termin aus dem Bussenjournal und vergleicht ihn mit
+   `asOf`. Rückgabe 0 heisst neuer, 1 heisst nichts zu tun. Der Dateiname
+   spielt an keiner Stelle eine Rolle.
+
+Ohne `--check` bricht das Skript ebenfalls ab, wenn die Mappe nicht neuer ist.
+Zusätzlich prüft es vor dem Schreiben, ob sich ein abgeschlossenes Vereinsjahr
+verändert hat oder die Debitoren des laufenden Jahres sinken. Beides deutet auf
+einen Fehler hin und stoppt den Lauf. `--force` übergeht alle Prüfungen und
+sollte nur nach Sichtprüfung gesetzt werden.
+
+### Das Apps Script einrichten
+
+1. [script.google.com](https://script.google.com) öffnen, «Neues Projekt».
+2. Inhalt von `scripts/gmail-nach-drive.gs` in den Editor kopieren, Projekt
+   benennen und speichern.
+3. Oben die Funktion `dfProbelauf` wählen und ausführen. Google fragt einmal
+   nach der Berechtigung für Gmail und Drive. Das Protokoll zeigt danach, welche
+   Anhänge gefunden würden, geschrieben wird nichts.
+4. Stimmt die Liste, `dfAnhaengeSichern` einmal von Hand ausführen.
+5. Links auf «Trigger», «Trigger hinzufügen»: Funktion `dfAnhaengeSichern`,
+   Ereignisquelle «Zeitgesteuert», Stundenintervall.
+
+Kommt ein Mitglied dazu, die Adresse in `ABSENDER` ergänzen.
+
 ## Neue Mappe einlesen
 
     python scripts/update_from_workbook.py DF_STATS_2026_08_07.xlsx

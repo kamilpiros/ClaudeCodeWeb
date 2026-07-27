@@ -13,7 +13,7 @@ Cloudflare Pages, Deploy automatisch bei jedem Push auf `main`.
 | --- | --- |
 | `index.html` | Hero mit Logo, Countdown auf Freitag 12.15, drei Eingänge |
 | `stats.html` | Anwesenheitsstatistiken, sechs Reiter |
-| `vermoegen.html` | Vereinsvermögen, sechs Reiter, davon `Prüfung` mit der Quellenlage |
+| `vermoegen.html` | Vereinsvermögen, fünf Reiter |
 | `games.html`, `dash.html`, `stapler.html`, `gluecksrad.html` | die drei Spiele |
 | `df-data.js` | Anwesenheitsdatensatz, erzeugt von `/tmp/build_data.py` |
 | `df-assets.js` | Vermögensdatensatz, erzeugt von `/tmp/build_assets.py` |
@@ -24,6 +24,15 @@ Neue Schlüssel in `df-assets.js` seit dem 27.07.2026: `timeline`, `fiscalYears`
 `crypto.marks`, `gold.marks`, `gold.ozFromCrypto`, `events`, `reserveSplit2020`,
 `sources`, `checked`. Dazu tragen die Einträge in `years` neu `from`, `to` und
 `meets`. Woher das kommt, steht weiter unten.
+
+**Auf der Seite genutzt werden davon nur** `timeline`, `fiscalYears` und
+`crypto.marks`. Der Rest ist Beleg für diese Notiz und bewusst nicht auf der Seite:
+Der Nutzer will dort Zahlen sehen, keine Methodendiskussion. Wer die Herleitung
+sucht, findet sie hier.
+
+Der Verweis auf `df-assets.js` in `vermoegen.html` trägt einen Versionsparameter.
+**Bei jeder Änderung an `df-assets.js` das Datum dort mitziehen**, sonst liefert
+der Browser der Mitglieder wochenlang die alte Datei aus.
 
 Die beiden Python-Skripte liegen im Container unter `/tmp` und sind nach einem
 Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen

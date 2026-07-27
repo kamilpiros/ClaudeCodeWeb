@@ -166,14 +166,13 @@
   <div class="panel" id="p-gold"></div>
   <div class="panel" id="p-return"></div>
   <div class="panel" id="p-spend"></div>
-  <div class="panel" id="p-audit"></div>
 </div>
 
 <script src="df-data.js"></script>
 <!-- Der Parameter erzwingt beim Leser den frischen Datensatz, sonst zeigt der
      Browser wochenlang die alte Datei. Bei jeder Änderung an df-assets.js mit
      nachführen. -->
-<script src="df-assets.js?v=20260727"></script>
+<script src="df-assets.js?v=20260727b"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -233,7 +232,7 @@ const yearsHeld = () => (new Date() - new Date(A.crypto.in1Date)) / (365.25 * 86
 
 // ===================== Tabs =====================
 const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"],
-              ["return", "Rendite"], ["spend", "Ausgaben"], ["audit", "Prüfung"]];
+              ["return", "Rendite"], ["spend", "Ausgaben"]];
 document.getElementById("tabs").innerHTML =
   TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
 document.getElementById("tabs").onclick = (e) => {
@@ -272,8 +271,17 @@ function columnStack(rows, keys, colors, opts) {
              fill="${cols[ki]}" ${ki === keys.length - 1 ? 'rx="3"' : ""}/>`;
     });
     if (!o.share) {
-      g += `<text x="${cx}" y="${y - 6}" fill="rgba(238,244,251,.8)" font-size="10.5"
-             text-anchor="middle" font-weight="700">${o.fmt(tot[i])}</text>`;
+      // Wo eine eigene Kopfzahl gesetzt ist, markiert eine gestrichelte Linie ihre Höhe.
+      // So sieht man auf einen Blick, wenn die Säule darüber hinausragt.
+      const headVal = r.top === undefined ? tot[i] : r.top;
+      const headY = bottom - (bottom - top) * (headVal / max);
+      if (r.top !== undefined && Math.abs(r.top - tot[i]) > 0.5) {
+        g += `<line x1="${cx - bw / 2 - 4}" y1="${headY.toFixed(1)}" x2="${cx + bw / 2 + 4}" y2="${headY.toFixed(1)}"
+               stroke="rgba(238,244,251,.7)" stroke-width="1.4" stroke-dasharray="3 3"/>`;
+      }
+      g += `<text x="${cx}" y="${(Math.min(y, headY) - 6).toFixed(1)}"
+             fill="rgba(238,244,251,.8)" font-size="10.5"
+             text-anchor="middle" font-weight="700">${o.fmt(headVal)}</text>`;
     }
     g += `<text x="${cx}" y="${bottom + 15}" fill="rgba(238,244,251,.55)" font-size="10.5"
            text-anchor="middle">${esc(r.label)}</text>`;
@@ -431,8 +439,6 @@ function renderOverview() {
         <span class="sn">${y.from.slice(8)}.${y.from.slice(5, 7)}.${y.from.slice(2, 4)} bis ${y.to.slice(8)}.${y.to.slice(5, 7)}.${y.to.slice(2, 4)}</span></td>
       <td class="num">${chf0(y.debitors)}</td>
       <td class="num">${y.reserves ? chf0(y.reserves) : "<span style='opacity:.35'>–</span>"}</td>
-      <td class="l"><span class="dot" style="background:${kindCol(y.reserveKind)};opacity:${y.reserveKind ? 1 : .25}"></span>
-        <span style="opacity:${y.reserveKind ? .85 : .35};font-size:12.5px">&nbsp;${y.reserveKind || "keine"}</span></td>
       <td class="num" style="font-weight:800">${chf0(y.total)}</td>
       <td class="num ${d === null ? "" : d >= 0 ? "up" : "down"}">${d === null ? "<span style='opacity:.35'>–</span>" : sig(d, chf0)}</td>
     </tr>`;
@@ -449,17 +455,11 @@ function renderOverview() {
     </div>
     <div class="card">
       <div class="kpis">
-        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">CHF Buchwert laut Statistik</div></div>
-        <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">CHF pro Mitglied</div></div>
-        <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">seit dem Fiskaljahr ${first.year}</div></div>
-        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">CHF Buchwert gegenüber Vorjahr</div></div>
+        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">Schweizer Franken Buchwert</div></div>
+        <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">Schweizer Franken pro Mitglied</div></div>
+        <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">Buchwert gewachsen seit ${first.year}</div></div>
+        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">Schweizer Franken gegenüber Vorjahr</div></div>
       </div>
-      <div class="note">Der Buchwert in der Statistik bewertet das Gold unverändert per ${dmy(G.valuationDate)}.
-      Oben steht stattdessen der Marktwert: Debitoren CHF ${chf0(cur.debitors)} plus
-      ${G.xau} XAU Gold zu CHF ${chf(px().chfOz)} je Unze, abzüglich CHF ${chf0(spent)}.
-      Diese CHF ${chf0(spent)} sind die einzige Stelle, an der die Reserve je kleiner wurde:
-      das Blatt ${cur.year} übernimmt die Position um genau diesen Betrag tiefer als der
-      Abschluss ${Y[Y.length - 2].year}. Einen Grund nennt keine Mappe. Mehr dazu im Tab Prüfung.</div>
     </div>
     <div class="card">
       <h2>Vermögen je Vereinsjahr</h2>
@@ -473,9 +473,7 @@ function renderOverview() {
       </div>
     </div>
     <div class="card">
-      <h2>Verlauf unterjährig</h2>
-      <div class="sub2">${A.timeline.length} datierte Stände aus ${A.sources.books} Arbeitsmappen.
-      Die grossen Punkte sind Jahresabschlüsse, die kleinen einzelne Mappen.</div>
+      <h2>Vermögensentwicklung</h2>
       ${timeChart(A.timeline.map(p => ({ d: p.d, v: p.total, close: p.src === "abschluss" })), {
         bands: A.fiscalYears.filter((f, i) => i % 2 === 1)
                  .map(f => ({ from: f.from, to: f.to, color: "#ffffff" })),
@@ -485,23 +483,12 @@ function renderOverview() {
         <span class="i"><span class="dot" style="background:${C.deb}"></span>Stand einer Mappe</span>
         <span class="i">helle Streifen: jedes zweite Vereinsjahr</span>
       </div>
-      <div class="note">Bis Oktober 2021 liegen nur Jahresabschlüsse vor, weil die älteren
-      Mappen nicht erhalten sind. Ab dann ist fast jede Woche belegt. Der Sägezahn kommt
-      daher, dass die Debitoren während des Jahres anwachsen und an der Chlöpfete
-      einkassiert und grösstenteils gleich wieder verzehrt werden.</div>
     </div>
     <div class="card">
       <h2>Zahlen im Detail</h2>
-      <div class="sub2">Ein Vereinsjahr läuft von Chlöpfete zu Chlöpfete, nicht von Januar bis Dezember.</div>
       <div class="tw"><table>
-        <thead><tr><th class="l">FJ</th><th>Debitoren</th><th>Reserven</th><th class="l">Art</th><th>Total</th><th>Δ</th></tr></thead>
+        <thead><tr><th class="l">Fiskaljahr</th><th>Debitoren</th><th>Reserven</th><th>Total</th><th>Δ</th></tr></thead>
         <tbody>${table}</tbody></table></div>
-      <div class="note">
-        In den Jahren ${Y[0].year} und ${Y[1].year} bestand das Vermögen ausschliesslich aus offenen Forderungen,
-        eine Kasse wurde erst ab ${Y[2].year} separat geführt.
-        In der Reserve des laufenden Jahres stecken CHF ${chf0(cur.provision)} Rückstellung für Merchandise.
-        Quelle: ${esc(A.source)}, Stand ${dmy(A.asOf)}.
-      </div>
     </div>`;
 }
 
@@ -536,7 +523,7 @@ function renderAlloc() {
     { y: `${Y[6].year} bis ${Y[7].year}`, n: "Krypto", c: C.crypto,
       d: `Jedes Mitglied wählte eine Kryptowährung für CHF ${chf(A.crypto.in1 / 6)}, ein Jahr später kam Bitcoin für CHF ${chf(A.crypto.in2)} dazu. Zusammen CHF ${chf(A.crypto.totalIn)} Einsatz.` },
     { y: `seit ${Y[8].year}`, n: "Gold über Revolut", c: C.gold,
-      d: `Die Reserve wurde in ${G.xau} XAU umgeschichtet, Einstand rund CHF ${chf0(G.costChf)}. Das Gold liegt nicht im Tresor, sondern als Rohstoffposition im Revolut-Depot des Vereins.` },
+      d: `Die Reserve wurde in ${G.xau} XAU umgeschichtet, Einstand rund CHF ${chf0(G.costChf)}.` },
   ].map(e => `<div class="era"><span class="bulb" style="background:${e.c}"></span>
     <div><div class="y">${esc(e.y)}</div><div class="n">${esc(e.n)}</div>
     <div class="d">${e.d}</div></div></div>`).join("");
@@ -544,20 +531,14 @@ function renderAlloc() {
   document.getElementById("p-alloc").innerHTML = `
     <div class="card">
       <h2>Wo das Geld heute liegt</h2>
-      <div class="sub2">Zum aktuellen Goldkurs.</div>
       <div class="donutRow">${donut(parts)}<div class="keys">${keys}</div></div>
-      <div class="note">Rund ${pct1(goldNow / tot)} des Vermögens stecken in Gold,
-      der Rest sind Forderungen an die eigenen Mitglieder. Die Merchandise-Rückstellung
-      ist kein separater Topf, sie ist Teil derselben Goldposition.</div>
     </div>
     <div class="card">
       <h2>Anlageform im Wandel</h2>
-      <div class="sub2">Der Verein hat dreimal die Strategie gewechselt.</div>
       <div class="eras">${eras}</div>
     </div>
     <div class="card">
-      <h2>Forderungen gegen Reserven</h2>
-      <div class="sub2">Anteile am Gesamtvermögen. Je grösser der obere Anteil, desto mehr Vermögen ist eingezogen und angelegt.</div>
+      <h2>Allokation über Zeit</h2>
       ${columnStack(shareRows, ["deb", "res"], [C.deb, C.gold], { share: true, h: 210 })}
       <div class="lg">
         <span class="i"><span class="dot" style="background:${C.deb}"></span>Debitoren</span>
@@ -573,7 +554,7 @@ let goldRange = "all";
 function renderGold() {
   const p = px();
   const S = goldPoints();
-  const cut = { "1j": 13, "3j": 37, "5j": 61, "all": S.length }[goldRange];
+  const cut = { "1j": 13, "2j": 25, "3j": 37, "5j": 61, "all": S.length }[goldRange];
   const view = S.slice(Math.max(0, S.length - cut));
   const goldNow = goldValue();
 
@@ -608,7 +589,7 @@ function renderGold() {
       <h2>Goldpreis in Franken</h2>
       <div class="sub2">Monatswerte des Londoner Goldfixings, umgerechnet zum Dollarkurs${p.live ? ", der letzte Punkt ist der Live-Kurs" : ""}.</div>
       <div class="chips" id="rangeChips">
-        ${[["1j", "1 Jahr"], ["3j", "3 Jahre"], ["5j", "5 Jahre"], ["all", "seit 2016"]]
+        ${[["1j", "1 Jahr"], ["2j", "2 Jahre"], ["3j", "3 Jahre"], ["5j", "5 Jahre"], ["all", "seit 2016"]]
           .map(([k, l]) => `<button class="chip ${goldRange === k ? "on" : ""}" data-r="${k}">${l}</button>`).join("")}
       </div>
       ${areaChart(view, { marks, yFmt: v => Math.round(v) })}
@@ -636,57 +617,6 @@ function renderGold() {
       <div class="sub2">In Franken, ohne Depot- und Handelskosten.</div>
       ${perfRows}
       <div class="note">Bezugspunkt ist der Monatsdurchschnitt ${mLabel(G.last.m)}.</div>
-    </div>
-    <div class="card">
-      <h2>Was die Mappen zum Gold sagen</h2>
-      <div class="sub2">Gewicht, Kaufdatum und Kaufpreis stehen nirgends. Erfasst ist nur ein
-      Frankenbetrag mit Stichtag. Daraus lässt sich das Gewicht zurückrechnen.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">Stichtag</th><th>CHF</th><th>Unzen</th><th>je Unze</th></tr></thead>
-        <tbody>${G.marks.map(m => `<tr>
-          <td class="l" style="font-weight:700">${dmy(m.d)}
-            <span class="sn">${esc(m.note)}</span></td>
-          <td class="num">${chf0(m.chf)}</td>
-          <td class="num" style="font-weight:800;color:${m.provisional ? "#ff6b8a" : "#7ee287"}">${m.impliedOz.toFixed(3).replace(".", ",")}</td>
-          <td class="num" style="opacity:.55">${chf0(G.series.find(s => s.m === m.month).chfOz)}</td>
-        </tr>`).join("")}
-        <tr style="border-top:1px solid var(--line)">
-          <td class="l" style="font-weight:700">Revolut
-            <span class="sn">Depotansicht, direkt abgelesen</span></td>
-          <td class="num" style="opacity:.7">${chf0(G.snapshot.valueChf)}</td>
-          <td class="num" style="font-weight:800">${G.xau.toFixed(3).replace(".", ",")}</td>
-          <td class="num" style="opacity:.3">–</td>
-        </tr></tbody></table></div>
-      <div class="note">Die beiden grün markierten Stichtage ergeben ${G.marks[1].impliedOz.toFixed(2).replace(".", ",")}
-      und ${G.marks[2].impliedOz.toFixed(2).replace(".", ",")} Unzen und damit dasselbe Gewicht wie
-      die ${G.xau} XAU aus dem Depot. Der Bestand hat sich zwischen Oktober und Dezember ${G.valuationDate.slice(0, 4)}
-      also nachweislich nicht verändert. Gerechnet ist mit Monatsdurchschnitten, deshalb die kleinen Abweichungen.</div>
-      <div class="note" style="border-left-color:#ff6b8a">Der rote Wert ist eine Falle. Der erste
-      Eintrag im Blatt ${Y[8].year} lautet «ca. Wert 7.2.25» und steht bei CHF ${chf0(G.marks[0].chf)}.
-      Das entspricht nur ${G.marks[0].impliedOz.toFixed(2).replace(".", ",")} Unzen, also gut einem Viertel
-      zu wenig. Der Betrag blieb acht Monate lang unverändert stehen, bis er im Oktober
-      ${G.valuationDate.slice(0, 4)} erstmals sauber nachgeführt wurde. Es ist eine grobe Schätzung,
-      keine Bewertung, und darf nicht als Beleg für einen kleineren Bestand gelesen werden.</div>
-    </div>
-    <div class="card">
-      <h2>Woher die Zahlen kommen</h2>
-      <div class="sub2">Damit niemand dem Revisor Fragen stellen muss.</div>
-      <div class="note" style="opacity:.72;font-size:12px">
-        Geprüft wurden ${A.sources.books} Arbeitsmappen aus dem Zeitraum ${dmy(A.sources.from)}
-        bis ${dmy(A.sources.to)} sowie die beiden Revisionsberichte. Der Bericht zum Fiskaljahr
-        ${Y[8].year} weist die Goldreserve per ${dmy(G.valuationDate)} mit CHF ${chf(G.valuationChf)} aus,
-        abzüglich CHF ${chf(cur.provision)} Rückstellung für Merchandise.
-        Der Bestand von ${G.xau} XAU stammt aus dem Revolut-Depot, dort mit CHF ${chf(G.snapshot.valueChf)}
-        und ${sigPct(G.snapshot.gain)} ausgewiesen. Daraus folgt ein Einstand von CHF ${chf(G.costChf)},
-        also CHF ${chf(G.costChf / G.xau)} je Unze, passend zum Januar ${G.buyMonth.slice(0, 4)}.
-        Dritte Gegenprobe: die Kryptoreserve stand beim Abschluss ${Y[7].year} bei
-        CHF ${chf0(A.crypto.out)}. Zum Goldkurs jenes Monats kauft dieser Betrag
-        ${G.ozFromCrypto.toFixed(3).replace(".", ",")} Unzen, praktisch genau die ${G.xau} XAU im Depot.
-        Das gesamte Kryptovermögen ist also im Gold gelandet.
-        Der Live-Kurs kommt über eine eigene Schnittstelle der Seite, die mehrere offene
-        Kursquellen abfragt. Fällt sie aus, zeigt die Seite den letzten Monatsdurchschnitt
-        und kennzeichnet das oben.
-      </div>
     </div>`;
 
   document.getElementById("rangeChips").onclick = (e) => {
@@ -696,59 +626,85 @@ function renderGold() {
 }
 
 // ===================== Rendite =====================
+// Wertreihe der Anlage: bis zum Umtausch die erfassten Kryptostaende,
+// danach die Goldposition zum jeweiligen Monatskurs.
+function returnPoints() {
+  const K = A.crypto;
+  const invested = (d) => d < K.in2Date ? K.in1 : K.totalIn;
+  const raw = K.marks.filter(m => m.kind !== "einstand").map(m => ({ d: m.d, v: m.chf }));
+  G.series.forEach(s => { if (s.m + "-28" > K.outDate) raw.push({ d: s.m + "-28", v: G.xau * s.chfOz }); });
+  const p = px();
+  if (p.live) raw.push({ d: new Date().toISOString().slice(0, 10), v: G.xau * p.chfOz });
+  raw.sort((a, b) => a.d < b.d ? -1 : 1);
+  return raw.map(x => ({ d: x.d, v: x.v, r: x.v / invested(x.d) - 1 }));
+}
+
+function returnChart(pts, opts) {
+  const o = Object.assign({ w: 680, h: 260, marks: [] }, opts || {});
+  const { w, h } = o;
+  const left = 46, right = w - 8, top = 16, bottom = h - 30;
+  const T = (d) => new Date(d).getTime();
+  const t0 = T(pts[0].d), t1 = T(pts[pts.length - 1].d);
+  const X = (d) => left + (right - left) * ((T(d) - t0) / (t1 - t0 || 1));
+  const vals = pts.map(p => p.r);
+  let lo = Math.min(0, ...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.12 || 0.1;
+  lo -= pad; hi += pad;
+  const Yv = (v) => bottom - (bottom - top) * ((v - lo) / (hi - lo));
+  let g = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, y = Yv(v);
+    g += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="rgba(255,255,255,.08)"/>`;
+    g += `<text x="${left - 6}" y="${y + 4}" fill="rgba(238,244,251,.5)" font-size="10.5"
+           text-anchor="end">${Math.round(v * 100)}%</text>`;
+  }
+  const zy = Yv(0);
+  g += `<line x1="${left}" y1="${zy}" x2="${right}" y2="${zy}" stroke="rgba(238,244,251,.4)" stroke-width="1.2"/>`;
+  const id = "rc" + (++gradSeq);
+  const line = pts.map(p => `${X(p.d).toFixed(1)},${Yv(p.r).toFixed(1)}`).join(" ");
+  g += `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#7ee287" stop-opacity=".4"/>
+    <stop offset="100%" stop-color="#7ee287" stop-opacity="0"/></linearGradient>
+    <clipPath id="${id}c"><rect x="${left}" y="${top}" width="${right - left}" height="${zy - top}"/></clipPath></defs>`;
+  g += `<polygon points="${X(pts[0].d)},${zy} ${line} ${X(pts[pts.length - 1].d)},${zy}"
+         fill="url(#${id})" clip-path="url(#${id}c)"/>`;
+  g += `<polyline points="${line}" fill="none" stroke="#7ee287" stroke-width="2.4"
+         stroke-linejoin="round" stroke-linecap="round"/>`;
+  o.marks.forEach(mk => {
+    const x = X(mk.d);
+    g += `<line x1="${x.toFixed(1)}" y1="${top}" x2="${x.toFixed(1)}" y2="${bottom}"
+           stroke="${mk.color}" stroke-width="1.2" stroke-dasharray="3 4" opacity=".6"/>`;
+    const anchor = X(mk.d) > (left + right) * 0.6 ? "end" : "start";
+    g += `<text x="${(x + (anchor === "end" ? -6 : 6)).toFixed(1)}" y="${top + 10 + (mk.row || 0) * 13}"
+           fill="${mk.color}" font-size="10.5" font-weight="700" text-anchor="${anchor}">${esc(mk.label)}</text>`;
+  });
+  const last = pts[pts.length - 1];
+  g += `<circle cx="${X(last.d).toFixed(1)}" cy="${Yv(last.r).toFixed(1)}" r="4.4"
+         fill="#7ee287" stroke="#26315e" stroke-width="2"/>`;
+  const y0 = new Date(t0).getFullYear(), y1 = new Date(t1).getFullYear();
+  for (let y = y0; y <= y1; y++) {
+    const d = `${y}-01-01`; if (T(d) < t0 || T(d) > t1) continue;
+    g += `<text x="${X(d).toFixed(1)}" y="${bottom + 16}" fill="rgba(238,244,251,.5)"
+           font-size="10.5" text-anchor="middle">${y}</text>`;
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
+}
+
 function renderReturn() {
   const K = A.crypto;
   const goldNow = goldValue();
   const mult = goldNow / K.totalIn;
   const r = irr(goldNow);
   const held = yearsHeld();
-
-  const stageCols = K.stages;
-  const rows = K.coins.concat([K.bitcoin]).map(c => {
-    const cells = stageCols.map(s => {
-      const v = c[s.k];
-      if (v === null) return `<td class="num" style="opacity:.3">–</td>`;
-      const d = v / c.startChf - 1;
-      return `<td class="num ${d >= 0 ? "up" : "down"}">${chf0(v)}</td>`;
-    }).join("");
-    const lastV = c.v2802;
-    return `<tr>
-      <td class="l" style="font-weight:700">${esc(c.member)}</td>
-      <td class="l" style="opacity:.85">${coinName(c.coin)}</td>
-      <td class="num">${chf0(c.startChf)}</td>
-      ${cells}
-      <td class="num ${lastV >= c.startChf ? "up" : "down"}" style="font-weight:700">${sig(lastV / c.startChf - 1, v => Math.round(v * 100) + "%")}</td>
-    </tr>`;
-  }).join("");
-  const sumStart = K.totalIn;
-  const sum2802 = K.coins.concat([K.bitcoin]).reduce((s, c) => s + c.v2802, 0);
-
-  const steps = [
-    { c: "crypto", d: dmy(K.in1Date), t: "Sechs Coins, einer pro Mitglied",
-      v: `Einsatz CHF ${chf(K.in1)}` },
-    { c: "crypto", d: dmy(K.stages[0].d), t: "Erste Zwischenbilanz",
-      v: `CHF ${chf0(K.coins.reduce((s, c) => s + c.v0501, 0))}, das Depot lag im Minus` },
-    { c: "crypto", d: dmy(K.in2Date), t: "Bitcoin kommt dazu",
-      v: `zusätzlich CHF ${chf(K.in2)} für ${K.bitcoin.units} BTC` },
-    { c: "crypto", d: dmy(K.stages[1].d), t: "Die Erholung",
-      v: `CHF ${chf0(sum2802)} gegenüber CHF ${chf0(sumStart)} Einsatz` },
-    { c: "crypto", d: dmy(K.outDate), t: `Abschluss Fiskaljahr ${Y[7].year}`,
-      v: `Reserve CHF ${chf0(K.out)}` },
-    { c: "gold", d: "Anfang " + mLabel(G.buyMonth), t: "Umschichtung in Gold",
-      v: `${G.xau} XAU für CHF ${chf(G.costChf)}` },
-    { c: "gold", d: dmy(G.valuationDate), t: `Revisionsbericht Fiskaljahr ${Y[8].year}`,
-      v: `Goldreserve CHF ${chf(G.valuationChf)}` },
-    { c: "now", d: "jetzt", t: "Aktueller Wert",
-      v: `CHF ${chf(goldNow)} zu CHF ${chf(px().chfOz)} je Unze` },
-  ].map(s => `<div class="step ${s.c}"><div class="sd">${esc(s.d)}</div>
-    <div class="st">${esc(s.t)}</div><div class="sv">${esc(s.v)}</div></div>`).join("");
+  const RP = returnPoints();
+  const best = RP.reduce((a, b) => b.r > a.r ? b : a);
+  const worst = RP.reduce((a, b) => b.r < a.r ? b : a);
 
   document.getElementById("p-return").innerHTML = `
     <div class="card">
       <div class="hero2">
         <div class="cur">Aus CHF ${chf0(K.totalIn)} wurden</div>
         <div class="big" style="color:#7ee287">${chf(goldNow)}</div>
-        <div class="sub">seit ${dmy(K.in1Date)}, das ist das ${mult.toFixed(2).replace(".", ",")}-fache</div>
         ${liveBadge()}
       </div>
     </div>
@@ -759,87 +715,17 @@ function renderReturn() {
         <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(r)}</div><div class="k">pro Jahr, interner Zinsfuss</div></div>
         <div class="kpi"><div class="v">${held.toFixed(1).replace(".", ",")}</div><div class="k">Jahre angelegt</div></div>
       </div>
-      <div class="note">Der Verein hat nie etwas zu Geld gemacht. Das Kryptodepot wurde nicht
-      verkauft und ausgegeben, sondern in Gold umgeschichtet, und das Gold liegt bis heute
-      unangetastet im Depot. Die Zahl oben ist deshalb ein Buchgewinn, kein realisierter.
-      Der interne Zinsfuss rechnet ein, dass die beiden Einzahlungen zu verschiedenen
-      Zeitpunkten kamen. Ohne diese Gewichtung wäre die Zahl zu schmeichelhaft.
-      Nicht enthalten sind Handelsspesen und der Unterschied zwischen Kauf- und Verkaufskurs.
-      Die Anlässe des Vereins werden aus den jeweils frisch einkassierten Bussen bezahlt,
-      nicht aus der Reserve. Nachgeprüft: der Abschluss ${Y[7].year} weist CHF ${chf0(A.crypto.out)}
-      Krypto aus, und derselbe Betrag kauft im Januar ${G.buyMonth.slice(0, 4)} genau
-      ${G.ozFromCrypto.toFixed(2).replace(".", ",")} Unzen Gold. Im Depot liegen ${G.xau} XAU.
-      Für einen Anlass abgezweigt wurde also nichts. Die einzige Ausnahme sind
-      CHF ${chf0(spent)} beim Übergang ins Fiskaljahr ${cur.year}, siehe Tab Prüfung.</div>
     </div>
     <div class="card">
-      <h2>Die Reise des Vereinsvermögens</h2>
-      <div class="sub2">Von sechs zufällig gewählten Coins zur Goldreserve.</div>
-      <div class="steps">${steps}</div>
-    </div>
-    <div class="card">
-      <h2>Das Kryptodepot im Detail</h2>
-      <div class="sub2">Wert je Position an den beiden im Vereinsdokument erfassten Stichtagen.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">Member</th><th class="l">Position</th><th>Einsatz</th>
-          ${stageCols.map(s => `<th>${s.d.slice(8)}.${s.d.slice(5, 7)}.</th>`).join("")}<th>±</th></tr></thead>
-        <tbody>${rows}</tbody>
-        <tfoot><tr style="border-top:1px solid var(--line)">
-          <td class="l" style="font-weight:800">Total</td><td></td>
-          <td class="num" style="font-weight:800">${chf0(sumStart)}</td>
-          ${stageCols.map((s, i) => `<td class="num" style="font-weight:800">${i === stageCols.length - 1 ? chf0(sum2802) : ""}</td>`).join("")}
-          <td class="num ${sum2802 >= sumStart ? "up" : "down"}" style="font-weight:800">${sig(sum2802 / sumStart - 1, v => Math.round(v * 100) + "%")}</td>
-        </tr></tfoot></table></div>
-      <div class="note">Am ${dmy(K.stages[0].d)} stand das Depot der sechs Coins bei
-      CHF ${chf0(K.coins.reduce((s, c) => s + c.v0501, 0))} gegenüber CHF ${chf0(K.in1)} Einsatz,
-      also ${sigPct(K.coins.reduce((s, c) => s + c.v0501, 0) / K.in1 - 1)}. Zwei Monate später
-      war der Rückstand aufgeholt. Bis zum Abschluss des Fiskaljahrs ${Y[7].year} wuchs die
-      Reserve auf CHF ${chf0(K.out)}, das ${(K.out / K.totalIn).toFixed(2).replace(".", ",")}-fache
-      des Einsatzes. Nach dem ${dmy(K.stages[1].d)} führte niemand mehr Einzelkurse nach,
-      ab dann steht nur noch eine Summe in der Mappe.
-      Beim Kauf gingen je nach Coin zwischen ${pct1(Math.min(...K.coins.map(c => c.fee)))} und
-      ${pct1(Math.max(...K.coins.map(c => c.fee)))} an Gebühren weg, im Schnitt
-      ${pct1(K.coins.reduce((s, c) => s + c.fee, 0) / K.coins.length)}.</div>
-    </div>
-    <div class="card">
-      <h2>Jede erfasste Bewertung</h2>
-      <div class="sub2">Alle ${K.marks.length} Stände, die sich in den ${A.sources.books} Mappen
-      belegen lassen. Die grösste Lücke liegt zwischen Februar und Dezember ${K.marks[8].d.slice(0, 4)}.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">Datum</th><th>Wert</th><th class="l">Art</th></tr></thead>
-        <tbody>${K.marks.map(m => {
-          const col = m.kind === "markt" ? "#7ee287" : m.kind === "einstand" ? C.deb : "#ff9f43";
-          const lbl = m.kind === "markt" ? "Kurs je Coin" : m.kind === "einstand" ? "Einzahlung" : "Schätzung";
-          return `<tr>
-            <td class="l" style="font-weight:700">${dmy(m.d)}
-              <span class="sn">${esc(m.note)}</span></td>
-            <td class="num" style="font-weight:700">${chf0(m.chf)}</td>
-            <td class="l"><span class="dot" style="background:${col}"></span>
-              <span style="opacity:.85;font-size:12.5px">&nbsp;${lbl}</span></td>
-          </tr>`;
-        }).join("")}</tbody></table></div>
-      <div class="note">Die beiden letzten Werte sind ausdrücklich Schätzungen. Der Revisionsbericht
-      zum Fiskaljahr ${Y[7].year} nennt die Position wörtlich «Kryptoreserve Schätzig MSO/MST».
-      Das erklärt, warum die Zahl nicht auf den Rappen zum Goldwert des Folgemonats passt.</div>
-      <div class="note" style="border-left-color:#ff9f43">Eine weitere Falle: die Mappe vom
-      02.10.2023 zeigt in der Spalte mit der Kopfzeile «Rate 12.05.2023» andere Zahlen als die
-      Mappe vom Juni. Die Werte wurden nachgeführt, die Kopfzeile nicht. Der Stand von
-      CHF ${chf0(K.marks[4].chf)} gehört zum Ende September ${K.marks[4].d.slice(0, 4)}, nicht zum Mai.</div>
-    </div>
-    <div class="card">
-      <h2>Beitrag zum Vereinsvermögen</h2>
-      <div class="sub2">Was die Anlagen gegenüber dem blossen Horten von Bargeld gebracht haben.</div>
-      <div class="rec"><span>Eingesetzte Bussengelder</span>
-        <span class="r">${chf0(K.totalIn)}</span></div>
-      <div class="rec"><span>Wert heute</span>
-        <span class="r" style="font-weight:800;color:#7ee287">${chf0(goldNow)}</span></div>
-      <div class="rec"><span>Gewinn aus der Anlage</span>
-        <span class="r" style="font-weight:800;color:#7ee287">${sig(goldNow - K.totalIn, chf0)}</span></div>
-      <div class="rec"><span>Anteil am heutigen Vermögen</span>
-        <span class="r">${pct1((goldNow - K.totalIn) / marketValue())}</span></div>
-      <div class="note">Anders gesagt: ${pct1((goldNow - K.totalIn) / marketValue())} des heutigen
-      Vereinsvermögens stammen nicht aus Bussen, sondern daraus, dass das Geld angelegt wurde.
-      Das entspricht ungefähr ${Math.round((goldNow - K.totalIn) / 13)} Absenzbussen zu CHF 13.</div>
+      <h2>Rendite über die Zeit</h2>
+      ${returnChart(RP, { marks: [
+        { d: K.in2Date, label: "Bitcoin dazu", color: C.deb },
+        { d: K.outDate, label: "Umtausch in Gold", color: C.gold, row: 1 },
+      ] })}
+      <div class="lg">
+        <span class="i"><span class="dot" style="background:#7ee287"></span>Höchststand ${sigPct(best.r)} im ${mLabel(best.d.slice(0, 7))}</span>
+        <span class="i"><span class="dot" style="background:#ff6b8a"></span>Tiefststand ${sigPct(worst.r)} im ${mLabel(worst.d.slice(0, 7))}</span>
+      </div>
     </div>`;
 }
 
@@ -849,217 +735,69 @@ function renderSpend() {
   const avg = A.spentTotal / S.length;
   const collected = S.reduce((s, x) => s + x.collected, 0);
   const toRes = S.reduce((s, x) => s + x.toReserve, 0);
+  const fromResTotal = S.reduce((s, x) => s + Math.max(0, x.spent - x.collected), 0);
 
-  const rows = S.map(x => ({
-    label: String(x.year).slice(2),
-    parts: { spent: Math.max(0, x.spent), res: Math.max(0, x.toReserve) },
-    colors: ["#ff9f43", C.gold],
-  }));
+  const COL = { bussen: "#ff9f43", reserve: "#ff6b8a", spar: C.gold };
+  const rows = S.map(x => {
+    const fromRes = Math.max(0, x.spent - x.collected);
+    return {
+      label: String(x.year).slice(2),
+      parts: { bussen: x.spent - fromRes, reserve: fromRes, spar: Math.max(0, x.toReserve) },
+      colors: [COL.bussen, COL.reserve, COL.spar],
+      top: x.collected,
+    };
+  });
 
-  const table = S.map(x => `<tr>
-    <td class="l" style="font-weight:700">${x.year}</td>
-    <td class="num">${chf0(x.collected)}</td>
-    <td class="num" style="font-weight:800;color:#ff9f43">${chf0(x.spent)}</td>
-    <td class="num ${x.toReserve >= 0 ? "up" : "down"}">${sig(x.toReserve, chf0)}</td>
-    <td class="num" style="opacity:.7">${pct1(x.spent / x.collected)}</td>
-  </tr>`).join("");
+  const table = S.map(x => {
+    const fromRes = Math.max(0, x.spent - x.collected);
+    return `<tr>
+      <td class="l" style="font-weight:700">${x.year}</td>
+      <td class="num">${chf0(x.collected)}</td>
+      <td class="num" style="font-weight:800;color:${COL.bussen}">${chf0(x.spent)}</td>
+      <td class="num ${x.toReserve >= 0 ? "up" : "down"}">${sig(x.toReserve, chf0)}</td>
+      <td class="num" style="opacity:.7">${pct1(x.spent / x.collected)}</td>
+    </tr>`;
+  }).join("");
 
   document.getElementById("p-spend").innerHTML = `
     <div class="card">
       <div class="hero2">
         <div class="cur">Seit dem Fiskaljahr ${S[0].year} in Anlässe geflossen</div>
-        <div class="big" style="color:#ff9f43">${chf(A.spentTotal)}</div>
-        <div class="sub">CHF, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Wie der Kreislauf läuft</h2>
-      <div class="sub2">Jedes Vereinsjahr endet an der Chlöpfete, und dort passiert alles auf einmal.</div>
-      <div class="steps">
-        <div class="step"><div class="sd">während des Jahres</div>
-          <div class="st">Bussen fallen an</div>
-          <div class="sv">Absenz, Last In, LIFO und der Mitgliederbeitrag, im Schnitt CHF ${chf0(collected / S.length)} pro Jahr</div></div>
-        <div class="step"><div class="sd">an der Chlöpfete</div>
-          <div class="st">Die Debitoren werden einkassiert</div>
-          <div class="sv">der Revisor stellt fest, wer was schuldet, danach wird gezahlt</div></div>
-        <div class="step" style="--x:1"><div class="sd">ein bis zwei Mal pro Jahr</div>
-          <div class="st">Die Anlässe werden bezahlt</div>
-          <div class="sv">Quo Vadis, Brüglete und die Chlöpfete selbst, zusammen CHF ${chf0(avg)} pro Jahr</div></div>
-        <div class="step gold"><div class="sd">was übrig bleibt</div>
-          <div class="st">Wandert in die Reserve</div>
-          <div class="sv">CHF ${chf0(toRes)} über alle Jahre, heute als Gold gehalten</div></div>
+        <div class="big" style="color:${COL.bussen}">${chf(A.spentTotal)}</div>
+        <div class="sub">Schweizer Franken, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
       </div>
     </div>
     <div class="card">
       <h2>Einnahmen gegen Ausgaben</h2>
-      <div class="sub2">Was in einem Vereinsjahr an Bussen zusammenkam und was davon in Anlässe floss.</div>
-      ${columnStack(rows, ["spent", "res"], ["#ff9f43", C.gold], { fmt: v => chf0(v) })}
+      <div class="sub2">Die Zahl über jeder Säule ist, was in dem Jahr an Bussen einkassiert wurde.</div>
+      ${columnStack(rows, ["bussen", "reserve", "spar"],
+                    [COL.bussen, COL.reserve, COL.spar], { fmt: v => chf0(v) })}
       <div class="lg">
-        <span class="i"><span class="dot" style="background:#ff9f43"></span>für Anlässe ausgegeben</span>
-        <span class="i"><span class="dot" style="background:${C.gold}"></span>in die Reserve gelegt</span>
+        <span class="i"><span class="dot" style="background:${COL.bussen}"></span>Anlässe, aus Bussen bezahlt</span>
+        <span class="i"><span class="dot" style="background:${COL.reserve}"></span>Anlässe, aus der Reserve bezahlt</span>
+        <span class="i"><span class="dot" style="background:${COL.spar}"></span>in die Reserve gelegt</span>
       </div>
-      <div class="note">In Jahren ohne gelben Balken wurde mehr ausgegeben als eingenommen,
-      die Differenz kam aus der Reserve.</div>
+      <div class="note">Ragt eine Säule über die Zahl hinaus, hat der Verein in dem Jahr mehr
+      ausgegeben als eingenommen. Der rote Teil zeigt, wie viel dafür aus der Reserve kam.
+      Über alle Jahre sind das CHF ${chf0(fromResTotal)}.</div>
     </div>
     <div class="card">
       <h2>Zahlen je Vereinsjahr</h2>
       <div class="tw"><table>
-        <thead><tr><th class="l">FJ</th><th>Einkassiert</th><th>Anlässe</th><th>In Reserve</th><th>Quote</th></tr></thead>
+        <thead><tr><th class="l">Fiskaljahr</th><th>Einkassiert</th><th>Anlässe</th>
+          <th>In Reserve</th><th>Quote</th></tr></thead>
         <tbody>${table}</tbody>
         <tfoot><tr style="border-top:1px solid var(--line)">
           <td class="l" style="font-weight:800">Total</td>
           <td class="num" style="font-weight:800">${chf0(collected)}</td>
-          <td class="num" style="font-weight:800;color:#ff9f43">${chf0(A.spentTotal)}</td>
+          <td class="num" style="font-weight:800;color:${COL.bussen}">${chf0(A.spentTotal)}</td>
           <td class="num" style="font-weight:800">${sig(toRes, chf0)}</td>
           <td class="num" style="font-weight:800">${pct1(A.spentTotal / collected)}</td>
         </tr></tfoot></table></div>
-      <div class="note">Rund ${pct1(A.spentTotal / collected)} aller je eingezogenen Bussen wurden
-      wieder unter den Mitgliedern verzehrt. Der Rest liegt heute in der Goldreserve.</div>
-    </div>
-    <div class="card">
-      <h2>Woher diese Zahlen stammen</h2>
-      <div class="sub2">Die Ausgaben sind nirgends als Liste erfasst, sie lassen sich aber rechnen.</div>
-      <div class="note" style="opacity:.75;font-size:12px">
-        Die Rechnung lautet: einkassierte Debitoren minus das, was neu in die Reserve floss.
-        Für Krypto und Gold zählt dabei der Kaufpreis, nicht der spätere Marktwert, sonst würde
-        die Rendite fälschlich als Ausgabe erscheinen.
-        Für die Fiskaljahre 2017 und 2018 lässt sich nichts ableiten, weil die Kasse erst
-        ab 2019 separat geführt wurde und der erste Übertrag drei Jahre zusammenfasst.
-      </div>
-      <div class="tw" style="margin-top:12px"><table>
-        <thead><tr><th class="l">Belegte Ausgabe</th><th>Betrag</th></tr></thead>
-        <tbody>${A.events.map(e => `<tr>
-          <td class="l" style="font-weight:700">${esc(e.what)}
-            <span class="sn">${esc(e.proof)}</span></td>
-          <td class="num" style="font-weight:800;color:#ff9f43">${chf0(e.chf)}</td>
-        </tr>`).join("")}</tbody></table></div>
-      <div class="note">Mehr steht nicht drin. Eine Liste der Anlässe mit Einzelbeträgen führt
-      keine der ${A.sources.books} Mappen. Nur diese zwei Posten sind ausdrücklich verbucht,
-      alles andere ist gerechnet. Für ${A.events[0].fy} trifft die Rechnung den verbuchten
-      Betrag auf den Rappen, das ist der beste verfügbare Test der Methode.</div>
-    </div>
-    <div class="card">
-      <h2>Woraus die Reserve besteht</h2>
-      <div class="sub2">Ein Wochenbericht von ${dmy("2021-10-29")} schlüsselt die Kasse
-      des Fiskaljahrs 2020 auf. Es ist die einzige solche Aufstellung.</div>
-      <div class="rec"><span>Restgeld der letzten Brüglete, bereits einbezahlt</span>
-        <span class="r">${chf0(A.reserveSplit2020.rest)}</span></div>
-      <div class="rec"><span>Jahresbeitrag für Investitionen, einbezahlt und nicht angelegt</span>
-        <span class="r">${chf0(A.reserveSplit2020.beitrag)}</span></div>
-      <div class="rec"><span>Bussen 2020</span>
-        <span class="r">${chf0(A.reserveSplit2020.bussen)}</span></div>
-      <div class="rec" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px">
-        <span style="font-weight:700">Total 2020</span>
-        <span class="r" style="font-weight:800">${chf0(A.reserveSplit2020.total)}</span></div>
-      <div class="note">Wichtig daran: die Reserve ist nicht nur Restgeld. Es fliesst auch ein
-      ausdrücklicher Jahresbeitrag für Investitionen hinein, im Fiskaljahr 2020 CHF 50 je Mitglied.
-      Die Reserve wächst also nicht allein aus dem, was an der Chlöpfete übrig bleibt.</div>
     </div>`;
 }
 
-// ===================== Prüfung =====================
-function renderAudit() {
-  const checked = Y.filter(y => y.year <= 2025);
-  const rows = checked.map(y => `<tr>
-    <td class="l" style="font-weight:700">${y.year}</td>
-    <td class="num">${chf0(y.debitors)}</td>
-    <td class="num">${y.reserves ? chf0(y.reserves) : "<span style='opacity:.35'>–</span>"}</td>
-    <td class="num" style="font-weight:800">${chf0(y.total)}</td>
-    <td class="l"><span class="dot" style="background:#7ee287"></span>
-      <span style="opacity:.85;font-size:12.5px">&nbsp;deckt sich</span></td>
-  </tr>`).join("");
-
-  const open = [
-    { t: "Die CHF " + chf0(spent) + " beim Jahreswechsel", s: "offen",
-      d: `Der Abschluss ${Y[8].year} führt die Reserve mit CHF ${chf(G.valuationChf)},
-          das Blatt ${cur.year} übernimmt sie mit CHF ${chf0(cur.reserves)}, beide zum selben
-          Stichtag ${dmy(G.valuationDate)}. Die Differenz von CHF ${chf0(spent)} entspricht
-          etwa ${(spent / G.series.find(s => s.m === G.valuationDate.slice(0, 7)).chfOz).toFixed(3).replace(".", ",")}
-          Unzen. Keine Mappe und kein Revisionsbericht nennt einen Grund. Möglich sind eine
-          Korrektur der Bewertung oder ein tatsächlicher Bezug. Ohne Kontoauszug von Revolut
-          lässt sich das nicht entscheiden.` },
-    { t: "Die Mappen vor Oktober 2021", s: "fehlt",
-      d: `Die älteste erhaltene Arbeitsmappe stammt vom ${dmy(A.sources.from)}. Für die
-          Fiskaljahre ${Y[0].year} bis ${Y[3].year} gibt es deshalb keine unterjährigen Stände,
-          nur die Abschlüsse. Diese stehen allerdings in jeder späteren Mappe als eigenes
-          Blatt und stimmen dort überall überein.` },
-    { t: "Ausgaben je einzelnem Anlass", s: "fehlt",
-      d: `Nur zwei Posten sind ausdrücklich verbucht, siehe Tab Ausgaben. Eine Aufstellung
-          pro Anlass führt keine der ${A.sources.books} Mappen. Die Jahreswerte bleiben
-          deshalb gerechnet, nicht belegt.` },
-    { t: "Gewicht und Kaufdatum des Goldes", s: "geklärt",
-      d: `Nirgends erfasst, aber aus drei unabhängigen Stellen zurückgerechnet und stimmig:
-          ${G.marks[1].impliedOz.toFixed(2).replace(".", ",")} Unzen am ${dmy(G.marks[1].d)},
-          ${G.marks[2].impliedOz.toFixed(2).replace(".", ",")} Unzen am ${dmy(G.marks[2].d)},
-          ${G.ozFromCrypto.toFixed(2).replace(".", ",")} Unzen aus dem Kryptoerlös.
-          Das Depot zeigt ${G.xau} XAU.` },
-    { t: "Wurde Krypto für einen Anlass gebraucht", s: "geklärt",
-      d: `Nein. Der volle Abschlussbetrag von CHF ${chf0(A.crypto.out)} ist im Gold
-          wiederzufinden. Wären davon CHF 850 abgeflossen, wie es der erste Eintrag im
-          Blatt ${Y[8].year} nahelegt, läge der Bestand bei rund 1,2 Unzen. Im Oktober und
-          im Dezember ${G.valuationDate.slice(0, 4)} weisen die Mappen aber übereinstimmend
-          knapp 1,6 Unzen aus. Die CHF ${chf0(G.marks[0].chf)} sind eine zu tiefe Schätzung,
-          kein Abfluss.` },
-  ];
-
-  document.getElementById("p-audit").innerHTML = `
-    <div class="card">
-      <div class="hero2">
-        <div class="cur">Geprüfte Arbeitsmappen</div>
-        <div class="big" style="color:#7ee287">${A.sources.books}</div>
-        <div class="sub">${dmy(A.sources.from)} bis ${dmy(A.sources.to)}, dazu zwei Revisionsberichte</div>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Gegenprüfung der Jahreszahlen</h2>
-      <div class="sub2">Jede Mappe trägt die abgeschlossenen Vorjahre als eigenes Blatt mit.
-      Damit liegt jedes Jahr in bis zu ${A.sources.books} Fassungen vor.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">FJ</th><th>Debitoren</th><th>Reserven</th><th>Total</th><th class="l">Befund</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>
-      <div class="note">${esc(A.checked.years)}. Es gibt keine einzige Abweichung.
-      Die Zahlen der Fiskaljahre ${Y[0].year} bis ${Y[5].year} sind damit gegen die Mappen
-      von damals geprüft und bestätigt.</div>
-    </div>
-    <div class="card">
-      <h2>Was offen bleibt und was geklärt ist</h2>
-      <div class="sub2">Ehrlich aufgelistet, damit die Übergabe stimmt.</div>
-      ${open.map(o => {
-        const col = o.s === "geklärt" ? "#7ee287" : o.s === "offen" ? "#ff9f43" : "#8fa3c4";
-        return `<div class="step" style="border-left-color:${col}">
-          <div class="sd" style="color:${col}">${esc(o.s)}</div>
-          <div class="st">${esc(o.t)}</div>
-          <div class="sv" style="line-height:1.5">${o.d}</div></div>`;
-      }).join("")}
-    </div>
-    <div class="card">
-      <h2>Die Vereinsjahre</h2>
-      <div class="sub2">Aus dem Bussenjournal: erste und letzte Buchung je Blatt.
-      Ein Vereinsjahr ist weder ein Kalenderjahr noch gleich lang wie das nächste.</div>
-      <div class="tw"><table>
-        <thead><tr><th class="l">FJ</th><th class="l">von</th><th class="l">bis</th><th>Termine</th><th>Tage</th></tr></thead>
-        <tbody>${A.fiscalYears.map(f => {
-          const days = Math.round((new Date(f.to) - new Date(f.from)) / 86400000);
-          return `<tr>
-            <td class="l" style="font-weight:700">${f.fy}</td>
-            <td class="l" style="opacity:.85">${dmy(f.from)}</td>
-            <td class="l" style="opacity:.85">${dmy(f.to)}</td>
-            <td class="num">${f.meets}</td>
-            <td class="num" style="opacity:.7">${days}</td>
-          </tr>`;
-        }).join("")}</tbody></table></div>
-      <div class="note">Das Fiskaljahr ${Y[3].year} dauerte ${Math.round((new Date(A.fiscalYears[3].to) - new Date(A.fiscalYears[3].from)) / 86400000)} Tage,
-      weil die Chlöpfete während der Pandemie mehrfach verschoben wurde. Das laufende Jahr
-      ${cur.year} ist noch offen.</div>
-    </div>`;
-}
-
-const coinName = (s) => {
-  const m = s.match(/^(.*?)\s*\((.*)\)\s*$/);
-  return m ? `${esc(m[1])}<span style="display:block;font-size:11px;opacity:.45">${esc(m[2])}</span>` : esc(s);
-};
-
-function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); renderAudit(); }
+function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); }
 renderAll();
 
 // Live-Kurs nachladen und alles neu zeichnen, sobald er da ist

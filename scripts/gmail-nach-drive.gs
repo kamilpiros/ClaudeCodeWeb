@@ -31,13 +31,14 @@ var ZWEIG = 'main';
 var PFAD = 'mappen/aktuell.xlsx';
 
 // Wer eine Mappe verschicken darf. Wer neu dazukommt, hier ergaenzen.
+// Die eigene Adresse gehoert NICHT hierher: sonst trifft die Suche jede
+// Unterhaltung, in der man selbst etwas mit Anhang verschickt hat.
 var ABSENDER = [
   'sascha.jucker@zkb.ch',
   'matthias_storz@hotmail.com',
   'philippe@heilmann.swiss',
   'joel.wuillemin@tamedia.ch',
-  'yannick.miller@accenture.com',
-  'cyril.bouquet1@gmail.com'
+  'yannick.miller@accenture.com'
 ];
 
 // Wie weit zurueck geschaut wird. Grosszuegig, damit ein paar Tage Ausfall
@@ -162,6 +163,22 @@ function nachGithub(att, msg) {
   } else {
     Logger.log('GitHub antwortete ' + code + ': ' + antwort.getContentText().slice(0, 400));
   }
+}
+
+/**
+ * Nimmt das Label wieder von allen Unterhaltungen. Noetig, wenn die
+ * Absenderliste zu weit gefasst war und Unbeteiligte markiert wurden, oder
+ * wenn eine schon abgearbeitete Mappe noch einmal durchlaufen soll.
+ */
+function dfLabelZuruecksetzen() {
+  var label = GmailApp.getUserLabelByName(LABEL);
+  if (!label) {
+    Logger.log('Label ' + LABEL + ' gibt es nicht, nichts zu tun.');
+    return;
+  }
+  var threads = label.getThreads(0, 200);
+  threads.forEach(function (t) { t.removeLabel(label); });
+  Logger.log(threads.length + ' Unterhaltungen entmarkiert.');
 }
 
 /**

@@ -106,6 +106,9 @@
             animation: pulse 1.8s ease-in-out infinite; }
   .live.off { border-color: rgba(238,244,251,.2); color: rgba(238,244,251,.5); }
   .live.off i { background: rgba(238,244,251,.4); animation: none; }
+  .live.stand { border-color: rgba(255,209,102,.45); color: #ffd166; }
+  .live.stand i { background: #ffd166; animation: none; }
+  .badges { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
 
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 9px; }
@@ -196,7 +199,7 @@
      im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
      Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
      Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
-<script src="df-assets.js?v=20260727f"></script>
+<script src="df-assets.js?v=20260727g"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -219,6 +222,12 @@ const mLabel = (m) => MON[+m.slice(5) - 1] + " " + m.slice(0, 4);
 const dmy = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
 
 const Y = A.years;
+// Letzter Termin, der im Bussenjournal nachgetragen ist
+const lastEvent = () => {
+  const fy = A.fiscalYears[A.fiscalYears.length - 1].fy;
+  const rows = A.ledger[fy] || [];
+  return rows.length ? rows[rows.length - 1][0] : A.asOf;
+};
 const cur = Y[Y.length - 1];
 // Das Blatt 2026 rechnet die Reserve als Goldwert vom 05.12.2025 minus die Ausgaben
 // des laufenden Jahres. Diese Differenz brauchen wir für den Marktwert.
@@ -557,7 +566,7 @@ function renderOverview() {
         <div class="cur">CHF</div>
         <div class="big">${chf0(market)}</div>
         <div class="sub">Vereinsvermögen zum aktuellen Goldkurs, ${chf0(perMember)} je Mitglied</div>
-        ${liveBadge()}
+        <div class="badges">${liveBadge()}<div class="live stand"><i></i>Stand ${dmy(lastEvent())}</div></div>
       </div>
     </div>
     <div class="card">

@@ -49,8 +49,32 @@ gebraucht:
 Ein Deploy braucht rund eine Minute. Wer danach die alte Fassung sieht, lädt mit
 Umschalt und Neu laden hart nach.
 
-Die beiden Python-Skripte liegen im Container unter `/tmp` und sind nach einem
-Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen
+## Neue Mappe einlesen
+
+    python scripts/update_from_workbook.py DF_STATS_2026_08_07.xlsx
+
+Das Skript liegt im Repository und ersetzt das Herumstochern von Hand. Es zieht
+aus der Mappe `years`, `fiscalYears`, `ledger`, `spending`, den neuen
+Zeitreihenpunkt sowie `asOf` und `source`. Mit `--gold` führt es zusätzlich die
+Goldkursreihe nach, mit `--dry-run` zeigt es nur, was sich ändern würde.
+
+Bewusst unangetastet bleiben die von Hand belegten Blöcke: `crypto.marks`,
+`gold.marks`, `events`, `reserveSplit2020`, `bench` und `gold.series`. Diese
+stehen in keiner Mappe maschinenlesbar und würden bei einem Neuaufbau verloren
+gehen.
+
+Geprüft: gegen `DF_STATS_2026_07_24.xlsx` erzeugt das Skript einen inhaltlich
+identischen Datensatz. Wer es ändert, sollte diesen Test wiederholen.
+
+Danach den Versionsparameter an `df-assets.js` in `vermoegen.html` hochzählen,
+sonst sehen die Mitglieder die alten Zahlen.
+
+**Noch nicht abgedeckt:** `df-data.js` mit den Anwesenheitsdaten. Dafür gibt es
+kein Skript im Repository, der Aufbau mit `h2h`, `cumulative` und `season` ist
+umfangreicher. Wer `stats.html` nachführen will, muss das zuerst bauen.
+
+Die beiden alten Python-Skripte lagen im Container unter `/tmp` und sind nach
+einem Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen
 rekonstruieren, der Aufbau ist unten beschrieben.
 
 ## Quelle der Zahlen

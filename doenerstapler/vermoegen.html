@@ -31,13 +31,15 @@
     font-size: 13px; border: 1.5px solid var(--line); border-radius: 10px; padding: 7px 11px;
   }
 
+  /* Fuenf Reiter passen auf schmalen Geraeten nicht nebeneinander, darum
+     schmalere Polster und ein angeschnittener letzter Reiter als Wischhinweis. */
   .tabs {
-    display: flex; gap: 7px; overflow-x: auto; padding: 12px 14px 4px;
+    display: flex; gap: 6px; overflow-x: auto; padding: 12px 14px 4px;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
   .tabs::-webkit-scrollbar { display: none; }
   .tabs button {
-    flex: 0 0 auto; padding: 9px 16px; border-radius: 11px; font-size: 14px; font-weight: 700;
+    flex: 0 0 auto; padding: 9px 12px; border-radius: 11px; font-size: 13.5px; font-weight: 700;
     background: var(--card); color: var(--cream); border: 2px solid transparent; cursor: pointer;
     white-space: nowrap;
   }
@@ -160,6 +162,7 @@
   <div class="panel" id="p-alloc"></div>
   <div class="panel" id="p-gold"></div>
   <div class="panel" id="p-return"></div>
+  <div class="panel" id="p-spend"></div>
 </div>
 
 <script src="df-data.js"></script>
@@ -222,7 +225,8 @@ function irr(endValue) {
 const yearsHeld = () => (new Date() - new Date(A.crypto.in1Date)) / (365.25 * 86400000);
 
 // ===================== Tabs =====================
-const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"], ["return", "Rendite"]];
+const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"],
+              ["return", "Rendite"], ["spend", "Ausgaben"]];
 document.getElementById("tabs").innerHTML =
   TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
 document.getElementById("tabs").onclick = (e) => {
@@ -650,9 +654,14 @@ function renderReturn() {
         <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(r)}</div><div class="k">pro Jahr, interner Zinsfuss</div></div>
         <div class="kpi"><div class="v">${held.toFixed(1).replace(".", ",")}</div><div class="k">Jahre angelegt</div></div>
       </div>
-      <div class="note">Der interne Zinsfuss rechnet ein, dass die beiden Einzahlungen zu
-      verschiedenen Zeitpunkten kamen. Ohne diese Gewichtung wäre die Zahl zu schmeichelhaft.
-      Nicht enthalten sind Handelsspesen und der Unterschied zwischen Kauf- und Verkaufskurs.</div>
+      <div class="note">Der Verein hat nie etwas zu Geld gemacht. Das Kryptodepot wurde nicht
+      verkauft und ausgegeben, sondern in Gold umgeschichtet, und das Gold liegt bis heute
+      unangetastet im Depot. Die Zahl oben ist deshalb ein Buchgewinn, kein realisierter.
+      Der interne Zinsfuss rechnet ein, dass die beiden Einzahlungen zu verschiedenen
+      Zeitpunkten kamen. Ohne diese Gewichtung wäre die Zahl zu schmeichelhaft.
+      Nicht enthalten sind Handelsspesen und der Unterschied zwischen Kauf- und Verkaufskurs.
+      Die Anlässe des Vereins werden nicht aus der Reserve bezahlt, sondern aus den
+      jeweils frisch einkassierten Bussen. Das steht im Tab Ausgaben.</div>
     </div>
     <div class="card">
       <h2>Die Reise des Vereinsvermögens</h2>
@@ -700,12 +709,102 @@ function renderReturn() {
     </div>`;
 }
 
+// ===================== Ausgaben =====================
+function renderSpend() {
+  const S = A.spending;
+  const avg = A.spentTotal / S.length;
+  const collected = S.reduce((s, x) => s + x.collected, 0);
+  const toRes = S.reduce((s, x) => s + x.toReserve, 0);
+
+  const rows = S.map(x => ({
+    label: String(x.year).slice(2),
+    parts: { spent: Math.max(0, x.spent), res: Math.max(0, x.toReserve) },
+    colors: ["#ff9f43", C.gold],
+  }));
+
+  const table = S.map(x => `<tr>
+    <td class="l" style="font-weight:700">${x.year}</td>
+    <td class="num">${chf0(x.collected)}</td>
+    <td class="num" style="font-weight:800;color:#ff9f43">${chf0(x.spent)}</td>
+    <td class="num ${x.toReserve >= 0 ? "up" : "down"}">${sig(x.toReserve, chf0)}</td>
+    <td class="num" style="opacity:.7">${pct1(x.spent / x.collected)}</td>
+  </tr>`).join("");
+
+  document.getElementById("p-spend").innerHTML = `
+    <div class="card">
+      <div class="hero2">
+        <div class="cur">Seit dem Fiskaljahr ${S[0].year} in Anlässe geflossen</div>
+        <div class="big" style="color:#ff9f43">${chf(A.spentTotal)}</div>
+        <div class="sub">CHF, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Wie der Kreislauf läuft</h2>
+      <div class="sub2">Jedes Vereinsjahr endet an der Chlöpfete, und dort passiert alles auf einmal.</div>
+      <div class="steps">
+        <div class="step"><div class="sd">während des Jahres</div>
+          <div class="st">Bussen fallen an</div>
+          <div class="sv">Absenz, Last In, LIFO und der Mitgliederbeitrag, im Schnitt CHF ${chf0(collected / S.length)} pro Jahr</div></div>
+        <div class="step"><div class="sd">an der Chlöpfete</div>
+          <div class="st">Die Debitoren werden einkassiert</div>
+          <div class="sv">der Revisor stellt fest, wer was schuldet, danach wird gezahlt</div></div>
+        <div class="step" style="--x:1"><div class="sd">ein bis zwei Mal pro Jahr</div>
+          <div class="st">Die Anlässe werden bezahlt</div>
+          <div class="sv">Quo Vadis, Brüglete und die Chlöpfete selbst, zusammen CHF ${chf0(avg)} pro Jahr</div></div>
+        <div class="step gold"><div class="sd">was übrig bleibt</div>
+          <div class="st">Wandert in die Reserve</div>
+          <div class="sv">CHF ${chf0(toRes)} über alle Jahre, heute als Gold gehalten</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Einnahmen gegen Ausgaben</h2>
+      <div class="sub2">Was in einem Vereinsjahr an Bussen zusammenkam und was davon in Anlässe floss.</div>
+      ${columnStack(rows, ["spent", "res"], ["#ff9f43", C.gold], { fmt: v => chf0(v) })}
+      <div class="lg">
+        <span class="i"><span class="dot" style="background:#ff9f43"></span>für Anlässe ausgegeben</span>
+        <span class="i"><span class="dot" style="background:${C.gold}"></span>in die Reserve gelegt</span>
+      </div>
+      <div class="note">In Jahren ohne gelben Balken wurde mehr ausgegeben als eingenommen,
+      die Differenz kam aus der Reserve.</div>
+    </div>
+    <div class="card">
+      <h2>Zahlen je Vereinsjahr</h2>
+      <div class="tw"><table>
+        <thead><tr><th class="l">FJ</th><th>Einkassiert</th><th>Anlässe</th><th>In Reserve</th><th>Quote</th></tr></thead>
+        <tbody>${table}</tbody>
+        <tfoot><tr style="border-top:1px solid var(--line)">
+          <td class="l" style="font-weight:800">Total</td>
+          <td class="num" style="font-weight:800">${chf0(collected)}</td>
+          <td class="num" style="font-weight:800;color:#ff9f43">${chf0(A.spentTotal)}</td>
+          <td class="num" style="font-weight:800">${sig(toRes, chf0)}</td>
+          <td class="num" style="font-weight:800">${pct1(A.spentTotal / collected)}</td>
+        </tr></tfoot></table></div>
+      <div class="note">Rund ${pct1(A.spentTotal / collected)} aller je eingezogenen Bussen wurden
+      wieder unter den Mitgliedern verzehrt. Der Rest liegt heute in der Goldreserve.</div>
+    </div>
+    <div class="card">
+      <h2>Woher diese Zahlen stammen</h2>
+      <div class="sub2">Die Ausgaben sind nirgends als Liste erfasst, sie lassen sich aber rechnen.</div>
+      <div class="note" style="opacity:.75;font-size:12px">
+        Die Rechnung lautet: einkassierte Debitoren minus das, was neu in die Reserve floss.
+        Für Krypto und Gold zählt dabei der Kaufpreis, nicht der spätere Marktwert, sonst würde
+        die Rendite fälschlich als Ausgabe erscheinen.
+        Gegenprobe: für das Fiskaljahr 2021 nennt das Blatt selbst eine Zeile
+        <b>spent CHF ${chf(A.notes.spent2021)}</b>, und die Rechnung ergibt für dieses Jahr
+        exakt denselben Betrag. Ein zweiter Beleg steht im Blatt 2023:
+        «${esc(A.notes.quoVadis2023)}».
+        Für die Fiskaljahre 2017 und 2018 lässt sich nichts ableiten, weil die Kasse erst
+        ab 2019 separat geführt wurde und der erste Übertrag drei Jahre zusammenfasst.
+      </div>
+    </div>`;
+}
+
 const coinName = (s) => {
   const m = s.match(/^(.*?)\s*\((.*)\)\s*$/);
   return m ? `${esc(m[1])}<span style="display:block;font-size:11px;opacity:.45">${esc(m[2])}</span>` : esc(s);
 };
 
-function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); }
+function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); }
 renderAll();
 
 // Live-Kurs nachladen und alles neu zeichnen, sobald er da ist

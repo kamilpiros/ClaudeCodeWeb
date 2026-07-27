@@ -119,6 +119,10 @@
     background: #1d2750; color: var(--cream); border: 2px solid transparent; cursor: pointer;
   }
   .chip.on { border-color: var(--blue2); color: var(--blue2); }
+  .chip.bench { font-size: 12px; padding: 6px 11px; opacity: .75; }
+  .chip.bench.on { opacity: 1; }
+  .chips .lbl { font-size: 11px; opacity: .45; letter-spacing: .8px; text-transform: uppercase;
+                align-self: center; padding-right: 2px; }
 
   svg { display: block; width: 100%; height: auto; overflow: visible; }
   .lg { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; font-size: 12px; }
@@ -192,7 +196,7 @@
      im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
      Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
      Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
-<script src="df-assets.js?v=20260727e"></script>
+<script src="df-assets.js?v=20260727f"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -271,7 +275,7 @@ function paintTabs() {
   const sub = document.getElementById("subtabs");
   if (cur.kids) {
     sub.hidden = false;
-    sub.innerHTML = `<span class="lbl">davon</span>` + cur.kids.map(([id, l]) =>
+    sub.innerHTML = cur.kids.map(([id, l]) =>
       `<button data-s="${id}" class="${subTab === id ? "on" : ""}">${l}</button>`).join("");
   } else {
     sub.hidden = true; sub.innerHTML = "";
@@ -577,16 +581,6 @@ function renderOverview() {
         <span class="i"><span class="dot" style="background:${C.gold}"></span>Jahresabschluss</span>
         <span class="i">helle Streifen: jedes zweite Vereinsjahr</span>
       </div>
-      <div class="note">Jeder Dönerfriitig ist ein Punkt. Die Debitoren wachsen mit jeder Busse,
-      an der Chlöpfete werden sie einkassiert und grösstenteils gleich wieder verzehrt, darum
-      der Sägezahn.</div>
-      <div class="note">Die Reserve zählt zum Wert des jeweiligen Tages, nicht zum Buchwert
-      der Mappe. Bis Februar 2023 lag sie als Bargeld herum, da bewegt sich nichts.
-      Von Februar 2023 bis Januar 2025 steckte sie im Kryptodepot: dort sind nur elf
-      Bewertungen erfasst, dazwischen ist linear verbunden, der Verlauf ist also
-      geglättet und nicht taggenau. Seit Februar 2025 liegt alles in
-      ${G.xau} XAU Gold, und dort rechnet die Seite mit dem echten Goldkurs.
-      Das Auf und Ab ab 2025 ist deshalb keine Schätzung, sondern der Markt.</div>
     </div>
     <div class="card">
       <h2>Zahlen im Detail</h2>
@@ -733,6 +727,49 @@ function returnPoints() {
   return raw.map(x => ({ d: x.d, v: x.v, r: x.v / invested(x.d) - 1, g: x.v - invested(x.d) }));
 }
 
+
+// ---------- Vergleichsindizes ----------
+// Damit der Vergleich etwas taugt, bekommt jeder Index dieselben Einzahlungen
+// zu denselben Zeitpunkten wie der Verein. Sonst vergleicht man eine Einmalanlage
+// mit einer, die zweimal Geld nachgeschossen hat.
+const BENCH = { smi: { name: "SMI", color: "#ff6b8a" },
+                dax: { name: "DAX", color: "#7cc4ff" },
+                spx: { name: "S&P 500", color: "#b39dff" } };
+let benchLive = null;
+
+function benchSeries(key) {
+  const live = benchLive && benchLive.series && benchLive.series[key];
+  return (live && live.length > 6) ? live : (A.bench[key] ? A.bench[key].series : []);
+}
+
+function benchPoints(key) {
+  const K = A.crypto, rows = benchSeries(key);
+  if (!rows.length) return [];
+  const idx = Object.fromEntries(rows);
+  const m0 = rows[0][0], m2 = K.in2Date.slice(0, 7);
+  if (!idx[m0] || !idx[m2]) return [];
+  return rows.map(([m, v]) => {
+    const eingezahlt = m < m2 ? K.in1 : K.totalIn;
+    let wert = K.in1 * v / idx[m0];
+    if (m >= m2) wert += K.in2 * v / idx[m2];
+    return { d: m + "-28", v: wert, r: wert / eingezahlt - 1, g: wert - eingezahlt };
+  });
+}
+
+// Der Endpunkt liefert dieselben Reihen frisch. Klappt er nicht, bleibt es beim
+// mitgelieferten Stand, genau wie beim Goldkurs.
+async function loadBench() {
+  try {
+    const res = await fetch("/api/bench", { cache: "no-store" });
+    if (!res.ok) return;
+    const d = await res.json();
+    if (d && d.series && Array.isArray(d.series.smi) && d.series.smi.length > 6) {
+      benchLive = d;
+      renderReturn();
+    }
+  } catch { /* dann eben der mitgelieferte Stand */ }
+}
+
 function returnChart(pts, opts) {
   const o = Object.assign({ w: 680, h: 260, marks: [], mode: "pct" }, opts || {});
   const { w, h } = o;
@@ -743,7 +780,8 @@ function returnChart(pts, opts) {
   const T = (d) => new Date(d).getTime();
   const t0 = T(pts[0].d), t1 = T(pts[pts.length - 1].d);
   const X = (d) => left + (right - left) * ((T(d) - t0) / (t1 - t0 || 1));
-  const vals = pts.map(val);
+  const extra = (o.series || []).filter(x => x.pts.length);
+  const vals = pts.map(val).concat(...extra.map(x => x.pts.map(val)));
   let lo = Math.min(0, ...vals), hi = Math.max(...vals);
   const pad = (hi - lo) * 0.12 || (pct ? 0.1 : 100);
   lo -= pad; hi += pad;
@@ -765,7 +803,13 @@ function returnChart(pts, opts) {
     <clipPath id="${id}c"><rect x="${left}" y="${top}" width="${right - left}" height="${Math.max(0, zy - top)}"/></clipPath></defs>`;
   g += `<polygon points="${X(pts[0].d)},${zy} ${line} ${X(pts[pts.length - 1].d)},${zy}"
          fill="url(#${id})" clip-path="url(#${id}c)"/>`;
-  g += `<polyline points="${line}" fill="none" stroke="#7ee287" stroke-width="2.4"
+  extra.forEach(x => {
+    const l = x.pts.filter(p => T(p.d) >= t0 && T(p.d) <= t1)
+                   .map(p => `${X(p.d).toFixed(1)},${Yv(val(p)).toFixed(1)}`).join(" ");
+    if (l) g += `<polyline points="${l}" fill="none" stroke="${x.color}" stroke-width="1.8"
+                  stroke-dasharray="5 3" stroke-linejoin="round" opacity=".9"/>`;
+  });
+  g += `<polyline points="${line}" fill="none" stroke="#7ee287" stroke-width="2.8"
          stroke-linejoin="round" stroke-linecap="round"/>`;
   o.marks.forEach(mk => {
     const x = X(mk.d);
@@ -788,6 +832,8 @@ function returnChart(pts, opts) {
 }
 
 let returnMode = "pct";
+let benchOn = { smi: false, dax: false, spx: false };
+
 function renderReturn() {
   const K = A.crypto;
   const goldNow = goldValue();
@@ -799,6 +845,21 @@ function renderReturn() {
   const best = RP.reduce((a, b) => b[key] > a[key] ? b : a);
   const worst = RP.reduce((a, b) => b[key] < a[key] ? b : a);
   const fmt = (p) => pct ? sigPct(p.r) : sig(p.g, chf0);
+
+  // Vergleich nur in der Prozentansicht, dort ist er aussagekräftig
+  const gewaehlt = pct ? Object.keys(BENCH).filter(k => benchOn[k]) : [];
+  const linien = gewaehlt.map(k => ({ ...BENCH[k], key: k, pts: benchPoints(k) }))
+                         .filter(x => x.pts.length);
+
+  const vergleich = linien.map(x => {
+    const letzte = x.pts[x.pts.length - 1];
+    const delta = RP[RP.length - 1].r - letzte.r;
+    return `<div class="rec">
+      <span><span class="dot" style="background:${x.color}"></span>&nbsp;${esc(x.name)}
+        <span style="opacity:.5">&nbsp;dieselben Einzahlungen ergäben CHF ${chf0(letzte.v)}</span></span>
+      <span class="r"><b style="color:${delta >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(delta, v => Math.round(v * 100) + " Pp")}</b>
+        <span style="opacity:.5">&nbsp;${sigPct(letzte.r)}</span></span></div>`;
+  }).join("");
 
   document.getElementById("p-return").innerHTML = `
     <div class="card">
@@ -822,23 +883,32 @@ function renderReturn() {
         ${[["pct", "in Prozent"], ["chf", "in Franken"]]
           .map(([k, l]) => `<button class="chip ${returnMode === k ? "on" : ""}" data-m="${k}">${l}</button>`).join("")}
       </div>
-      ${returnChart(RP, { mode: returnMode, marks: [
+      ${pct ? `<div class="chips" id="benchChips">
+        <span class="lbl">Vergleich</span>
+        ${Object.entries(BENCH).map(([k, b]) => `<button class="chip bench ${benchOn[k] ? "on" : ""}"
+          data-b="${k}" style="${benchOn[k] ? `border-color:${b.color};color:${b.color}` : ""}">${b.name}</button>`).join("")}
+      </div>` : ""}
+      ${returnChart(RP, { mode: returnMode, series: linien, marks: [
         { d: K.in1Date, label: "Kauf der Shitcoins", color: C.crypto },
         { d: K.in2Date, label: "Bitcoin dazu", color: C.deb, row: 1 },
         { d: K.outDate, label: "Umtausch in Gold", color: C.gold, row: 2 },
       ] })}
       <div class="lg">
-        <span class="i"><span class="dot" style="background:#7ee287"></span>Höchststand ${fmt(best)} im ${mLabel(best.d.slice(0, 7))}</span>
-        <span class="i"><span class="dot" style="background:#ff6b8a"></span>Tiefststand ${fmt(worst)} im ${mLabel(worst.d.slice(0, 7))}</span>
+        <span class="i"><span class="dot" style="background:#7ee287"></span>Dönerfriitig</span>
+        <span class="i">Höchststand ${fmt(best)} im ${mLabel(best.d.slice(0, 7))}</span>
+        <span class="i">Tiefststand ${fmt(worst)} im ${mLabel(worst.d.slice(0, 7))}</span>
       </div>
-      <div class="note">In Franken gerechnet ist der Verlauf steiler als in Prozent, weil
-      der Einsatz mit dem Bitcoinzukauf im Februar 2024 von CHF ${chf0(K.in1)} auf
-      CHF ${chf0(K.totalIn)} gestiegen ist.</div>
+      ${vergleich ? `<div style="margin-top:14px">${vergleich}</div>` : ""}
     </div>`;
 
   document.getElementById("returnChips").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     returnMode = b.dataset.m; renderReturn();
+  };
+  const bc = document.getElementById("benchChips");
+  if (bc) bc.onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    benchOn[b.dataset.b] = !benchOn[b.dataset.b]; renderReturn();
   };
 }
 
@@ -848,7 +918,6 @@ function renderSpend() {
   const avg = A.spentTotal / S.length;
   const collected = S.reduce((s, x) => s + x.collected, 0);
   const toRes = S.reduce((s, x) => s + x.toReserve, 0);
-  const fromResTotal = S.reduce((s, x) => s + Math.max(0, x.spent - x.collected), 0);
 
   const COL = { bussen: "#ff9f43", reserve: "#ff6b8a", spar: C.gold };
   const rows = S.map(x => {
@@ -890,9 +959,6 @@ function renderSpend() {
         <span class="i"><span class="dot" style="background:${COL.reserve}"></span>Anlässe, aus der Reserve bezahlt</span>
         <span class="i"><span class="dot" style="background:${COL.spar}"></span>in die Reserve gelegt</span>
       </div>
-      <div class="note">Ragt eine Säule über die Zahl hinaus, hat der Verein in dem Jahr mehr
-      ausgegeben als eingenommen. Der rote Teil zeigt, wie viel dafür aus der Reserve kam.
-      Über alle Jahre sind das CHF ${chf0(fromResTotal)}.</div>
     </div>
     <div class="card">
       <h2>Zahlen je Vereinsjahr</h2>
@@ -928,6 +994,7 @@ function renderAll() {
   paintTabs();
 }
 renderAll();
+loadBench();
 
 // Live-Kurs nachladen und alles neu zeichnen, sobald er da ist
 fetch("/api/gold", { cache: "no-store" })

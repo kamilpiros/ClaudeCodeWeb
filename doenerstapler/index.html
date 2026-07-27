@@ -54,6 +54,7 @@
   .gate .arrow { margin-left: auto; opacity: .4; font-size: 22px; flex: 0 0 auto; }
   .gate.stats { border-color: rgba(124,196,255,.4); }
   .gate.games { border-color: rgba(255,209,102,.35); }
+  .gate.money { border-color: rgba(255,209,102,.28); }
 
   /* Kennzahlen-Leiste */
   .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; width: 100%; }
@@ -82,6 +83,16 @@
       </svg>
       <span><span class="t">Anwesenheitsstatistiken</span>
       <span class="d">Ewige Rangliste, jedes Vereinsjahr, Bussen, Serien und Rekorde.</span></span>
+      <span class="arrow">›</span>
+    </a>
+    <a class="gate money" href="vermoegen.html">
+      <svg class="ico" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <ellipse cx="22" cy="12" rx="15" ry="5.5" fill="#ffd166"/>
+        <path d="M7 12v8c0 3 6.7 5.5 15 5.5s15-2.5 15-5.5v-8" stroke="#ffd166" stroke-width="3" stroke-linecap="round"/>
+        <path d="M7 22v8c0 3 6.7 5.5 15 5.5s15-2.5 15-5.5v-8" stroke="#e0ac3a" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <span><span class="t">Vereinsvermögen</span>
+      <span class="d">Bilanz seit 2017, Asset Allocation und die Goldreserve im Kursverlauf.</span></span>
       <span class="arrow">›</span>
     </a>
     <a class="gate games" href="games.html">

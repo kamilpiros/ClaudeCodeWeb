@@ -169,10 +169,7 @@
 </div>
 
 <script src="df-data.js"></script>
-<!-- Der Parameter erzwingt beim Leser den frischen Datensatz, sonst zeigt der
-     Browser wochenlang die alte Datei. Bei jeder Änderung an df-assets.js mit
-     nachführen. -->
-<script src="df-assets.js?v=20260727b"></script>
+<script src="df-assets.js"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -455,10 +452,10 @@ function renderOverview() {
     </div>
     <div class="card">
       <div class="kpis">
-        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">Schweizer Franken Buchwert</div></div>
-        <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">Schweizer Franken pro Mitglied</div></div>
-        <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">Buchwert gewachsen seit ${first.year}</div></div>
-        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">Schweizer Franken gegenüber Vorjahr</div></div>
+        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">CHF im Fiskaljahr ${cur.year}</div></div>
+        <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">CHF pro Mitglied</div></div>
+        <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">gewachsen seit ${first.year}</div></div>
+        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">CHF gegenüber Vorjahr</div></div>
       </div>
     </div>
     <div class="card">
@@ -764,7 +761,7 @@ function renderSpend() {
       <div class="hero2">
         <div class="cur">Seit dem Fiskaljahr ${S[0].year} in Anlässe geflossen</div>
         <div class="big" style="color:${COL.bussen}">${chf(A.spentTotal)}</div>
-        <div class="sub">Schweizer Franken, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
+        <div class="sub">CHF, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
       </div>
     </div>
     <div class="card">

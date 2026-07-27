@@ -1,0 +1,8 @@
+# Cloudflare Pages liest diese Datei aus dem Wurzelverzeichnis der Seite.
+# Ohne die Regel behaelt der Browser der Mitglieder eine einmal geladene Seite
+# tagelang und zeigt alte Zahlen an, obwohl laengst neu deployt wurde.
+# max-age=0 zwingt zur Rueckfrage, must-revalidate verbietet das stille
+# Ausliefern einer abgelaufenen Kopie. Dank ETag antwortet der Server dann
+# meist mit 304 und es fliessen keine Daten.
+/*
+  Cache-Control: public, max-age=0, must-revalidate

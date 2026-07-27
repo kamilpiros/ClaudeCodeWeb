@@ -44,6 +44,24 @@
     white-space: nowrap;
   }
   .tabs button.on { border-color: var(--blue2); background: #1d2750; color: var(--blue2); }
+  /* Der Pfeil zeigt an, dass sich unter dem Reiter noch etwas verbirgt. */
+  .tabs button .caret { font-size: 10px; opacity: .55; margin-left: 4px; }
+
+  /* Zweite Ebene: erscheint nur, wenn der zugehoerige Reiter offen ist. */
+  .subtabs {
+    display: flex; gap: 6px; align-items: center; overflow-x: auto;
+    padding: 4px 14px 0; scrollbar-width: none;
+    max-width: 760px; margin: 0 auto;
+  }
+  .subtabs::-webkit-scrollbar { display: none; }
+  .subtabs .lbl { font-size: 11px; opacity: .45; letter-spacing: .8px;
+                  text-transform: uppercase; flex: 0 0 auto; padding-right: 2px; }
+  .subtabs button {
+    flex: 0 0 auto; padding: 6px 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700;
+    background: transparent; color: var(--cream); cursor: pointer;
+    border: 1.5px solid var(--line); white-space: nowrap; opacity: .8;
+  }
+  .subtabs button.on { border-color: #ffd166; color: #ffd166; background: rgba(255,209,102,.1); opacity: 1; }
 
   .wrap { max-width: 760px; margin: 0 auto; padding: 8px 14px 0; }
   .panel { display: none; } .panel.on { display: block; }
@@ -160,6 +178,7 @@
 </div>
 
 <div class="tabs" id="tabs"></div>
+<div class="subtabs" id="subtabs" hidden></div>
 <div class="wrap">
   <div class="panel on" id="p-overview"></div>
   <div class="panel" id="p-alloc"></div>
@@ -173,7 +192,7 @@
      im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
      Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
      Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
-<script src="df-assets.js?v=20260727d"></script>
+<script src="df-assets.js?v=20260727e"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -186,6 +205,8 @@ const kindCol = (k) => k === "Gold" ? C.gold : k === "Krypto" ? C.crypto : C.cas
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const chf = (v) => v.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const chf0 = (v) => Math.round(v).toLocaleString("de-CH");
+// Gramm sind keine Franken, hier braucht es die Nachkommastellen
+const gr = (v) => v.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct1 = (v) => (v * 100).toFixed(1).replace(".", ",") + " %";
 const sig = (v, f) => (v >= 0 ? "+" : "−") + f(Math.abs(v));
 const sigPct = (v) => sig(v, x => (x * 100).toFixed(1).replace(".", ",") + " %");
@@ -229,17 +250,47 @@ function irr(endValue) {
   for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (npv(m) > 0) lo = m; else hi = m; }
   return (lo + hi) / 2;
 }
-const yearsHeld = () => (new Date() - new Date(A.crypto.in1Date)) / (365.25 * 86400000);
 
-// ===================== Tabs =====================
-const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"],
-              ["return", "Rendite"], ["spend", "Ausgaben"]];
-document.getElementById("tabs").innerHTML =
-  TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
+// ===================== Reiter =====================
+// Gold hängt unter Allokation. Der Hauptreiter trägt darum einen Pfeil, und
+// sobald er offen ist, erscheint darunter die zweite Ebene.
+const TABS = [
+  { id: "overview", label: "Übersicht" },
+  { id: "alloc", label: "Allokation", kids: [["alloc", "Allokation"], ["gold", "Gold"]] },
+  { id: "return", label: "Rendite" },
+  { id: "spend", label: "Ausgaben" },
+];
+let mainTab = "overview", subTab = "alloc";
+
+document.getElementById("tabs").innerHTML = TABS.map(t =>
+  `<button data-t="${t.id}">${t.label}${t.kids ? '<span class="caret">▾</span>' : ""}</button>`).join("");
+
+function paintTabs() {
+  const cur = TABS.find(t => t.id === mainTab);
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === mainTab));
+  const sub = document.getElementById("subtabs");
+  if (cur.kids) {
+    sub.hidden = false;
+    sub.innerHTML = `<span class="lbl">davon</span>` + cur.kids.map(([id, l]) =>
+      `<button data-s="${id}" class="${subTab === id ? "on" : ""}">${l}</button>`).join("");
+  } else {
+    sub.hidden = true; sub.innerHTML = "";
+  }
+  const shown = cur.kids ? subTab : mainTab;
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === "p-" + shown));
+}
+
 document.getElementById("tabs").onclick = (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === "p-" + b.dataset.t));
+  mainTab = b.dataset.t;
+  const cur = TABS.find(t => t.id === mainTab);
+  if (cur.kids) subTab = cur.kids[0][0];
+  paintTabs();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+document.getElementById("subtabs").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  subTab = b.dataset.s; paintTabs();
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
@@ -471,7 +522,6 @@ function goldPoints() {
 }
 
 // ===================== Übersicht =====================
-let wealthMode = "markt";
 function renderOverview() {
   const first = Y[0];
   const growth = cur.total / first.total - 1;
@@ -501,17 +551,9 @@ function renderOverview() {
     <div class="card">
       <div class="hero2">
         <div class="cur">CHF</div>
-        <div class="big">${chf(market)}</div>
-        <div class="sub">Vereinsvermögen zum aktuellen Goldkurs</div>
+        <div class="big">${chf0(market)}</div>
+        <div class="sub">Vereinsvermögen zum aktuellen Goldkurs, ${chf0(perMember)} je Mitglied</div>
         ${liveBadge()}
-      </div>
-    </div>
-    <div class="card">
-      <div class="kpis">
-        <div class="kpi"><div class="v">${chf0(cur.total)}</div><div class="k">CHF im Fiskaljahr ${cur.year}</div></div>
-        <div class="kpi"><div class="v">${chf0(perMember)}</div><div class="k">CHF pro Mitglied</div></div>
-        <div class="kpi"><div class="v">${sig(growth, v => Math.round(v * 100) + " %")}</div><div class="k">gewachsen seit ${first.year}</div></div>
-        <div class="kpi"><div class="v" style="color:${yoy >= 0 ? "#7ee287" : "#ff6b8a"}">${sig(yoy, chf0)}</div><div class="k">CHF gegenüber Vorjahr</div></div>
       </div>
     </div>
     <div class="card">
@@ -527,11 +569,7 @@ function renderOverview() {
     </div>
     <div class="card">
       <h2>Vermögensentwicklung</h2>
-      <div class="chips" id="wealthChips">
-        ${[["markt", "Marktwert"], ["buch", "Buchwert"]]
-          .map(([k, l]) => `<button class="chip ${wealthMode === k ? "on" : ""}" data-w="${k}">${l}</button>`).join("")}
-      </div>
-      ${timeChart(wealthPoints(wealthMode), {
+      ${timeChart(wealthPoints("markt"), {
         bands: A.fiscalYears.filter((f, i) => i % 2 === 1)
                  .map(f => ({ from: f.from, to: f.to, color: "#ffffff" })),
       })}
@@ -541,8 +579,14 @@ function renderOverview() {
       </div>
       <div class="note">Jeder Dönerfriitig ist ein Punkt. Die Debitoren wachsen mit jeder Busse,
       an der Chlöpfete werden sie einkassiert und grösstenteils gleich wieder verzehrt, darum
-      der Sägezahn. Beim Marktwert zählt die Reserve zum Kurs des jeweiligen Tages, beim
-      Buchwert so, wie sie in der Mappe steht.</div>
+      der Sägezahn.</div>
+      <div class="note">Die Reserve zählt zum Wert des jeweiligen Tages, nicht zum Buchwert
+      der Mappe. Bis Februar 2023 lag sie als Bargeld herum, da bewegt sich nichts.
+      Von Februar 2023 bis Januar 2025 steckte sie im Kryptodepot: dort sind nur elf
+      Bewertungen erfasst, dazwischen ist linear verbunden, der Verlauf ist also
+      geglättet und nicht taggenau. Seit Februar 2025 liegt alles in
+      ${G.xau} XAU Gold, und dort rechnet die Seite mit dem echten Goldkurs.
+      Das Auf und Ab ab 2025 ist deshalb keine Schätzung, sondern der Markt.</div>
     </div>
     <div class="card">
       <h2>Zahlen im Detail</h2>
@@ -551,10 +595,6 @@ function renderOverview() {
         <tbody>${table}</tbody></table></div>
     </div>`;
 
-  document.getElementById("wealthChips").onclick = (e) => {
-    const b = e.target.closest("button"); if (!b) return;
-    wealthMode = b.dataset.w; renderOverview();
-  };
 }
 
 // ===================== Allokation =====================
@@ -562,7 +602,7 @@ function renderAlloc() {
   const goldNow = goldValue();
   const parts = [
     { label: "Gold", value: goldNow - cur.provision, color: C.gold,
-      hint: `${G.xau} XAU, das sind ${chf(G.grams)} Gramm im Revolut-Depot` },
+      hint: `${G.xau} XAU, das sind ${gr(G.grams)} Gramm` },
     { label: "Rückstellung Merchandise", value: cur.provision, color: C.prov,
       hint: "zweckgebunden, ebenfalls in Gold gehalten" },
     { label: "Debitoren", value: cur.debitors - spent, color: C.deb,
@@ -586,8 +626,8 @@ function renderAlloc() {
     { y: `${Y[2].year} bis ${Y[5].year}`, n: "Bargeld", c: C.cash,
       d: `Die eingezogenen Bussen lagen als Kasse herum. Von CHF ${chf0(Y[2].reserves)} auf CHF ${chf0(Y[5].reserves)}, ganz ohne Rendite.` },
     { y: `${Y[6].year} bis ${Y[7].year}`, n: "Krypto", c: C.crypto,
-      d: `Jedes Mitglied wählte eine Kryptowährung für CHF ${chf(A.crypto.in1 / 6)}, ein Jahr später kam Bitcoin für CHF ${chf(A.crypto.in2)} dazu. Zusammen CHF ${chf(A.crypto.totalIn)} Einsatz.` },
-    { y: `seit ${Y[8].year}`, n: "Gold über Revolut", c: C.gold,
+      d: `Jedes Mitglied wählte eine Kryptowährung für CHF ${chf0(A.crypto.in1 / 6)}, ein Jahr später kam Bitcoin für CHF ${chf0(A.crypto.in2)} dazu. Zusammen CHF ${chf0(A.crypto.totalIn)} Einsatz.` },
+    { y: `seit ${Y[8].year}`, n: "Gold", c: C.gold,
       d: `Die Reserve wurde in ${G.xau} XAU umgeschichtet, Einstand rund CHF ${chf0(G.costChf)}.` },
   ].map(e => `<div class="era"><span class="bulb" style="background:${e.c}"></span>
     <div><div class="y">${esc(e.y)}</div><div class="n">${esc(e.n)}</div>
@@ -640,7 +680,7 @@ function renderGold() {
       <div class="hero2">
         <div class="cur">Goldbestand des Vereins</div>
         <div class="big" style="color:${C.gold}">${G.xau} XAU</div>
-        <div class="sub">${chf(G.grams)} Gramm, aktuell CHF ${chf(goldNow)}</div>
+        <div class="sub">${gr(G.grams)} Gramm, aktuell CHF ${chf0(goldNow)}</div>
         ${liveBadge()}
       </div>
     </div>
@@ -666,7 +706,7 @@ function renderGold() {
           .map(([k, l]) => `<button class="chip ${goldRange === k ? "on" : ""}" data-r="${k}">${l}</button>`).join("")}
       </div>
       ${areaChart(view, { marks, yFmt: v => Math.round(v) })}
-      <div class="note">Der Verein kaufte Anfang ${mLabel(G.buyMonth)} zu rund CHF ${chf(G.costChf / G.grams)} je Gramm.
+      <div class="note">Der Verein kaufte Anfang ${mLabel(G.buyMonth)} zu rund CHF ${chf0(G.costChf / G.grams)} je Gramm.
       Seither ${sinceBuy >= 0 ? "stieg" : "fiel"} der Wert der Position um
       <b class="${sinceBuy >= 0 ? "up" : "down"}">${sigPct(sinceBuy)}</b>.</div>
     </div>`;
@@ -690,19 +730,22 @@ function returnPoints() {
   const p = px();
   if (p.live) raw.push({ d: new Date().toISOString().slice(0, 10), v: G.xau * p.chfOz });
   raw.sort((a, b) => a.d < b.d ? -1 : 1);
-  return raw.map(x => ({ d: x.d, v: x.v, r: x.v / invested(x.d) - 1 }));
+  return raw.map(x => ({ d: x.d, v: x.v, r: x.v / invested(x.d) - 1, g: x.v - invested(x.d) }));
 }
 
 function returnChart(pts, opts) {
-  const o = Object.assign({ w: 680, h: 260, marks: [] }, opts || {});
+  const o = Object.assign({ w: 680, h: 260, marks: [], mode: "pct" }, opts || {});
   const { w, h } = o;
-  const left = 46, right = w - 8, top = 16, bottom = h - 30;
+  const pct = o.mode === "pct";
+  const val = (p) => pct ? p.r : p.g;
+  const fmtY = (v) => pct ? Math.round(v * 100) + "%" : chf0(v);
+  const left = pct ? 46 : 54, right = w - 8, top = 16, bottom = h - 30;
   const T = (d) => new Date(d).getTime();
   const t0 = T(pts[0].d), t1 = T(pts[pts.length - 1].d);
   const X = (d) => left + (right - left) * ((T(d) - t0) / (t1 - t0 || 1));
-  const vals = pts.map(p => p.r);
+  const vals = pts.map(val);
   let lo = Math.min(0, ...vals), hi = Math.max(...vals);
-  const pad = (hi - lo) * 0.12 || 0.1;
+  const pad = (hi - lo) * 0.12 || (pct ? 0.1 : 100);
   lo -= pad; hi += pad;
   const Yv = (v) => bottom - (bottom - top) * ((v - lo) / (hi - lo));
   let g = "";
@@ -710,16 +753,16 @@ function returnChart(pts, opts) {
     const v = lo + (hi - lo) * i / 4, y = Yv(v);
     g += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="rgba(255,255,255,.08)"/>`;
     g += `<text x="${left - 6}" y="${y + 4}" fill="rgba(238,244,251,.5)" font-size="10.5"
-           text-anchor="end">${Math.round(v * 100)}%</text>`;
+           text-anchor="end">${fmtY(v)}</text>`;
   }
   const zy = Yv(0);
   g += `<line x1="${left}" y1="${zy}" x2="${right}" y2="${zy}" stroke="rgba(238,244,251,.4)" stroke-width="1.2"/>`;
   const id = "rc" + (++gradSeq);
-  const line = pts.map(p => `${X(p.d).toFixed(1)},${Yv(p.r).toFixed(1)}`).join(" ");
+  const line = pts.map(p => `${X(p.d).toFixed(1)},${Yv(val(p)).toFixed(1)}`).join(" ");
   g += `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0%" stop-color="#7ee287" stop-opacity=".4"/>
     <stop offset="100%" stop-color="#7ee287" stop-opacity="0"/></linearGradient>
-    <clipPath id="${id}c"><rect x="${left}" y="${top}" width="${right - left}" height="${zy - top}"/></clipPath></defs>`;
+    <clipPath id="${id}c"><rect x="${left}" y="${top}" width="${right - left}" height="${Math.max(0, zy - top)}"/></clipPath></defs>`;
   g += `<polygon points="${X(pts[0].d)},${zy} ${line} ${X(pts[pts.length - 1].d)},${zy}"
          fill="url(#${id})" clip-path="url(#${id}c)"/>`;
   g += `<polyline points="${line}" fill="none" stroke="#7ee287" stroke-width="2.4"
@@ -733,7 +776,7 @@ function returnChart(pts, opts) {
            fill="${mk.color}" font-size="10.5" font-weight="700" text-anchor="${anchor}">${esc(mk.label)}</text>`;
   });
   const last = pts[pts.length - 1];
-  g += `<circle cx="${X(last.d).toFixed(1)}" cy="${Yv(last.r).toFixed(1)}" r="4.4"
+  g += `<circle cx="${X(last.d).toFixed(1)}" cy="${Yv(val(last)).toFixed(1)}" r="4.4"
          fill="#7ee287" stroke="#26315e" stroke-width="2"/>`;
   const y0 = new Date(t0).getFullYear(), y1 = new Date(t1).getFullYear();
   for (let y = y0; y <= y1; y++) {
@@ -744,44 +787,59 @@ function returnChart(pts, opts) {
   return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
 }
 
+let returnMode = "pct";
 function renderReturn() {
   const K = A.crypto;
   const goldNow = goldValue();
   const mult = goldNow / K.totalIn;
   const r = irr(goldNow);
-  const held = yearsHeld();
   const RP = returnPoints();
-  const best = RP.reduce((a, b) => b.r > a.r ? b : a);
-  const worst = RP.reduce((a, b) => b.r < a.r ? b : a);
+  const pct = returnMode === "pct";
+  const key = pct ? "r" : "g";
+  const best = RP.reduce((a, b) => b[key] > a[key] ? b : a);
+  const worst = RP.reduce((a, b) => b[key] < a[key] ? b : a);
+  const fmt = (p) => pct ? sigPct(p.r) : sig(p.g, chf0);
 
   document.getElementById("p-return").innerHTML = `
     <div class="card">
       <div class="hero2">
         <div class="cur">Aus CHF ${chf0(K.totalIn)} wurden</div>
-        <div class="big" style="color:#7ee287">${chf(goldNow)}</div>
+        <div class="big" style="color:#7ee287">${chf0(goldNow)}</div>
         ${liveBadge()}
       </div>
     </div>
     <div class="card">
       <div class="kpis">
+        <div class="kpi"><div class="v" style="color:#7ee287">${sig(goldNow - K.totalIn, chf0)}</div><div class="k">CHF Gewinn</div></div>
         <div class="kpi"><div class="v" style="color:#7ee287">${mult.toFixed(2).replace(".", ",")}×</div><div class="k">Multiple auf den Einsatz</div></div>
         <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(mult - 1)}</div><div class="k">Gesamtrendite</div></div>
         <div class="kpi"><div class="v" style="color:#7ee287">${sigPct(r)}</div><div class="k">pro Jahr, interner Zinsfuss</div></div>
-        <div class="kpi"><div class="v">${held.toFixed(1).replace(".", ",")}</div><div class="k">Jahre angelegt</div></div>
       </div>
     </div>
     <div class="card">
       <h2>Rendite über die Zeit</h2>
-      ${returnChart(RP, { marks: [
+      <div class="chips" id="returnChips">
+        ${[["pct", "in Prozent"], ["chf", "in Franken"]]
+          .map(([k, l]) => `<button class="chip ${returnMode === k ? "on" : ""}" data-m="${k}">${l}</button>`).join("")}
+      </div>
+      ${returnChart(RP, { mode: returnMode, marks: [
         { d: K.in1Date, label: "Kauf der Shitcoins", color: C.crypto },
         { d: K.in2Date, label: "Bitcoin dazu", color: C.deb, row: 1 },
         { d: K.outDate, label: "Umtausch in Gold", color: C.gold, row: 2 },
       ] })}
       <div class="lg">
-        <span class="i"><span class="dot" style="background:#7ee287"></span>Höchststand ${sigPct(best.r)} im ${mLabel(best.d.slice(0, 7))}</span>
-        <span class="i"><span class="dot" style="background:#ff6b8a"></span>Tiefststand ${sigPct(worst.r)} im ${mLabel(worst.d.slice(0, 7))}</span>
+        <span class="i"><span class="dot" style="background:#7ee287"></span>Höchststand ${fmt(best)} im ${mLabel(best.d.slice(0, 7))}</span>
+        <span class="i"><span class="dot" style="background:#ff6b8a"></span>Tiefststand ${fmt(worst)} im ${mLabel(worst.d.slice(0, 7))}</span>
       </div>
+      <div class="note">In Franken gerechnet ist der Verlauf steiler als in Prozent, weil
+      der Einsatz mit dem Bitcoinzukauf im Februar 2024 von CHF ${chf0(K.in1)} auf
+      CHF ${chf0(K.totalIn)} gestiegen ist.</div>
     </div>`;
+
+  document.getElementById("returnChips").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    returnMode = b.dataset.m; renderReturn();
+  };
 }
 
 // ===================== Ausgaben =====================
@@ -817,9 +875,9 @@ function renderSpend() {
   document.getElementById("p-spend").innerHTML = `
     <div class="card">
       <div class="hero2">
-        <div class="cur">Seit dem Fiskaljahr ${S[0].year} in Anlässe geflossen</div>
+        <div class="cur">CHF in Anlässe geflossen</div>
         <div class="big" style="color:${COL.bussen}">${chf0(A.spentTotal)}</div>
-        <div class="sub">im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
+        <div class="sub">seit dem Fiskaljahr ${S[0].year}, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
       </div>
     </div>
     <div class="card">
@@ -867,6 +925,7 @@ function renderAll() {
          <div class="note">${esc(String(e && e.message || e))}</div></div>`;
     }
   });
+  paintTabs();
 }
 renderAll();
 

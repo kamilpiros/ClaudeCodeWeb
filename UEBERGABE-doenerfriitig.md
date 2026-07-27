@@ -184,9 +184,35 @@ säubern und mit openpyxl lesen. So kostet keine Mappe Kontext.
 
 ### 1. Unterjähriger Verlauf: erledigt
 
-66 datierte Punkte statt zehn, in `df-assets.js` unter `timeline`. Bis Oktober 2021
-nur Jahresabschlüsse, danach fast wöchentlich. Neu auch alle Fiskaljahresgrenzen
-aus dem Bussenjournal, unter `fiscalYears`:
+**Die Mappenstände braucht es dafür gar nicht.** Jedes Jahresblatt führt rechts
+ein Bussenjournal: Spalte `Date:`, Spalte `Reason:`, danach eine Betragsspalte je
+Mitglied. Kumuliert man das nach Datum, bekommt man die Debitoren an jedem
+einzelnen Dönerfriitig, und zwar für alle zehn Vereinsjahre. Ergebnis: 409 Punkte
+in `df-assets.js` unter `ledger`, dazu `timeline` mit den 66 Mappenständen als
+Gegenprobe.
+
+Beim Auslesen zu beachten:
+
+- Das Blatt 2018 hat **sieben** Betragsspalten, weil Jin damals mitzählte. Die
+  siebte trägt statt `Amount:` die Kopfzeile `J dä verräter`. Wer nur auf
+  `Amount:` filtert, verliert eine ganze Spalte.
+- Einzelne Daten stehen als Text `22.12.2017` statt als Datum.
+- **Die Pauschalen.** In den Jahren 2018 bis 2020 und 2022 wurden die Bussen von
+  CBO und YMI nur als Jahressumme gebucht, nicht je Termin. Die fehlen im
+  Journal, stehen aber in der Mitgliederzeile 20. Betroffen sind 366.00 (2018),
+  363.00 (2019), 65.75 (2020) und 180.50 (2022). Die Seite verteilt diesen Rest
+  gleichmässig über die Termine des Jahres, damit jede Jahreskurve exakt auf dem
+  bekannten Jahrestotal endet. Die Beträge stehen in `ledgerResidual`.
+- Im Blatt 2020 ist `DEBITORS TOTAL` bereits netto: die Spalte `Paid: 50` je
+  Mitglied, zusammen 300.00, ist abgezogen. Die Verteilung des Rests fängt das
+  automatisch mit auf.
+
+**Die Reserve ist während eines Vereinsjahrs konstant** und entspricht dem Wert,
+der auf dem Blatt dieses Jahres steht. Empirisch geprüft an den Mappenständen von
+2021, 2022, 2023, 2025 und 2026: mitten im Jahr steht dort immer genau der Wert
+des Jahresabschlusses. Der Sprung passiert an der Chlöpfete.
+
+Neu auch alle Fiskaljahresgrenzen aus dem Bussenjournal, unter `fiscalYears`:
 
 | FJ | von | bis | Termine |
 | --- | --- | --- | --- |

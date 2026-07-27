@@ -173,7 +173,7 @@
      im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
      Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
      Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
-<script src="df-assets.js?v=20260727c"></script>
+<script src="df-assets.js?v=20260727d"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -344,7 +344,56 @@ function areaChart(pts, opts) {
   return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
 }
 
-// Verlauf auf einer echten Zeitachse. Die Mappenstände liegen unregelmässig,
+// ---------- Marktwert der Reserve zu einem beliebigen Datum ----------
+// Bargeld bleibt Bargeld. Für Krypto zählen die in den Mappen erfassten Stände,
+// dazwischen wird linear verbunden. Der Bitcoinzukauf ist frisches Geld und
+// darf nicht als Kursgewinn erscheinen, deshalb steht er als Stufe drin.
+// Ab dem Umtausch zählt die Goldposition zum Monatskurs.
+const RESERVE_MARKS = (() => {
+  const K = A.crypto;
+  const markt = K.marks.filter(m => m.kind !== "einstand");
+  const out = markt.map(m => ({ d: m.d, v: m.chf }));
+  const davor = markt.filter(m => m.d < K.in2Date).pop();
+  if (davor) out.push({ d: K.in2Date, v: davor.chf + K.in2 });
+  G.series.forEach(s => { if (s.m + "-15" > K.outDate) out.push({ d: s.m + "-15", v: G.xau * s.chfOz }); });
+  return out.sort((a, b) => a.d < b.d ? -1 : 1);
+})();
+
+function reserveMarketAt(d) {
+  const P = RESERVE_MARKS;
+  const p = px();
+  const last = p.live ? { d: "9999-12-31", v: G.xau * p.chfOz } : P[P.length - 1];
+  if (d <= P[0].d) return P[0].v;
+  for (let i = 1; i < P.length; i++) {
+    if (d <= P[i].d) {
+      const a = P[i - 1], b = P[i];
+      const t = (new Date(d) - new Date(a.d)) / ((new Date(b.d) - new Date(a.d)) || 1);
+      return a.v + (b.v - a.v) * t;
+    }
+  }
+  return last.v;
+}
+
+function reserveAt(fy, d, mode) {
+  const y = Y.find(x => x.year === fy);
+  const buch = y.reserves || 0;
+  if (mode === "buch" || !buch || y.reserveKind === "Bargeld") return buch;
+  return reserveMarketAt(d);
+}
+
+// Jeder gebuchte Bussentermin ergibt einen Punkt: aufgelaufene Debitoren plus Reserve.
+function wealthPoints(mode) {
+  const pts = [];
+  A.fiscalYears.forEach(f => {
+    const rows = A.ledger[f.fy] || [];
+    rows.forEach(([d, deb], i) => {
+      pts.push({ d, v: deb + reserveAt(f.fy, d, mode), close: i === rows.length - 1 });
+    });
+  });
+  return pts.sort((a, b) => a.d < b.d ? -1 : 1);
+}
+
+// Verlauf auf einer echten Zeitachse. Die Termine liegen unregelmässig,
 // deshalb wird nach Datum positioniert und nicht nach Position in der Liste.
 function timeChart(pts, opts) {
   const o = Object.assign({ w: 680, h: 260, bands: [], dots: [], yFmt: v => chf0(v) }, opts || {});
@@ -370,10 +419,12 @@ function timeChart(pts, opts) {
   const line = pts.map(p => `${X(p.d).toFixed(1)},${Yv(p.v).toFixed(1)}`).join(" ");
   g += `<polyline points="${line}" fill="none" stroke="${C.deb}" stroke-width="2.2"
          stroke-linejoin="round" stroke-linecap="round"/>`;
+  // Bei rund 400 Terminen wuerde ein Punkt je Termin die Linie zukleistern,
+  // deshalb bekommen nur die Jahresabschluesse eine Markierung.
   pts.forEach(p => {
-    const big = p.close;
-    g += `<circle cx="${X(p.d).toFixed(1)}" cy="${Yv(p.v).toFixed(1)}" r="${big ? 4.4 : 2}"
-           fill="${big ? C.gold : C.deb}" ${big ? 'stroke="#26315e" stroke-width="1.6"' : ""}>
+    if (!p.close) return;
+    g += `<circle cx="${X(p.d).toFixed(1)}" cy="${Yv(p.v).toFixed(1)}" r="4.2"
+           fill="${C.gold}" stroke="#26315e" stroke-width="1.6">
            <title>${esc(dmy(p.d))}: CHF ${chf0(p.v)}</title></circle>`;
   });
   const y0 = new Date(t0).getFullYear(), y1 = new Date(t1).getFullYear();
@@ -420,6 +471,7 @@ function goldPoints() {
 }
 
 // ===================== Übersicht =====================
+let wealthMode = "markt";
 function renderOverview() {
   const first = Y[0];
   const growth = cur.total / first.total - 1;
@@ -475,15 +527,22 @@ function renderOverview() {
     </div>
     <div class="card">
       <h2>Vermögensentwicklung</h2>
-      ${timeChart(A.timeline.map(p => ({ d: p.d, v: p.total, close: p.src === "abschluss" })), {
+      <div class="chips" id="wealthChips">
+        ${[["markt", "Marktwert"], ["buch", "Buchwert"]]
+          .map(([k, l]) => `<button class="chip ${wealthMode === k ? "on" : ""}" data-w="${k}">${l}</button>`).join("")}
+      </div>
+      ${timeChart(wealthPoints(wealthMode), {
         bands: A.fiscalYears.filter((f, i) => i % 2 === 1)
                  .map(f => ({ from: f.from, to: f.to, color: "#ffffff" })),
       })}
       <div class="lg">
         <span class="i"><span class="dot" style="background:${C.gold}"></span>Jahresabschluss</span>
-        <span class="i"><span class="dot" style="background:${C.deb}"></span>Stand einer Mappe</span>
         <span class="i">helle Streifen: jedes zweite Vereinsjahr</span>
       </div>
+      <div class="note">Jeder Dönerfriitig ist ein Punkt. Die Debitoren wachsen mit jeder Busse,
+      an der Chlöpfete werden sie einkassiert und grösstenteils gleich wieder verzehrt, darum
+      der Sägezahn. Beim Marktwert zählt die Reserve zum Kurs des jeweiligen Tages, beim
+      Buchwert so, wie sie in der Mappe steht.</div>
     </div>
     <div class="card">
       <h2>Zahlen im Detail</h2>
@@ -491,6 +550,11 @@ function renderOverview() {
         <thead><tr><th class="l">Fiskaljahr</th><th>Debitoren</th><th>Reserven</th><th>Total</th><th>Δ</th></tr></thead>
         <tbody>${table}</tbody></table></div>
     </div>`;
+
+  document.getElementById("wealthChips").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    wealthMode = b.dataset.w; renderOverview();
+  };
 }
 
 // ===================== Allokation =====================
@@ -567,12 +631,6 @@ function renderGold() {
   if (view.some(x => x.x === G.buyMonth)) marks.push({ at: G.buyMonth, label: "Kauf", color: "#7ee287" });
   marks.push({ at: S[S.length - 1].x, label: "jetzt", color: C.gold });
 
-  const perfRows = [["m1", "1 Monat"], ["m3", "3 Monate"], ["m6", "6 Monate"], ["y1", "1 Jahr"],
-                    ["y3", "3 Jahre"], ["y5", "5 Jahre"], ["y10", "10 Jahre"]]
-    .filter(([k]) => G.perf[k] !== null)
-    .map(([k, l]) => `<div class="rec"><span style="opacity:.8">${l}</span>
-      <span class="r ${G.perf[k] >= 0 ? "up" : "down"}" style="font-weight:800">${sigPct(G.perf[k])}</span></div>`).join("");
-
   const posSeries = S.filter(x => x.x >= G.buyMonth).map(x => ({ x: x.x, y: G.xau * x.oz }));
   const bestM = posSeries.reduce((a, b) => b.y > a.y ? b : a);
   const worstM = posSeries.reduce((a, b) => b.y < a.y ? b : a);
@@ -580,27 +638,14 @@ function renderGold() {
   document.getElementById("p-gold").innerHTML = `
     <div class="card">
       <div class="hero2">
-        <div class="cur">CHF je Gramm</div>
-        <div class="big" style="color:${C.gold}">${chf(p.chfG)}</div>
-        <div class="sub">CHF ${chf(p.chfOz)} je Feinunze</div>
+        <div class="cur">Goldbestand des Vereins</div>
+        <div class="big" style="color:${C.gold}">${G.xau} XAU</div>
+        <div class="sub">${chf(G.grams)} Gramm, aktuell CHF ${chf(goldNow)}</div>
         ${liveBadge()}
       </div>
     </div>
     <div class="card">
-      <h2>Goldpreis in Franken</h2>
-      <div class="sub2">Monatswerte des Londoner Goldfixings, umgerechnet zum Dollarkurs${p.live ? ", der letzte Punkt ist der Live-Kurs" : ""}.</div>
-      <div class="chips" id="rangeChips">
-        ${[["1j", "1 Jahr"], ["2j", "2 Jahre"], ["3j", "3 Jahre"], ["5j", "5 Jahre"], ["all", "seit 2016"]]
-          .map(([k, l]) => `<button class="chip ${goldRange === k ? "on" : ""}" data-r="${k}">${l}</button>`).join("")}
-      </div>
-      ${areaChart(view, { marks, yFmt: v => Math.round(v) })}
-      <div class="note">Der Verein kaufte Anfang ${mLabel(G.buyMonth)} zu rund CHF ${chf(G.costChf / G.grams)} je Gramm.
-      Seither ${sinceBuy >= 0 ? "stieg" : "fiel"} der Wert der Position um
-      <b class="${sinceBuy >= 0 ? "up" : "down"}">${sigPct(sinceBuy)}</b>.</div>
-    </div>
-    <div class="card">
-      <h2>Die Position des Vereins</h2>
-      <div class="sub2">${G.xau} XAU, das sind ${chf(G.grams)} Gramm, gehalten als Rohstoffposition bei Revolut.</div>
+      <h2>Vermögen in Gold über die Zeit</h2>
       <div class="kpis" style="margin-bottom:14px">
         <div class="kpi"><div class="v" style="color:${C.gold}">${chf0(goldNow)}</div><div class="k">CHF Wert jetzt</div></div>
         <div class="kpi"><div class="v">${chf0(G.costChf)}</div><div class="k">CHF Einstand</div></div>
@@ -614,10 +659,16 @@ function renderGold() {
       </div>
     </div>
     <div class="card">
-      <h2>Rendite des Goldpreises</h2>
-      <div class="sub2">In Franken, ohne Depot- und Handelskosten.</div>
-      ${perfRows}
-      <div class="note">Bezugspunkt ist der Monatsdurchschnitt ${mLabel(G.last.m)}.</div>
+      <h2>Goldpreis in Franken</h2>
+      <div class="sub2">Monatswerte des Londoner Goldfixings, umgerechnet zum Dollarkurs${p.live ? ", der letzte Punkt ist der Live-Kurs" : ""}.</div>
+      <div class="chips" id="rangeChips">
+        ${[["1j", "1 Jahr"], ["2j", "2 Jahre"], ["3j", "3 Jahre"], ["5j", "5 Jahre"], ["all", "seit 2016"]]
+          .map(([k, l]) => `<button class="chip ${goldRange === k ? "on" : ""}" data-r="${k}">${l}</button>`).join("")}
+      </div>
+      ${areaChart(view, { marks, yFmt: v => Math.round(v) })}
+      <div class="note">Der Verein kaufte Anfang ${mLabel(G.buyMonth)} zu rund CHF ${chf(G.costChf / G.grams)} je Gramm.
+      Seither ${sinceBuy >= 0 ? "stieg" : "fiel"} der Wert der Position um
+      <b class="${sinceBuy >= 0 ? "up" : "down"}">${sigPct(sinceBuy)}</b>.</div>
     </div>`;
 
   document.getElementById("rangeChips").onclick = (e) => {
@@ -632,7 +683,9 @@ function renderGold() {
 function returnPoints() {
   const K = A.crypto;
   const invested = (d) => d < K.in2Date ? K.in1 : K.totalIn;
-  const raw = K.marks.filter(m => m.kind !== "einstand").map(m => ({ d: m.d, v: m.chf }));
+  // Der Kauftag selbst ist der Nullpunkt, sonst startet die Kurve im Nichts
+  const raw = [{ d: K.in1Date, v: K.in1 }]
+    .concat(K.marks.filter(m => m.kind !== "einstand").map(m => ({ d: m.d, v: m.chf })));
   G.series.forEach(s => { if (s.m + "-28" > K.outDate) raw.push({ d: s.m + "-28", v: G.xau * s.chfOz }); });
   const p = px();
   if (p.live) raw.push({ d: new Date().toISOString().slice(0, 10), v: G.xau * p.chfOz });
@@ -720,8 +773,9 @@ function renderReturn() {
     <div class="card">
       <h2>Rendite über die Zeit</h2>
       ${returnChart(RP, { marks: [
-        { d: K.in2Date, label: "Bitcoin dazu", color: C.deb },
-        { d: K.outDate, label: "Umtausch in Gold", color: C.gold, row: 1 },
+        { d: K.in1Date, label: "Kauf der Shitcoins", color: C.crypto },
+        { d: K.in2Date, label: "Bitcoin dazu", color: C.deb, row: 1 },
+        { d: K.outDate, label: "Umtausch in Gold", color: C.gold, row: 2 },
       ] })}
       <div class="lg">
         <span class="i"><span class="dot" style="background:#7ee287"></span>Höchststand ${sigPct(best.r)} im ${mLabel(best.d.slice(0, 7))}</span>
@@ -764,8 +818,8 @@ function renderSpend() {
     <div class="card">
       <div class="hero2">
         <div class="cur">Seit dem Fiskaljahr ${S[0].year} in Anlässe geflossen</div>
-        <div class="big" style="color:${COL.bussen}">${chf(A.spentTotal)}</div>
-        <div class="sub">CHF, im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
+        <div class="big" style="color:${COL.bussen}">${chf0(A.spentTotal)}</div>
+        <div class="sub">im Schnitt ${chf0(avg)} pro Vereinsjahr</div>
       </div>
     </div>
     <div class="card">

@@ -30,9 +30,24 @@ Neue Schlüssel in `df-assets.js` seit dem 27.07.2026: `timeline`, `fiscalYears`
 Der Nutzer will dort Zahlen sehen, keine Methodendiskussion. Wer die Herleitung
 sucht, findet sie hier.
 
-Der Verweis auf `df-assets.js` in `vermoegen.html` trägt einen Versionsparameter.
-**Bei jeder Änderung an `df-assets.js` das Datum dort mitziehen**, sonst liefert
-der Browser der Mitglieder wochenlang die alte Datei aus.
+**Zum Caching, bitte ernst nehmen.** Es gibt drei Sicherungen, alle drei werden
+gebraucht:
+
+1. `doenerstapler/_headers` setzt für alles
+   `Cache-Control: public, max-age=0, must-revalidate`. Cloudflare Pages liest
+   die Datei aus dem Wurzelverzeichnis der Seite. Das regelt nur, was ab jetzt
+   gecacht wird.
+2. Der Verweis auf `df-assets.js` in `vermoegen.html` trägt einen
+   Versionsparameter. **Bei jeder Änderung an `df-assets.js` das Datum dort
+   mitziehen.** Nur das erreicht eine Kopie, die schon im Browser eines
+   Mitglieds liegt. Wird der Parameter weggelassen, während `vermoegen.html`
+   neue Felder erwartet, bleibt die Seite bei diesem Mitglied leer. Genau das
+   ist am 27.07.2026 einmal passiert.
+3. `renderAll()` fängt Fehler je Reiter ab. Passen Seite und Datensatz einmal
+   nicht zusammen, meldet sich nur der betroffene Reiter statt der ganzen Seite.
+
+Ein Deploy braucht rund eine Minute. Wer danach die alte Fassung sieht, lädt mit
+Umschalt und Neu laden hart nach.
 
 Die beiden Python-Skripte liegen im Container unter `/tmp` und sind nach einem
 Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen

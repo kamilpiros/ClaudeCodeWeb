@@ -169,7 +169,11 @@
 </div>
 
 <script src="df-data.js"></script>
-<script src="df-assets.js"></script>
+<!-- Der Versionsparameter holt bereits gecachte Kopien aus dem Weg. Das _headers
+     im Wurzelverzeichnis regelt nur, was ab jetzt gecacht wird, es erreicht eine
+     Kopie im Browser eines Mitglieds nicht mehr. Darum beides.
+     Bei jeder Änderung an df-assets.js das Datum hier mitziehen. -->
+<script src="df-assets.js?v=20260727c"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;
@@ -794,7 +798,22 @@ function renderSpend() {
     </div>`;
 }
 
-function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); }
+// Jeder Reiter wird einzeln abgesichert. Passen Seite und Datensatz einmal nicht
+// zusammen, etwa weil ein Browser noch eine alte df-assets.js hält, bleibt so
+// nicht die ganze Seite leer, sondern nur der betroffene Reiter meldet sich.
+function renderAll() {
+  [["p-overview", renderOverview], ["p-alloc", renderAlloc], ["p-gold", renderGold],
+   ["p-return", renderReturn], ["p-spend", renderSpend]].forEach(([id, fn]) => {
+    try {
+      fn();
+    } catch (e) {
+      document.getElementById(id).innerHTML =
+        `<div class="card"><h2>Daten noch nicht geladen</h2>
+         <div class="sub2">Bitte die Seite neu laden. Hält das an, meldet euch beim Statistiker.</div>
+         <div class="note">${esc(String(e && e.message || e))}</div></div>`;
+    }
+  });
+}
 renderAll();
 
 // Live-Kurs nachladen und alles neu zeichnen, sobald er da ist

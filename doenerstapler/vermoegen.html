@@ -170,7 +170,10 @@
 </div>
 
 <script src="df-data.js"></script>
-<script src="df-assets.js"></script>
+<!-- Der Parameter erzwingt beim Leser den frischen Datensatz, sonst zeigt der
+     Browser wochenlang die alte Datei. Bei jeder Änderung an df-assets.js mit
+     nachführen. -->
+<script src="df-assets.js?v=20260727"></script>
 <script>
 const A = window.DF_ASSETS;
 const D = window.DF_DATA;

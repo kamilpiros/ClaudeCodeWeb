@@ -65,6 +65,9 @@
   th { font-size: 11px; opacity: .6; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
        border-bottom: 1px solid var(--line); }
   th.l, td.l { text-align: left; }
+  .sn { display: block; font-size: 10.5px; opacity: .5; font-weight: 400; white-space: normal;
+        max-width: 132px; line-height: 1.35; margin-top: 2px; }
+  @media (min-width: 520px) { .sn { max-width: 260px; } }
   tbody tr { border-bottom: 1px solid rgba(255,255,255,.06); }
   tbody tr:last-child { border-bottom: none; }
   td.num { font-variant-numeric: tabular-nums; }
@@ -163,6 +166,7 @@
   <div class="panel" id="p-gold"></div>
   <div class="panel" id="p-return"></div>
   <div class="panel" id="p-spend"></div>
+  <div class="panel" id="p-audit"></div>
 </div>
 
 <script src="df-data.js"></script>
@@ -226,7 +230,7 @@ const yearsHeld = () => (new Date() - new Date(A.crypto.in1Date)) / (365.25 * 86
 
 // ===================== Tabs =====================
 const TABS = [["overview", "Übersicht"], ["alloc", "Allokation"], ["gold", "Gold"],
-              ["return", "Rendite"], ["spend", "Ausgaben"]];
+              ["return", "Rendite"], ["spend", "Ausgaben"], ["audit", "Prüfung"]];
 document.getElementById("tabs").innerHTML =
   TABS.map(([id, l], i) => `<button data-t="${id}" class="${i ? "" : "on"}">${l}</button>`).join("");
 document.getElementById("tabs").onclick = (e) => {
@@ -328,6 +332,49 @@ function areaChart(pts, opts) {
   return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
 }
 
+// Verlauf auf einer echten Zeitachse. Die Mappenstände liegen unregelmässig,
+// deshalb wird nach Datum positioniert und nicht nach Position in der Liste.
+function timeChart(pts, opts) {
+  const o = Object.assign({ w: 680, h: 260, bands: [], dots: [], yFmt: v => chf0(v) }, opts || {});
+  const { w, h } = o;
+  const left = 48, right = w - 8, top = 16, bottom = h - 30;
+  const T = (d) => new Date(d).getTime();
+  const t0 = T(pts[0].d), t1 = T(pts[pts.length - 1].d);
+  const X = (d) => left + (right - left) * ((T(d) - t0) / (t1 - t0 || 1));
+  const max = Math.max(...pts.map(p => p.v)) * 1.1;
+  const Yv = (v) => bottom - (bottom - top) * (v / max);
+  let g = "";
+  o.bands.forEach(b => {
+    g += `<rect x="${X(b.from).toFixed(1)}" y="${top}"
+           width="${Math.max(0, X(b.to) - X(b.from)).toFixed(1)}" height="${bottom - top}"
+           fill="${b.color}" opacity=".07"/>`;
+  });
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, y = Yv(v);
+    g += `<line x1="${left}" y1="${y}" x2="${right}" y2="${y}" stroke="rgba(255,255,255,.08)"/>`;
+    g += `<text x="${left - 6}" y="${y + 4}" fill="rgba(238,244,251,.5)" font-size="10.5"
+           text-anchor="end">${o.yFmt(v)}</text>`;
+  }
+  const line = pts.map(p => `${X(p.d).toFixed(1)},${Yv(p.v).toFixed(1)}`).join(" ");
+  g += `<polyline points="${line}" fill="none" stroke="${C.deb}" stroke-width="2.2"
+         stroke-linejoin="round" stroke-linecap="round"/>`;
+  pts.forEach(p => {
+    const big = p.close;
+    g += `<circle cx="${X(p.d).toFixed(1)}" cy="${Yv(p.v).toFixed(1)}" r="${big ? 4.4 : 2}"
+           fill="${big ? C.gold : C.deb}" ${big ? 'stroke="#26315e" stroke-width="1.6"' : ""}>
+           <title>${esc(dmy(p.d))}: CHF ${chf0(p.v)}</title></circle>`;
+  });
+  const y0 = new Date(t0).getFullYear(), y1 = new Date(t1).getFullYear();
+  for (let y = y0; y <= y1; y++) {
+    const d = `${y}-01-01`; if (T(d) < t0 || T(d) > t1) continue;
+    g += `<line x1="${X(d).toFixed(1)}" y1="${top}" x2="${X(d).toFixed(1)}" y2="${bottom}"
+           stroke="rgba(255,255,255,.07)"/>`;
+    g += `<text x="${X(d).toFixed(1)}" y="${bottom + 16}" fill="rgba(238,244,251,.5)"
+           font-size="10.5" text-anchor="middle">${y}</text>`;
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" role="img">${g}</svg>`;
+}
+
 function donut(parts) {
   const R = 62, r = 38, cx = 76, cy = 76;
   const tot = parts.reduce((s, p) => s + p.value, 0) || 1;
@@ -377,7 +424,8 @@ function renderOverview() {
   const table = Y.map((y, i) => {
     const d = i ? y.total - Y[i - 1].total : null;
     return `<tr>
-      <td class="l" style="font-weight:700">${y.year}</td>
+      <td class="l" style="font-weight:700">${y.year}
+        <span class="sn">${y.from.slice(8)}.${y.from.slice(5, 7)}.${y.from.slice(2, 4)} bis ${y.to.slice(8)}.${y.to.slice(5, 7)}.${y.to.slice(2, 4)}</span></td>
       <td class="num">${chf0(y.debitors)}</td>
       <td class="num">${y.reserves ? chf0(y.reserves) : "<span style='opacity:.35'>–</span>"}</td>
       <td class="l"><span class="dot" style="background:${kindCol(y.reserveKind)};opacity:${y.reserveKind ? 1 : .25}"></span>
@@ -405,7 +453,10 @@ function renderOverview() {
       </div>
       <div class="note">Der Buchwert in der Statistik bewertet das Gold unverändert per ${dmy(G.valuationDate)}.
       Oben steht stattdessen der Marktwert: Debitoren CHF ${chf0(cur.debitors)} plus
-      ${G.xau} XAU Gold zu CHF ${chf(px().chfOz)} je Unze, abzüglich CHF ${chf0(spent)} bereits verwendeter Mittel.</div>
+      ${G.xau} XAU Gold zu CHF ${chf(px().chfOz)} je Unze, abzüglich CHF ${chf0(spent)}.
+      Diese CHF ${chf0(spent)} sind die einzige Stelle, an der die Reserve je kleiner wurde:
+      das Blatt ${cur.year} übernimmt die Position um genau diesen Betrag tiefer als der
+      Abschluss ${Y[Y.length - 2].year}. Einen Grund nennt keine Mappe. Mehr dazu im Tab Prüfung.</div>
     </div>
     <div class="card">
       <h2>Vermögen je Vereinsjahr</h2>
@@ -417,6 +468,24 @@ function renderOverview() {
         <span class="i"><span class="dot" style="background:${C.crypto}"></span>in Krypto</span>
         <span class="i"><span class="dot" style="background:${C.gold}"></span>in Gold</span>
       </div>
+    </div>
+    <div class="card">
+      <h2>Verlauf unterjährig</h2>
+      <div class="sub2">${A.timeline.length} datierte Stände aus ${A.sources.books} Arbeitsmappen.
+      Die grossen Punkte sind Jahresabschlüsse, die kleinen einzelne Mappen.</div>
+      ${timeChart(A.timeline.map(p => ({ d: p.d, v: p.total, close: p.src === "abschluss" })), {
+        bands: A.fiscalYears.filter((f, i) => i % 2 === 1)
+                 .map(f => ({ from: f.from, to: f.to, color: "#ffffff" })),
+      })}
+      <div class="lg">
+        <span class="i"><span class="dot" style="background:${C.gold}"></span>Jahresabschluss</span>
+        <span class="i"><span class="dot" style="background:${C.deb}"></span>Stand einer Mappe</span>
+        <span class="i">helle Streifen: jedes zweite Vereinsjahr</span>
+      </div>
+      <div class="note">Bis Oktober 2021 liegen nur Jahresabschlüsse vor, weil die älteren
+      Mappen nicht erhalten sind. Ab dann ist fast jede Woche belegt. Der Sägezahn kommt
+      daher, dass die Debitoren während des Jahres anwachsen und an der Chlöpfete
+      einkassiert und grösstenteils gleich wieder verzehrt werden.</div>
     </div>
     <div class="card">
       <h2>Zahlen im Detail</h2>
@@ -566,18 +635,51 @@ function renderGold() {
       <div class="note">Bezugspunkt ist der Monatsdurchschnitt ${mLabel(G.last.m)}.</div>
     </div>
     <div class="card">
+      <h2>Was die Mappen zum Gold sagen</h2>
+      <div class="sub2">Gewicht, Kaufdatum und Kaufpreis stehen nirgends. Erfasst ist nur ein
+      Frankenbetrag mit Stichtag. Daraus lässt sich das Gewicht zurückrechnen.</div>
+      <div class="tw"><table>
+        <thead><tr><th class="l">Stichtag</th><th>CHF</th><th>Unzen</th><th>je Unze</th></tr></thead>
+        <tbody>${G.marks.map(m => `<tr>
+          <td class="l" style="font-weight:700">${dmy(m.d)}
+            <span class="sn">${esc(m.note)}</span></td>
+          <td class="num">${chf0(m.chf)}</td>
+          <td class="num" style="font-weight:800;color:${m.provisional ? "#ff6b8a" : "#7ee287"}">${m.impliedOz.toFixed(3).replace(".", ",")}</td>
+          <td class="num" style="opacity:.55">${chf0(G.series.find(s => s.m === m.month).chfOz)}</td>
+        </tr>`).join("")}
+        <tr style="border-top:1px solid var(--line)">
+          <td class="l" style="font-weight:700">Revolut
+            <span class="sn">Depotansicht, direkt abgelesen</span></td>
+          <td class="num" style="opacity:.7">${chf0(G.snapshot.valueChf)}</td>
+          <td class="num" style="font-weight:800">${G.xau.toFixed(3).replace(".", ",")}</td>
+          <td class="num" style="opacity:.3">–</td>
+        </tr></tbody></table></div>
+      <div class="note">Die beiden grün markierten Stichtage ergeben ${G.marks[1].impliedOz.toFixed(2).replace(".", ",")}
+      und ${G.marks[2].impliedOz.toFixed(2).replace(".", ",")} Unzen und damit dasselbe Gewicht wie
+      die ${G.xau} XAU aus dem Depot. Der Bestand hat sich zwischen Oktober und Dezember ${G.valuationDate.slice(0, 4)}
+      also nachweislich nicht verändert. Gerechnet ist mit Monatsdurchschnitten, deshalb die kleinen Abweichungen.</div>
+      <div class="note" style="border-left-color:#ff6b8a">Der rote Wert ist eine Falle. Der erste
+      Eintrag im Blatt ${Y[8].year} lautet «ca. Wert 7.2.25» und steht bei CHF ${chf0(G.marks[0].chf)}.
+      Das entspricht nur ${G.marks[0].impliedOz.toFixed(2).replace(".", ",")} Unzen, also gut einem Viertel
+      zu wenig. Der Betrag blieb acht Monate lang unverändert stehen, bis er im Oktober
+      ${G.valuationDate.slice(0, 4)} erstmals sauber nachgeführt wurde. Es ist eine grobe Schätzung,
+      keine Bewertung, und darf nicht als Beleg für einen kleineren Bestand gelesen werden.</div>
+    </div>
+    <div class="card">
       <h2>Woher die Zahlen kommen</h2>
       <div class="sub2">Damit niemand dem Revisor Fragen stellen muss.</div>
       <div class="note" style="opacity:.72;font-size:12px">
-        Die Bilanz stammt aus ${esc(A.source)}. Der Revisionsbericht zum Fiskaljahr ${Y[8].year}
-        weist die Goldreserve per ${dmy(G.valuationDate)} mit CHF ${chf(G.valuationChf)} aus.
+        Geprüft wurden ${A.sources.books} Arbeitsmappen aus dem Zeitraum ${dmy(A.sources.from)}
+        bis ${dmy(A.sources.to)} sowie die beiden Revisionsberichte. Der Bericht zum Fiskaljahr
+        ${Y[8].year} weist die Goldreserve per ${dmy(G.valuationDate)} mit CHF ${chf(G.valuationChf)} aus,
+        abzüglich CHF ${chf(cur.provision)} Rückstellung für Merchandise.
         Der Bestand von ${G.xau} XAU stammt aus dem Revolut-Depot, dort mit CHF ${chf(G.snapshot.valueChf)}
         und ${sigPct(G.snapshot.gain)} ausgewiesen. Daraus folgt ein Einstand von CHF ${chf(G.costChf)},
-        also CHF ${chf(G.costChf / G.xau)} je Unze. Das passt zwischen die Monatsdurchschnitte von
-        Januar und Februar 2025 und damit genau zum Start des Fiskaljahrs ${Y[8].year}.
-        Gegenprobe: CHF ${chf(G.valuationChf)} für ${G.xau} XAU sind CHF ${chf(G.valuationChf / G.xau)}
-        je Unze, was zwischen November und Dezember ${G.valuationDate.slice(0, 4)} liegt, passend
-        zum Stichtag ${dmy(G.valuationDate)}. Die beiden Angaben stützen sich also gegenseitig.
+        also CHF ${chf(G.costChf / G.xau)} je Unze, passend zum Januar ${G.buyMonth.slice(0, 4)}.
+        Dritte Gegenprobe: die Kryptoreserve stand beim Abschluss ${Y[7].year} bei
+        CHF ${chf0(A.crypto.out)}. Zum Goldkurs jenes Monats kauft dieser Betrag
+        ${G.ozFromCrypto.toFixed(3).replace(".", ",")} Unzen, praktisch genau die ${G.xau} XAU im Depot.
+        Das gesamte Kryptovermögen ist also im Gold gelandet.
         Der Live-Kurs kommt über eine eigene Schnittstelle der Seite, die mehrere offene
         Kursquellen abfragt. Fällt sie aus, zeigt die Seite den letzten Monatsdurchschnitt
         und kennzeichnet das oben.
@@ -660,8 +762,12 @@ function renderReturn() {
       Der interne Zinsfuss rechnet ein, dass die beiden Einzahlungen zu verschiedenen
       Zeitpunkten kamen. Ohne diese Gewichtung wäre die Zahl zu schmeichelhaft.
       Nicht enthalten sind Handelsspesen und der Unterschied zwischen Kauf- und Verkaufskurs.
-      Die Anlässe des Vereins werden nicht aus der Reserve bezahlt, sondern aus den
-      jeweils frisch einkassierten Bussen. Das steht im Tab Ausgaben.</div>
+      Die Anlässe des Vereins werden aus den jeweils frisch einkassierten Bussen bezahlt,
+      nicht aus der Reserve. Nachgeprüft: der Abschluss ${Y[7].year} weist CHF ${chf0(A.crypto.out)}
+      Krypto aus, und derselbe Betrag kauft im Januar ${G.buyMonth.slice(0, 4)} genau
+      ${G.ozFromCrypto.toFixed(2).replace(".", ",")} Unzen Gold. Im Depot liegen ${G.xau} XAU.
+      Für einen Anlass abgezweigt wurde also nichts. Die einzige Ausnahme sind
+      CHF ${chf0(spent)} beim Übergang ins Fiskaljahr ${cur.year}, siehe Tab Prüfung.</div>
     </div>
     <div class="card">
       <h2>Die Reise des Vereinsvermögens</h2>
@@ -686,11 +792,36 @@ function renderReturn() {
       also ${sigPct(K.coins.reduce((s, c) => s + c.v0501, 0) / K.in1 - 1)}. Zwei Monate später
       war der Rückstand aufgeholt. Bis zum Abschluss des Fiskaljahrs ${Y[7].year} wuchs die
       Reserve auf CHF ${chf0(K.out)}, das ${(K.out / K.totalIn).toFixed(2).replace(".", ",")}-fache
-      des Einsatzes. Für die Zeit nach dem ${dmy(K.stages[1].d)} sind im Vereinsdokument keine
-      Einzelbewertungen erfasst, nur der Jahresschlusswert.
+      des Einsatzes. Nach dem ${dmy(K.stages[1].d)} führte niemand mehr Einzelkurse nach,
+      ab dann steht nur noch eine Summe in der Mappe.
       Beim Kauf gingen je nach Coin zwischen ${pct1(Math.min(...K.coins.map(c => c.fee)))} und
       ${pct1(Math.max(...K.coins.map(c => c.fee)))} an Gebühren weg, im Schnitt
       ${pct1(K.coins.reduce((s, c) => s + c.fee, 0) / K.coins.length)}.</div>
+    </div>
+    <div class="card">
+      <h2>Jede erfasste Bewertung</h2>
+      <div class="sub2">Alle ${K.marks.length} Stände, die sich in den ${A.sources.books} Mappen
+      belegen lassen. Die grösste Lücke liegt zwischen Februar und Dezember ${K.marks[8].d.slice(0, 4)}.</div>
+      <div class="tw"><table>
+        <thead><tr><th class="l">Datum</th><th>Wert</th><th class="l">Art</th></tr></thead>
+        <tbody>${K.marks.map(m => {
+          const col = m.kind === "markt" ? "#7ee287" : m.kind === "einstand" ? C.deb : "#ff9f43";
+          const lbl = m.kind === "markt" ? "Kurs je Coin" : m.kind === "einstand" ? "Einzahlung" : "Schätzung";
+          return `<tr>
+            <td class="l" style="font-weight:700">${dmy(m.d)}
+              <span class="sn">${esc(m.note)}</span></td>
+            <td class="num" style="font-weight:700">${chf0(m.chf)}</td>
+            <td class="l"><span class="dot" style="background:${col}"></span>
+              <span style="opacity:.85;font-size:12.5px">&nbsp;${lbl}</span></td>
+          </tr>`;
+        }).join("")}</tbody></table></div>
+      <div class="note">Die beiden letzten Werte sind ausdrücklich Schätzungen. Der Revisionsbericht
+      zum Fiskaljahr ${Y[7].year} nennt die Position wörtlich «Kryptoreserve Schätzig MSO/MST».
+      Das erklärt, warum die Zahl nicht auf den Rappen zum Goldwert des Folgemonats passt.</div>
+      <div class="note" style="border-left-color:#ff9f43">Eine weitere Falle: die Mappe vom
+      02.10.2023 zeigt in der Spalte mit der Kopfzeile «Rate 12.05.2023» andere Zahlen als die
+      Mappe vom Juni. Die Werte wurden nachgeführt, die Kopfzeile nicht. Der Stand von
+      CHF ${chf0(K.marks[4].chf)} gehört zum Ende September ${K.marks[4].d.slice(0, 4)}, nicht zum Mai.</div>
     </div>
     <div class="card">
       <h2>Beitrag zum Vereinsvermögen</h2>
@@ -789,13 +920,134 @@ function renderSpend() {
         Die Rechnung lautet: einkassierte Debitoren minus das, was neu in die Reserve floss.
         Für Krypto und Gold zählt dabei der Kaufpreis, nicht der spätere Marktwert, sonst würde
         die Rendite fälschlich als Ausgabe erscheinen.
-        Gegenprobe: für das Fiskaljahr 2021 nennt das Blatt selbst eine Zeile
-        <b>spent CHF ${chf(A.notes.spent2021)}</b>, und die Rechnung ergibt für dieses Jahr
-        exakt denselben Betrag. Ein zweiter Beleg steht im Blatt 2023:
-        «${esc(A.notes.quoVadis2023)}».
         Für die Fiskaljahre 2017 und 2018 lässt sich nichts ableiten, weil die Kasse erst
         ab 2019 separat geführt wurde und der erste Übertrag drei Jahre zusammenfasst.
       </div>
+      <div class="tw" style="margin-top:12px"><table>
+        <thead><tr><th class="l">Belegte Ausgabe</th><th>Betrag</th></tr></thead>
+        <tbody>${A.events.map(e => `<tr>
+          <td class="l" style="font-weight:700">${esc(e.what)}
+            <span class="sn">${esc(e.proof)}</span></td>
+          <td class="num" style="font-weight:800;color:#ff9f43">${chf0(e.chf)}</td>
+        </tr>`).join("")}</tbody></table></div>
+      <div class="note">Mehr steht nicht drin. Eine Liste der Anlässe mit Einzelbeträgen führt
+      keine der ${A.sources.books} Mappen. Nur diese zwei Posten sind ausdrücklich verbucht,
+      alles andere ist gerechnet. Für ${A.events[0].fy} trifft die Rechnung den verbuchten
+      Betrag auf den Rappen, das ist der beste verfügbare Test der Methode.</div>
+    </div>
+    <div class="card">
+      <h2>Woraus die Reserve besteht</h2>
+      <div class="sub2">Ein Wochenbericht von ${dmy("2021-10-29")} schlüsselt die Kasse
+      des Fiskaljahrs 2020 auf. Es ist die einzige solche Aufstellung.</div>
+      <div class="rec"><span>Restgeld der letzten Brüglete, bereits einbezahlt</span>
+        <span class="r">${chf0(A.reserveSplit2020.rest)}</span></div>
+      <div class="rec"><span>Jahresbeitrag für Investitionen, einbezahlt und nicht angelegt</span>
+        <span class="r">${chf0(A.reserveSplit2020.beitrag)}</span></div>
+      <div class="rec"><span>Bussen 2020</span>
+        <span class="r">${chf0(A.reserveSplit2020.bussen)}</span></div>
+      <div class="rec" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px">
+        <span style="font-weight:700">Total 2020</span>
+        <span class="r" style="font-weight:800">${chf0(A.reserveSplit2020.total)}</span></div>
+      <div class="note">Wichtig daran: die Reserve ist nicht nur Restgeld. Es fliesst auch ein
+      ausdrücklicher Jahresbeitrag für Investitionen hinein, im Fiskaljahr 2020 CHF 50 je Mitglied.
+      Die Reserve wächst also nicht allein aus dem, was an der Chlöpfete übrig bleibt.</div>
+    </div>`;
+}
+
+// ===================== Prüfung =====================
+function renderAudit() {
+  const checked = Y.filter(y => y.year <= 2025);
+  const rows = checked.map(y => `<tr>
+    <td class="l" style="font-weight:700">${y.year}</td>
+    <td class="num">${chf0(y.debitors)}</td>
+    <td class="num">${y.reserves ? chf0(y.reserves) : "<span style='opacity:.35'>–</span>"}</td>
+    <td class="num" style="font-weight:800">${chf0(y.total)}</td>
+    <td class="l"><span class="dot" style="background:#7ee287"></span>
+      <span style="opacity:.85;font-size:12.5px">&nbsp;deckt sich</span></td>
+  </tr>`).join("");
+
+  const open = [
+    { t: "Die CHF " + chf0(spent) + " beim Jahreswechsel", s: "offen",
+      d: `Der Abschluss ${Y[8].year} führt die Reserve mit CHF ${chf(G.valuationChf)},
+          das Blatt ${cur.year} übernimmt sie mit CHF ${chf0(cur.reserves)}, beide zum selben
+          Stichtag ${dmy(G.valuationDate)}. Die Differenz von CHF ${chf0(spent)} entspricht
+          etwa ${(spent / G.series.find(s => s.m === G.valuationDate.slice(0, 7)).chfOz).toFixed(3).replace(".", ",")}
+          Unzen. Keine Mappe und kein Revisionsbericht nennt einen Grund. Möglich sind eine
+          Korrektur der Bewertung oder ein tatsächlicher Bezug. Ohne Kontoauszug von Revolut
+          lässt sich das nicht entscheiden.` },
+    { t: "Die Mappen vor Oktober 2021", s: "fehlt",
+      d: `Die älteste erhaltene Arbeitsmappe stammt vom ${dmy(A.sources.from)}. Für die
+          Fiskaljahre ${Y[0].year} bis ${Y[3].year} gibt es deshalb keine unterjährigen Stände,
+          nur die Abschlüsse. Diese stehen allerdings in jeder späteren Mappe als eigenes
+          Blatt und stimmen dort überall überein.` },
+    { t: "Ausgaben je einzelnem Anlass", s: "fehlt",
+      d: `Nur zwei Posten sind ausdrücklich verbucht, siehe Tab Ausgaben. Eine Aufstellung
+          pro Anlass führt keine der ${A.sources.books} Mappen. Die Jahreswerte bleiben
+          deshalb gerechnet, nicht belegt.` },
+    { t: "Gewicht und Kaufdatum des Goldes", s: "geklärt",
+      d: `Nirgends erfasst, aber aus drei unabhängigen Stellen zurückgerechnet und stimmig:
+          ${G.marks[1].impliedOz.toFixed(2).replace(".", ",")} Unzen am ${dmy(G.marks[1].d)},
+          ${G.marks[2].impliedOz.toFixed(2).replace(".", ",")} Unzen am ${dmy(G.marks[2].d)},
+          ${G.ozFromCrypto.toFixed(2).replace(".", ",")} Unzen aus dem Kryptoerlös.
+          Das Depot zeigt ${G.xau} XAU.` },
+    { t: "Wurde Krypto für einen Anlass gebraucht", s: "geklärt",
+      d: `Nein. Der volle Abschlussbetrag von CHF ${chf0(A.crypto.out)} ist im Gold
+          wiederzufinden. Wären davon CHF 850 abgeflossen, wie es der erste Eintrag im
+          Blatt ${Y[8].year} nahelegt, läge der Bestand bei rund 1,2 Unzen. Im Oktober und
+          im Dezember ${G.valuationDate.slice(0, 4)} weisen die Mappen aber übereinstimmend
+          knapp 1,6 Unzen aus. Die CHF ${chf0(G.marks[0].chf)} sind eine zu tiefe Schätzung,
+          kein Abfluss.` },
+  ];
+
+  document.getElementById("p-audit").innerHTML = `
+    <div class="card">
+      <div class="hero2">
+        <div class="cur">Geprüfte Arbeitsmappen</div>
+        <div class="big" style="color:#7ee287">${A.sources.books}</div>
+        <div class="sub">${dmy(A.sources.from)} bis ${dmy(A.sources.to)}, dazu zwei Revisionsberichte</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Gegenprüfung der Jahreszahlen</h2>
+      <div class="sub2">Jede Mappe trägt die abgeschlossenen Vorjahre als eigenes Blatt mit.
+      Damit liegt jedes Jahr in bis zu ${A.sources.books} Fassungen vor.</div>
+      <div class="tw"><table>
+        <thead><tr><th class="l">FJ</th><th>Debitoren</th><th>Reserven</th><th>Total</th><th class="l">Befund</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="note">${esc(A.checked.years)}. Es gibt keine einzige Abweichung.
+      Die Zahlen der Fiskaljahre ${Y[0].year} bis ${Y[5].year} sind damit gegen die Mappen
+      von damals geprüft und bestätigt.</div>
+    </div>
+    <div class="card">
+      <h2>Was offen bleibt und was geklärt ist</h2>
+      <div class="sub2">Ehrlich aufgelistet, damit die Übergabe stimmt.</div>
+      ${open.map(o => {
+        const col = o.s === "geklärt" ? "#7ee287" : o.s === "offen" ? "#ff9f43" : "#8fa3c4";
+        return `<div class="step" style="border-left-color:${col}">
+          <div class="sd" style="color:${col}">${esc(o.s)}</div>
+          <div class="st">${esc(o.t)}</div>
+          <div class="sv" style="line-height:1.5">${o.d}</div></div>`;
+      }).join("")}
+    </div>
+    <div class="card">
+      <h2>Die Vereinsjahre</h2>
+      <div class="sub2">Aus dem Bussenjournal: erste und letzte Buchung je Blatt.
+      Ein Vereinsjahr ist weder ein Kalenderjahr noch gleich lang wie das nächste.</div>
+      <div class="tw"><table>
+        <thead><tr><th class="l">FJ</th><th class="l">von</th><th class="l">bis</th><th>Termine</th><th>Tage</th></tr></thead>
+        <tbody>${A.fiscalYears.map(f => {
+          const days = Math.round((new Date(f.to) - new Date(f.from)) / 86400000);
+          return `<tr>
+            <td class="l" style="font-weight:700">${f.fy}</td>
+            <td class="l" style="opacity:.85">${dmy(f.from)}</td>
+            <td class="l" style="opacity:.85">${dmy(f.to)}</td>
+            <td class="num">${f.meets}</td>
+            <td class="num" style="opacity:.7">${days}</td>
+          </tr>`;
+        }).join("")}</tbody></table></div>
+      <div class="note">Das Fiskaljahr ${Y[3].year} dauerte ${Math.round((new Date(A.fiscalYears[3].to) - new Date(A.fiscalYears[3].from)) / 86400000)} Tage,
+      weil die Chlöpfete während der Pandemie mehrfach verschoben wurde. Das laufende Jahr
+      ${cur.year} ist noch offen.</div>
     </div>`;
 }
 
@@ -804,7 +1056,7 @@ const coinName = (s) => {
   return m ? `${esc(m[1])}<span style="display:block;font-size:11px;opacity:.45">${esc(m[2])}</span>` : esc(s);
 };
 
-function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); }
+function renderAll() { renderOverview(); renderAlloc(); renderGold(); renderReturn(); renderSpend(); renderAudit(); }
 renderAll();
 
 // Live-Kurs nachladen und alles neu zeichnen, sobald er da ist

@@ -13,12 +13,17 @@ Cloudflare Pages, Deploy automatisch bei jedem Push auf `main`.
 | --- | --- |
 | `index.html` | Hero mit Logo, Countdown auf Freitag 12.15, drei Eingänge |
 | `stats.html` | Anwesenheitsstatistiken, sechs Reiter |
-| `vermoegen.html` | Vereinsvermögen, fünf Reiter |
+| `vermoegen.html` | Vereinsvermögen, sechs Reiter, davon `Prüfung` mit der Quellenlage |
 | `games.html`, `dash.html`, `stapler.html`, `gluecksrad.html` | die drei Spiele |
 | `df-data.js` | Anwesenheitsdatensatz, erzeugt von `/tmp/build_data.py` |
 | `df-assets.js` | Vermögensdatensatz, erzeugt von `/tmp/build_assets.py` |
 | `functions/api/scores.js` | Bestenlisten, Cloudflare KV, Binding `LEADERBOARD` |
 | `functions/api/gold.js` | Live-Goldkurs, mehrere offene Quellen, KV als Zwischenspeicher |
+
+Neue Schlüssel in `df-assets.js` seit dem 27.07.2026: `timeline`, `fiscalYears`,
+`crypto.marks`, `gold.marks`, `gold.ozFromCrypto`, `events`, `reserveSplit2020`,
+`sources`, `checked`. Dazu tragen die Einträge in `years` neu `from`, `to` und
+`meets`. Woher das kommt, steht weiter unten.
 
 Die beiden Python-Skripte liegen im Container unter `/tmp` und sind nach einem
 Neustart weg. Sie lassen sich aus dieser Notiz und den erzeugten Datensätzen
@@ -26,7 +31,7 @@ rekonstruieren, der Aufbau ist unten beschrieben.
 
 ## Quelle der Zahlen
 
-Einzige vorliegende Arbeitsmappe: `DF_STATS_2026_07_24.xlsx`, Blätter
+Aktuellste Arbeitsmappe: `DF_STATS_2026_07_24.xlsx`, Blätter
 `Stats 2017` bis `Stats 2026`, `All-time DF Stats`, `Participation`.
 
 openpyxl stürzt beim Öffnen ab (`ValueError: Max value is 52`, `pitchFamily`).
@@ -80,9 +85,10 @@ Verkauft wurde nie. Krypto wurde in Gold getauscht, das Gold liegt unangetastet.
 
 ### Kryptodepot
 
-Sechs Coins zum Start FJ2023 am 10.02.2023, je CHF 190.24, zusammen CHF 1141.44.
+Sechs Coins zum Start FJ2023 am 10.02.2023, je rund CHF 190, zusammen CHF 1139.94.
 Bitcoin 0.013 zum Start FJ2024 am 16.02.2024 für CHF 622.78.
-Einsatz total **CHF 1764.22**. Abschluss FJ2024: CHF 3950.00, also 2.24-fach.
+Einsatz total **CHF 1762.72** (Zelle `AA32`, Blatt 2024). Abschluss FJ2024:
+CHF 3950.00, also 2.24-fach. Die vollständige Bewertungsreihe steht weiter unten.
 
 | Member | Coin | Einheiten | 05.01.2024 | 28.02.2024 |
 | --- | --- | --- | --- | --- |
@@ -137,22 +143,148 @@ Beide über `raw.githubusercontent.com`, andere Finanzhosts sperrt der Proxy.
 
 Unze gleich 31.1034768 Gramm.
 
-## Offen, dafür braucht es die alten Mappen
+## Auswertung der Altmappen, Stand 27.07.2026
 
 Die Anhänge liegen im Google Drive des Nutzers im Ordner **Gmail-Anhaenge Projekt**,
-ID `1lJbMcL9YUkL1hbxCHyKgD0MmtDnG5vej`. Der Gmail-Connector kann keine Anhänge
-herunterladen, nur Drive kann das.
+ID `1lJbMcL9YUkL1hbxCHyKgD0MmtDnG5vej`, in drei Unterordnern nach Absender. Der
+Gmail-Connector kann keine Anhänge herunterladen, nur Drive kann das.
 
-1. Vermögensverlauf unterjährig statt nur zehn Jahrespunkte
-2. Kryptobewertungen zwischen dem 28.02.2024 und dem Abschluss im Januar 2025.
-   Dort ist die grösste Lücke, bekannt sind nur Anfangs- und Endwert
-3. Ob Gewicht, Datum oder Preis des Goldkaufs irgendwo erfasst sind. Aktuell aus
-   dem Screenshot abgeleitet
-4. Gegenprüfung der Jahreszahlen 2017 bis 2022 gegen die Mappen von damals
-5. Die Ausgaben je Anlass, falls in älteren Mappen einzeln verbucht
+**Ausgewertet: 62 Arbeitsmappen vom 29.10.2021 bis 24.07.2026**, dazu vier PDF und
+die Revisionsberichte FJ2024 und FJ2025 aus Gmail. Ältere Mappen als 29.10.2021
+existieren im Drive nicht.
 
-Zu jeder Mappe gehört eine Mail. Deren Text lohnt sich, dort stehen
-Kassenstände und Beschlüsse im Klartext. Gmail funktioniert.
+Vorgehen, falls es noch einmal gebraucht wird: `download_file_content` liefert die
+Datei base64-kodiert; bei Überlänge legt der Harness das Ergebnis als JSON unter
+`tool-results/` ab. Von dort dekodieren, mit dem oben beschriebenen Zip-Trick
+säubern und mit openpyxl lesen. So kostet keine Mappe Kontext.
+
+### 1. Unterjähriger Verlauf: erledigt
+
+66 datierte Punkte statt zehn, in `df-assets.js` unter `timeline`. Bis Oktober 2021
+nur Jahresabschlüsse, danach fast wöchentlich. Neu auch alle Fiskaljahresgrenzen
+aus dem Bussenjournal, unter `fiscalYears`:
+
+| FJ | von | bis | Termine |
+| --- | --- | --- | --- |
+| 2017 | 23.12.2016 | 24.11.2017 | 48 |
+| 2018 | 01.12.2017 | 08.02.2019 | 62 |
+| 2019 | 15.02.2019 | 10.01.2020 | 47 |
+| 2020 | 24.01.2020 | 21.05.2021 | 66 |
+| 2021 | 28.05.2021 | 11.03.2022 | 42 |
+| 2022 | 18.03.2022 | 03.02.2023 | 46 |
+| 2023 | 10.02.2023 | 09.02.2024 | 52 |
+| 2024 | 16.02.2024 | 24.01.2025 | 50 |
+| 2025 | 31.01.2025 | 05.12.2025 | 43 |
+| 2026 | 12.12.2025 | 24.07.2026 | 29 laufend |
+
+FJ2020 dauerte 483 Tage, die Chlöpfete wurde in der Pandemie mehrfach verschoben.
+Im Blatt 2024 steht eine verirrte Buchung vom 28.04.2023, die den scheinbaren
+Jahresbeginn verfälscht. Massgeblich ist die Zeile `Yearly Amount` mit 16.02.2024.
+
+### 2. Kryptolücke: teilweise geschlossen
+
+Elf belegte Stände, in `crypto.marks`. Die Lücke ist jetzt 28.02.2024 bis 05.12.2024.
+
+| Datum | CHF | Art |
+| --- | --- | --- |
+| 10.02.2023 | 1141.44 | Einzahlung, 6 Coins brutto |
+| 16.02.2023 | 1114.96 | nach Kaufgebühr |
+| 17.03.2023 | 1082.42 | Kurs je Coin |
+| 12.05.2023 | 901.92 | Kurs je Coin |
+| 29.09.2023 | 1006.68 | Kurs je Coin |
+| 05.01.2024 | 1048.27 | Abschluss FJ2023 |
+| 09.02.2024 | 1084.40 | revidierte Mappe |
+| 16.02.2024 | 1762.72 | Einsatz total nach BTC-Zukauf |
+| 28.02.2024 | 2155.66 | letzte Bewertung Coin für Coin |
+| 05.12.2024 | 2981.00 | nur noch Summe |
+| 24.01.2025 | 3950.00 | Schätzung |
+
+**Korrektur zur alten Notiz:** Einsatz total ist **1762.72**, nicht 1764.22. Zelle
+`AA32` im Blatt 2024 nennt 1762.71951057644. Die sechs Coins kosteten je 189.93 bis
+190.11, nicht exakt 190.24.
+
+**Neue Falle:** die Mappe vom 02.10.2023 zeigt unter der Kopfzeile `Rate (12.05.2023)`
+andere Zahlen als die Mappe vom Juni. Die Werte wurden nachgeführt, die Kopfzeile
+nicht. Die 1006.68 gehören zu Ende September 2023.
+
+**Neue Falle:** der Revisionsbericht FJ2024 nennt die Position wörtlich
+«Kryptoreserve Schätzig MSO/MST». Die 3950.00 sind eine Schätzung, keine Bewertung.
+
+### 3. Goldposition: geklärt, ohne Beleg aber stimmig
+
+Gewicht, Kaufdatum und Kaufpreis sind in keiner Mappe und in keiner Mail erfasst.
+Erfasst sind nur Frankenbeträge mit Stichtag, in `gold.marks`:
+
+| Stichtag | CHF | CHF je Unze | ergibt Unzen |
+| --- | --- | --- | --- |
+| 07.02.2025 | 3100.00 | 2615.10 | 1.185 |
+| 08.10.2025 | 5105.79 | 3236.52 | 1.578 |
+| 05.12.2025 | 5358.00 | 3433.84 | 1.560 |
+
+Die letzten zwei ergeben dasselbe Gewicht wie die 1.5961 XAU aus dem Screenshot.
+Vierte Gegenprobe: 3950 CHF kaufen im Januar 2025 zu 2465.02 je Unze **1.6024
+Unzen**, praktisch genau die 1.5961 XAU. Der gesamte Kryptoerlös ist also im Gold.
+
+**Falle:** die 3100 tragen die Notiz `*ca. Wert 7.2.25` und blieben von Februar bis
+Oktober 2025 unverändert stehen. Das entspricht nur 1.19 Unzen. Es ist eine grobe
+Schätzung, kein Bestandsnachweis, und darf nicht als Beleg für einen Abfluss
+gelesen werden.
+
+### 4. Gegenprüfung 2017 bis 2022: bestätigt
+
+Jede Mappe schleppt die abgeschlossenen Vorjahre als eigenes Blatt mit. Jedes
+Jahresblatt 2017 bis 2025 trägt in allen 62 Mappen **identische Zahlen**, keine
+einzige Abweichung. Die Tabelle oben in dieser Notiz stimmt.
+
+Zusätzlich belegt der Wochenbericht vom 29.10.2021 im Blatt `Participation` die
+Zusammensetzung der Kasse FJ2020:
+
+    Cäsh Reserves vo dä letschtä Brüglete (scho izahlt):   112.68
+    Jahresbiitrag für Investitione (nöd investiert):       300.00
+    Buesse 2020:                                           914.25
+    Total 2020:                                           1326.93
+
+Wichtig: die Reserve ist nicht nur Restgeld. Es fliesst auch ein Jahresbeitrag für
+Investitionen hinein, FJ2020 waren das 50 CHF je Mitglied. Im Blatt 2020 steht das
+als `CÄSHRESERVES + Paid` mit einer Spalte `Paid: 50` je Mitglied.
+
+### 5. Ausgaben je Anlass: nur zwei Posten belegt
+
+Keine Mappe führt eine Liste der Anlässe mit Einzelbeträgen. Ausdrücklich verbucht
+sind nur:
+
+- Blatt 2021, `W18`: `spent 997.26`. Gegenprobe: 1810.68 minus 997.26 ergibt exakt
+  die Reserve 813.42 für FJ2022. Das ist der beste Test der Ableitungsmethode.
+- Blatt 2023, `W20`: 105 mal 6 gleich 630 CHF für Quo Vadis 2023, vom Financier
+  bezahlt, Geld von den Mitgliedern bereits geleistet. Ob Vereinsvermögen oder
+  nicht wird laut Notiz noch diskutiert.
+
+Die Jahreswerte bleiben also gerechnet, nicht belegt.
+
+### Zur Frage, ob Krypto für einen Anlass verbraucht wurde
+
+**Nein.** Der Abschlussbetrag FJ2024 von 3950 CHF ist im Gold vollständig
+wiederzufinden, siehe Punkt 3. Wären davon 850 CHF abgeflossen, wie es der Sprung
+von 3950 auf 3100 nahelegt, läge der Bestand bei rund 1.2 Unzen. Im Oktober und im
+Dezember 2025 weisen die Mappen aber übereinstimmend knapp 1.6 Unzen aus. Die 3100
+sind eine zu tiefe Schätzung, kein Abfluss.
+
+**Eine Ausnahme bleibt offen:** der Abschluss FJ2025 führt die Reserve mit 5358.00,
+das Blatt 2026 übernimmt sie brutto mit 5238.00, beide zum selben Stichtag
+05.12.2025. Die Differenz von 120 CHF entspricht etwa 0.035 Unzen. Keine Mappe und
+kein Revisionsbericht nennt einen Grund. Korrektur der Bewertung oder tatsächlicher
+Bezug lässt sich ohne Kontoauszug von Revolut nicht entscheiden. Das ist die
+einzige Stelle, an der die Reserve je kleiner wurde.
+
+### Nicht geprüft
+
+- Die Mailtexte wurden nur stichprobenweise gelesen. Die beiden Revisionsberichte
+  ganz, der Rest über Betreff und Vorschau. Die Wochenberichte stecken ohnehin als
+  Volltext im Blatt `Participation` der Mappen und wurden dort durchsucht.
+- Kein Kontoauszug von Revolut, keine Belege für einzelne Anlässe.
+- Im Drive liegt ein PDF `Anlagevorschlag831691.pdf` vom 23.06.2025. Das ist ein
+  privater ZKB-Vorschlag über 100000 CHF für Cyril Bouquet persönlich, kein
+  Vereinsvermögen. Gehört nicht auf die Seite.
 
 ## Bekannte Fehler in der Mappe
 

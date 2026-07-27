@@ -1,0 +1,118 @@
+name: Statistik nachfuehren
+
+# Laeuft, sobald eine neue Arbeitsmappe im Ordner mappen/ landet. Dorthin legt
+# sie das Apps Script aus scripts/gmail-nach-drive.gs, sobald der Statistiker
+# eine Mail mit Excel-Anhang verschickt.
+#
+# Der Dateiname entscheidet nichts. Das Skript oeffnet die Mappe, liest den
+# letzten Termin aus dem Bussenjournal und vergleicht ihn mit dem Stand der
+# Website. Ist die Mappe nicht neuer, endet der Lauf ohne Aenderung.
+
+on:
+  push:
+    paths:
+      - "mappen/**"
+  workflow_dispatch:        # erlaubt einen Lauf von Hand ueber die Actions-Seite
+
+permissions:
+  contents: write
+
+concurrency:
+  group: df-nachfuehren
+  cancel-in-progress: false
+
+jobs:
+  nachfuehren:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: openpyxl installieren
+        run: pip install --quiet openpyxl
+
+      - name: Mappe suchen
+        id: mappe
+        run: |
+          datei=$(ls mappen/*.xlsx 2>/dev/null | head -1)
+          if [ -z "$datei" ]; then
+            echo "Keine Mappe in mappen/ gefunden, nichts zu tun."
+            echo "gefunden=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "Gefunden: $datei"
+            echo "gefunden=ja" >> "$GITHUB_OUTPUT"
+            echo "datei=$datei" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pruefen ob die Mappe neuer ist
+        id: pruefung
+        if: steps.mappe.outputs.gefunden == 'ja'
+        run: |
+          if python scripts/update_from_workbook.py "${{ steps.mappe.outputs.datei }}" --check; then
+            echo "neuer=ja" >> "$GITHUB_OUTPUT"
+          else
+            echo "neuer=nein" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Datensaetze nachfuehren
+        if: steps.pruefung.outputs.neuer == 'ja'
+        run: python scripts/update_from_workbook.py "${{ steps.mappe.outputs.datei }}" --gold
+
+      - name: Versionsparameter hochzaehlen
+        if: steps.pruefung.outputs.neuer == 'ja'
+        run: |
+          # Ohne das liefert der Browser der Mitglieder die alten Datensaetze aus.
+          stempel=$(date +%Y%m%d%H%M)
+          cd doenerstapler
+          sed -i "s/?v=[0-9a-z]*/?v=$stempel/g" index.html stats.html vermoegen.html
+          grep -n "?v=" index.html stats.html vermoegen.html
+
+      - name: Nur die erwarteten Dateien geaendert
+        if: steps.pruefung.outputs.neuer == 'ja'
+        run: |
+          # Sicherung: das Skript darf nichts anderes anfassen als die
+          # Datensaetze und die drei Seiten mit dem Versionsparameter.
+          unerwartet=$(git diff --name-only \
+            | grep -vE '^doenerstapler/(df-assets\.js|df-data\.js|index\.html|stats\.html|vermoegen\.html)$' \
+            || true)
+          if [ -n "$unerwartet" ]; then
+            echo "Unerwartete Aenderungen, es wird nichts committet:"
+            echo "$unerwartet"
+            exit 1
+          fi
+
+      - name: Committen und pushen
+        if: steps.pruefung.outputs.neuer == 'ja'
+        run: |
+          if git diff --quiet; then
+            echo "Keine Aenderung, nichts zu committen."
+            exit 0
+          fi
+          stand=$(python -c "import json,io; \
+            raw=io.open('doenerstapler/df-assets.js',encoding='utf-8').read(); \
+            print(json.loads(raw[raw.index('{'):raw.rindex('}')+1])['asOf'])")
+          git config user.name "df-automat"
+          git config user.email "actions@github.com"
+          git add doenerstapler/
+          git commit -m "Statistik nachgefuehrt bis $stand
+
+          Automatisch aus der Mappe in mappen/ erzeugt.
+          Siehe .github/workflows/df-nachfuehren.yml"
+          git push
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          {
+            echo "### Dönerfriitig Abgleich"
+            if [ "${{ steps.mappe.outputs.gefunden }}" != "ja" ]; then
+              echo "Keine Mappe in \`mappen/\` gefunden."
+            elif [ "${{ steps.pruefung.outputs.neuer }}" = "ja" ]; then
+              echo "Mappe war neuer, Datensätze wurden nachgeführt und gepusht."
+            else
+              echo "Mappe war nicht neuer als der Stand der Website. Nichts geändert."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

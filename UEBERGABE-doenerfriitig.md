@@ -56,42 +56,72 @@ Umschalt und Neu laden hart nach.
 
 ## Automatischer Abgleich
 
-Damit die Seite von selbst aktuell bleibt, greifen drei Teile ineinander:
+Die Seite hält sich selbst aktuell. Kein Rechner des Nutzers ist beteiligt, die
+Kette läuft vollständig auf Google, GitHub und Cloudflare:
 
-1. **`scripts/gmail-nach-drive.gs`**, ein Google Apps Script im Konto des
-   Nutzers. Es sucht stündlich Mails von den Vereinsmitgliedern mit einem
-   Excel-Anhang und legt diesen im Drive-Ordner ab, mit dem Maildatum
-   vorangestellt. **Es prüft keinen Dateinamen**, nur Absender, Anhangstyp und
-   ob die Unterhaltung schon das Label `df-gesichert` trägt. Nötig ist das,
-   weil der Gmail-Connector keine Anhänge herunterladen kann, Drive dagegen
-   schon.
-2. **Die geplante Aufgabe `doenerfriitig-stats-abgleich`**, täglich um 18:00.
-   Sie holt die neuesten xlsx aus dem Drive-Ordner und fragt für jede das
-   Skript, ob sie neuer ist.
-3. **`scripts/update_from_workbook.py --check`** entscheidet. Es öffnet die
-   Mappe, liest den letzten Termin aus dem Bussenjournal und vergleicht ihn mit
-   `asOf`. Rückgabe 0 heisst neuer, 1 heisst nichts zu tun. Der Dateiname
-   spielt an keiner Stelle eine Rolle.
+    Gmail
+      │  Apps Script, stündlich
+      ▼
+    GitHub  mappen/aktuell.xlsx
+      │  Push löst die Action aus
+      ▼
+    GitHub Action  df-nachfuehren.yml
+      │  rechnet df-assets.js und df-data.js neu, pusht
+      ▼
+    Cloudflare Pages deployt
+
+### 1. `scripts/gmail-nach-drive.gs`
+
+Google Apps Script im Konto des Nutzers. Sucht Mails von den Vereinsmitgliedern
+mit Excel-Anhang, legt jeden davon im Drive-Archiv ab und schiebt den neuesten
+über die GitHub-API nach `mappen/aktuell.xlsx`.
+
+**Es prüft keinen Dateinamen.** Kriterien sind Absender, Anhangstyp und ob die
+Unterhaltung schon das Label `df-gesichert` trägt. Nötig ist das Script, weil der
+Gmail-Connector keine Anhänge herunterladen kann.
+
+Einrichtung:
+
+1. Ein GitHub-Token erzeugen: github.com, Einstellungen, Developer settings,
+   Personal access tokens, Fine-grained tokens. Nur Zugriff auf
+   `kamilpiros/ClaudeCodeWeb`, Berechtigung `Contents: Read and write`.
+2. [script.google.com](https://script.google.com), neues Projekt, Inhalt von
+   `scripts/gmail-nach-drive.gs` einfügen, speichern.
+3. Projekteinstellungen, Skripteigenschaften, Eigenschaft `GITHUB_TOKEN`
+   anlegen und den Token einsetzen.
+4. Funktion `dfProbelauf` ausführen. Fragt einmal nach Berechtigung für Gmail
+   und Drive. Das Protokoll zeigt danach, was gefunden würde und ob der Token
+   hinterlegt ist. Es schreibt nichts.
+5. Stimmt die Liste, `dfAnhaengeSichern` einmal von Hand ausführen.
+6. Trigger anlegen: Funktion `dfAnhaengeSichern`, zeitgesteuert, stündlich.
+
+Kommt ein Mitglied dazu, die Adresse in `ABSENDER` ergänzen.
+
+### 2. `.github/workflows/df-nachfuehren.yml`
+
+Läuft bei jedem Push nach `mappen/`, zusätzlich von Hand über die Actions-Seite.
+Installiert openpyxl, fragt das Skript mit `--check` ob die Mappe neuer ist,
+rechnet nach, zählt die Versionsparameter hoch, prüft dass nur die erwarteten
+fünf Dateien geändert wurden, committet und pusht.
+
+Ist die Mappe nicht neuer, endet der Lauf ohne Änderung. Das Ergebnis steht
+jeweils in der Zusammenfassung des Laufs.
+
+### 3. `scripts/update_from_workbook.py --check`
+
+Entscheidet. Öffnet die Mappe, liest den letzten Termin aus dem Bussenjournal
+und vergleicht ihn mit `asOf`. Rückgabe 0 heisst neuer, 1 heisst nichts zu tun.
+Der Dateiname spielt an keiner Stelle eine Rolle.
 
 Ohne `--check` bricht das Skript ebenfalls ab, wenn die Mappe nicht neuer ist.
 Zusätzlich prüft es vor dem Schreiben, ob sich ein abgeschlossenes Vereinsjahr
 verändert hat oder die Debitoren des laufenden Jahres sinken. Beides deutet auf
 einen Fehler hin und stoppt den Lauf. `--force` übergeht alle Prüfungen und
-sollte nur nach Sichtprüfung gesetzt werden.
+gehört nur nach Sichtprüfung gesetzt.
 
-### Das Apps Script einrichten
-
-1. [script.google.com](https://script.google.com) öffnen, «Neues Projekt».
-2. Inhalt von `scripts/gmail-nach-drive.gs` in den Editor kopieren, Projekt
-   benennen und speichern.
-3. Oben die Funktion `dfProbelauf` wählen und ausführen. Google fragt einmal
-   nach der Berechtigung für Gmail und Drive. Das Protokoll zeigt danach, welche
-   Anhänge gefunden würden, geschrieben wird nichts.
-4. Stimmt die Liste, `dfAnhaengeSichern` einmal von Hand ausführen.
-5. Links auf «Trigger», «Trigger hinzufügen»: Funktion `dfAnhaengeSichern`,
-   Ereignisquelle «Zeitgesteuert», Stundenintervall.
-
-Kommt ein Mitglied dazu, die Adresse in `ABSENDER` ergänzen.
+Getestet am 27.07.2026: gleiche und ältere Mappe werden abgelehnt, eine neuere
+wird eingelesen und erzeugt wieder den bekannten Datensatz, eine manipulierte
+Jahreszahl löst die Sicherung aus.
 
 ## Neue Mappe einlesen
 

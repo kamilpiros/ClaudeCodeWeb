@@ -62,6 +62,7 @@ OZ = 31.1034768
 
 GOLD_CSV = "https://raw.githubusercontent.com/datasets/gold-prices/main/data/monthly.csv"
 FX_CSV = "https://raw.githubusercontent.com/datasets/exchange-rates/main/data/monthly.csv"
+GOLD_AB = "2016-01"          # frueher zeigt die Seite ohnehin nichts an
 
 
 # --------------------------------------------------------------------------- #
@@ -220,9 +221,11 @@ def fetch_gold_series():
     for r in csv.reader(get(FX_CSV)):
         if len(r) > 2 and r[1] == "Switzerland":
             fx[r[0][:7]] = float(r[2])
+    # Der Datensatz reicht bis 1971 zurueck. Die Seite zeigt hoechstens
+    # "seit 2016", alles davor blaeht nur die Datei auf.
     out = []
     for m in sorted(gold):
-        if m in fx:
+        if m >= GOLD_AB and m in fx:
             oz = gold[m] * fx[m]
             out.append({"m": m, "usd": round(gold[m], 2),
                         "chfOz": round(oz, 2), "chfG": round(oz / OZ, 2)})

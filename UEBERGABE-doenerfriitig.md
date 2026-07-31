@@ -483,8 +483,36 @@ einzige Stelle, an der die Reserve je kleiner wurde.
   privater ZKB-Vorschlag über 100000 CHF für Cyril Bouquet persönlich, kein
   Vereinsvermögen. Gehört nicht auf die Seite.
 
+## Anwesenheit je Termin
+
+`df-data.js` führt je Vereinsjahr `rows`, einen Eintrag pro Termin. Das Feld `a`
+ist eine Zeichenfolge in der alphabetischen Reihenfolge der Mitglieder des
+Jahres: `1` anwesend, `0` als abwesend erfasst, `?` Zelle in der Mappe leer.
+Erzeugt wird das in `scripts/df_data.py` aus `S.attendance_raw`, gezeigt in
+`stats.html` in der Funktion `attendanceCard` im Reiter Jahre.
+
+Warum es zwei Leser gibt: `S.attendance` macht aus einer leeren Zelle eine
+Absenz, weil die Vereinsstatistik das auch so rechnet und sämtliche Summen daran
+hängen. `S.attendance_raw` liefert dieselben Zeilen in derselben Reihenfolge,
+behält aber die leere Zelle als `None`. Nur die Anzeige unterscheidet, gerechnet
+wird unverändert.
+
+Leere Zellen kommen in 205 von 521 Terminen vor, vor allem 2017 bis 2022 bei CBO
+und YMI. Wer daran etwas ändert, prüft danach zwingend, dass die Punkte aus den
+Zeichenfolgen weiterhin `members[m].att` je Jahr entsprechen und in der Summe
+1832 ergeben.
+
 ## Bekannte Fehler in der Mappe
 
+- **05.06.2026**: die Teilnahmezeile ist für JWU, PKN, SJU und YMI leer, damit
+  gilt niemand als anwesend. Im Bussenblock desselben Tages haben aber nur CBO
+  und MST eine Absenzbusse bekommen, und die Vereinsmail dieses Tages nennt YMI
+  als anwesend. Die Zeile wurde schlicht nicht ausgefüllt. Beim Statistiker
+  nachfragen, dann in der Mappe korrigieren, nicht im Datensatz
+- **26.01.2024** steht im Blatt 2023 zweimal, die zweite Zeile ist leer. Sie
+  zählt in der offiziellen Statistik als eigener Termin, deshalb hat das
+  Fiskaljahr 2023 53 statt 52 Termine. Zuordnungen zwischen Rohdaten und
+  Datensatz deshalb über die Position machen, nie über das Datum
 - PKN 2023 enthält eine Spende von CHF 33.07 im Bussentotal
 - YMI 2024 im All-time-Blatt ist offenbar aus 2023 kopiert, 476.00 statt 393.50.
   Massgebend sind die Jahresblätter

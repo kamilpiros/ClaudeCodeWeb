@@ -203,6 +203,41 @@ def attendance(ws):
     return rows, who
 
 
+def attendance_raw(ws):
+    """[(datum, {mitglied: 1 | 0 | None}), ...] mit der leeren Zelle als None.
+
+    `attendance` macht aus einer leeren Zelle eine Absenz, weil die
+    Vereinsstatistik das auch so rechnet und alle Summen daran haengen. Fuer die
+    Terminliste auf der Seite muss aber sichtbar bleiben, ob jemand als abwesend
+    erfasst wurde oder ob die Zelle schlicht nie ausgefuellt worden ist. Diese
+    Funktion liefert deshalb dieselben Zeilen in derselben Reihenfolge, nur ohne
+    die Vereinfachung.
+    """
+    h = _header(ws, "date", "part")
+    if not h:
+        return []
+    hr, dc, cols = h
+    who = members_row(ws, cols)
+    if not who:
+        return []
+    rows = []
+    for r in range(hr + 1, ws.max_row + 1):
+        d = parse_date(ws.cell(row=r, column=dc).value)
+        if not d:
+            continue
+        rec, gefuellt = {}, False
+        for c in cols:
+            v = ws.cell(row=r, column=c).value
+            if isinstance(v, (int, float)):
+                rec[who[c]] = 1 if v >= 0.5 else 0
+                gefuellt = True
+            else:
+                rec[who[c]] = None
+        if gefuellt:
+            rows.append((d, rec))
+    return rows
+
+
 # --------------------------------------------------------------------------- #
 # Bussen
 # --------------------------------------------------------------------------- #

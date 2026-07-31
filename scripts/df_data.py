@@ -82,9 +82,22 @@ def build(wb, alt):
             rec[m] = {"att": a, "events": events, "rate": _rate(a, events),
                       "pen": round(pen, 2), "penItemised": itemised,
                       "penByReason": gruende, "miss": events - a}
+        # Terminliste fuer die Anzeige: je Datum eine Zeichenfolge in der
+        # alphabetischen Reihenfolge der Mitglieder des Jahres.
+        #   1 anwesend, 0 als abwesend erfasst, ? Zelle in der Mappe leer
+        roh = S.attendance_raw(ws)
+        rows = []
+        if len(roh) == len(att):
+            for (d, zellen), (d2, _) in zip(roh, att):
+                assert d == d2, f"{name}: Terminliste laeuft auseinander bei {d}"
+                rows.append({"d": d.isoformat(),
+                             "a": "".join("1" if zellen.get(m) == 1
+                                          else "?" if zellen.get(m) is None else "0"
+                                          for m in leute)})
+
         jahre.append({"year": fy, "events": events,
                       "start": att[0][0].isoformat(), "end": att[-1][0].isoformat(),
-                      "members": rec})
+                      "members": rec, "rows": rows})
         matrix.extend(att)
 
     # Das Jahr 2016 hat kein Blatt, es kommt unveraendert aus dem alten Stand.

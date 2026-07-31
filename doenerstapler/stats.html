@@ -86,6 +86,15 @@
   .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.09); overflow: hidden; }
   .bar i { display: block; height: 100%; border-radius: 4px; }
 
+  /* Anwesenheitsraster je Termin */
+  th.c, td.c { text-align: center; padding-left: 2px; padding-right: 2px; }
+  table.att td, table.att th { padding-top: 7px; padding-bottom: 7px; }
+  table.att th { cursor: default; }
+  table.att tbody tr:nth-child(even) { background: rgba(255,255,255,.028); }
+  .pd { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
+  .pd.hollow { background: none; border: 1.8px solid; opacity: .45; }
+  .ab { opacity: .22; font-weight: 800; }
+
   .podium { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; align-items: end; margin-bottom: 6px; }
   .pod { background: #1d2750; border: 1px solid var(--line); border-radius: 14px; padding: 12px 8px; text-align: center; }
   .pod .m { font-size: 17px; font-weight: 800; }
@@ -153,8 +162,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=20260727k"></script>
-<script src="df-data.js?v=20260727k"></script>
+<script src="df-kalender.js?v=20260731a"></script>
+<script src="df-data.js?v=20260731a"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -426,7 +435,81 @@ function renderYears() {
       <div class="tw"><table><thead><tr><th class="l">Member</th><th>Punkte</th><th>Quote</th><th>Absenz</th><th>Bussen</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     </div>
-    <div class="card"><h2>Anwesenheitsquote ${y.year}</h2><div class="sub2">Anteil der besuchten Termine.</div>${chart}</div>`;
+    <div class="card"><h2>Anwesenheitsquote ${y.year}</h2><div class="sub2">Anteil der besuchten Termine.</div>${chart}</div>
+    ${attendanceCard(y)}`;
+}
+
+// Wer war an welchem Termin da. Je Termin steht im Datensatz eine Zeichenfolge
+// in der alphabetischen Reihenfolge der Mitglieder des Jahres:
+//   1 anwesend, 0 als abwesend erfasst, ? Zelle in der Vereinsmappe leer
+function attendanceCard(y) {
+  if (!y.rows || !y.rows.length) {
+    return `<div class="card"><h2>Anwesenheit je Termin</h2>
+      <div class="sub2">Für ${y.year} liegt nur die Jahreszusammenfassung vor,
+      die einzelnen Termine wurden damals noch nicht erfasst.</div></div>`;
+  }
+  const roster = Object.keys(y.members).sort();
+  const short = (m) => m.replace("MST/MSO", "MST");
+  const dm = (iso) => iso.slice(8) + "." + iso.slice(5, 7) + ".";
+  const count = (r) => [...r.a].filter(c => c === "1").length;
+
+  const head = `<tr><th class="l">Termin</th>
+    ${roster.map(m => `<th class="c" style="color:${col(m)};opacity:.9">${esc(short(m))}</th>`).join("")}
+    <th>Σ</th></tr>`;
+
+  const body = y.rows.map(r => {
+    const cells = roster.map((m, i) => {
+      const c = r.a[i];
+      if (c === "1") return `<td class="c"><span class="pd" style="background:${col(m)}"></span></td>`;
+      if (c === "?") return `<td class="c"><span class="pd hollow" style="border-color:${col(m)}"
+        title="nicht erfasst"></span></td>`;
+      return `<td class="c"><span class="ab">·</span></td>`;
+    }).join("");
+    return `<tr><td class="l num" style="font-weight:700">${dm(r.d)}</td>${cells}
+      <td class="num" style="opacity:.8;font-weight:700">${count(r)}</td></tr>`;
+  }).join("");
+
+  const sums = roster.map(m => y.members[m].att);
+  const foot = `<tr style="border-top:1px solid var(--line)">
+    <td class="l" style="font-weight:800">Total</td>
+    ${sums.map((v, i) => `<td class="c num" style="font-weight:800;color:${col(roster[i])}">${v}</td>`).join("")}
+    <td class="num" style="font-weight:800">${sums.reduce((a, b) => a + b, 0)}</td></tr>`;
+
+  const full = y.rows.filter(r => count(r) === roster.length).length;
+  const thin = y.rows.filter(r => count(r) <= 2 && count(r) > 0);
+  const gaps = y.rows.filter(r => r.a.includes("?"));
+  const leer = gaps.find(r => count(r) === 0);
+  const dupes = y.rows.map(r => r.d).filter((d, i, a) => a.indexOf(d) !== i);
+
+  const gapNote = gaps.length
+    ? `<div class="note">In ${gaps.length === 1 ? "einem Fall" : gaps.length + " Fällen"} ist die Zelle
+       in der Vereinsmappe leer geblieben, erkennbar am hohlen Ring. Die Vereinsstatistik wertet
+       das als abwesend, und diese Seite hält sich daran, damit die Punktzahlen mit dem offiziellen
+       Blatt übereinstimmen.
+       ${leer ? `Am ${dmy(leer.d)} führt das dazu, dass niemand als anwesend gilt, obwohl im
+         Bussenblock desselben Tages nur zwei Mitglieder eine Absenzbusse bekommen haben.
+         Da hat der Statistiker die Zeile schlicht nicht ausgefüllt.` : ""}
+       </div>` : "";
+  const dupNote = dupes.length
+    ? `<div class="note">Der ${dmy(dupes[0])} steht in der Mappe zweimal, die zweite Zeile ist leer.
+       Sie zählt in der offiziellen Statistik als eigener Termin und wird darum auch hier gezeigt.</div>` : "";
+
+  return `<div class="card">
+    <h2>Anwesenheit je Termin</h2>
+    <div class="sub2">Alle ${y.events} Dönerfriitige vom ${dmy(y.start)} bis ${dmy(y.end)}.</div>
+    <div class="tw"><table class="att"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table></div>
+    <div class="lg">
+      <span><span class="pd" style="background:#7cc4ff"></span>anwesend</span>
+      <span><span class="ab" style="width:11px;text-align:center;display:inline-block">·</span>abwesend</span>
+      <span><span class="pd hollow" style="border-color:#7cc4ff"></span>nicht erfasst</span>
+    </div>
+    <div class="note">
+      ${full ? `${full}× war der Verein vollzählig.` : "Vollzählig war der Verein in diesem Jahr nie."}
+      ${thin.length ? ` An ${thin.length} Terminen sassen höchstens zwei Mitglieder am Tisch, zuletzt am ${dmy(thin[thin.length - 1].d)}.` : ""}
+      Im Schnitt waren ${(y.rows.reduce((s, r) => s + count(r), 0) / y.rows.length).toFixed(1).replace(".", ",")} Mitglieder da.
+    </div>
+    ${gapNote}${dupNote}
+  </div>`;
 }
 
 // ===================== Verlauf =====================

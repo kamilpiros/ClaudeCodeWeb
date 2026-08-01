@@ -497,20 +497,34 @@ hängen. `S.attendance_raw` liefert dieselben Zeilen in derselben Reihenfolge,
 behält aber die leere Zelle als `None`. Nur die Anzeige unterscheidet, gerechnet
 wird unverändert.
 
-Leere Zellen kommen in 205 von 521 Terminen vor, vor allem 2017 bis 2022 bei CBO
-und YMI. Wer daran etwas ändert, prüft danach zwingend, dass die Punkte aus den
-Zeichenfolgen weiterhin `members[m].att` je Jahr entsprechen und in der Summe
-1832 ergeben.
+Leere Zellen kommen in gut 200 von 522 Terminen vor, vor allem 2017 bis 2022 bei
+CBO und YMI. Wer daran etwas ändert, prüft danach zwingend, dass die Punkte aus
+den Zeichenfolgen weiterhin `members[m].att` je Jahr entsprechen.
+
+### Korrekturen an der Mappe
+
+`KORREKTUREN` in `scripts/df_data.py` überschreibt Termine, bei denen die Mappe
+nachweislich falsch ist und die Korrektur beim Statistiker gemeldet ist. Der
+Eintrag wirkt auf beide Listen zugleich, auf die gerechneten Wahrheitswerte und
+auf die Terminliste, sonst liefen Punkte und Anzeige auseinander.
+
+Stimmt die Mappe später von selbst, schreibt das Skript beim Lauf
+«die Korrektur für JJJJ-MM-TT ist überflüssig» und der Eintrag gehört gelöscht.
+Jede aktive Korrektur landet zusätzlich als `corrections` im Datensatz und
+erscheint als Fussnote unter der Terminliste des betroffenen Jahres. Nichts wird
+also still verändert.
+
+Aktuell ein Eintrag: 05.06.2026, anwesend SJU und YMI.
 
 ## Bekannte Fehler in der Mappe
 
-- **05.06.2026**: in dieser Zeile sind nur CBO und MST erfasst, beide mit einer
-  Null im Teilnahmeblock und beide mit einer Absenzbusse von 13. Die Zellen von
-  JWU, PKN, SJU und YMI sind in beiden Blöcken leer. Leer zählt als abwesend,
-  also gilt an diesem Termin niemand als anwesend. Die Vereinsmail vom
-  05.06.2026 nennt aber YMI als anwesend, zusammen mit den Gästen NGR und JWI.
-  Geprüft in der Mappe vom 31.07.2026, dort unverändert. In der Mappe
-  korrigieren, nicht im Datensatz
+- **05.06.2026**: in der Mappe sind nur CBO und MST erfasst, beide mit einer Null
+  im Teilnahmeblock und beide mit einer Absenzbusse von 13. Die Zellen von JWU,
+  PKN, SJU und YMI sind in beiden Blöcken leer. Leer zählt als abwesend, also
+  gälte niemand als anwesend. Anwesend waren aber SJU und YMI, dazu die Gäste
+  NGR und JWI. Vom Verein bestätigt und dem Statistiker gemeldet.
+  **Wird über `KORREKTUREN` in `scripts/df_data.py` überschrieben**, siehe
+  unten. Sobald die Mappe stimmt, meldet das Skript den Eintrag als überflüssig
 - **26.01.2024** steht im Blatt 2023 zweimal, die zweite Zeile ist leer. Sie
   zählt in der offiziellen Statistik als eigener Termin, deshalb hat das
   Fiskaljahr 2023 53 statt 52 Termine. Zuordnungen zwischen Rohdaten und

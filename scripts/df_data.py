@@ -53,6 +53,54 @@ def _roles(ws):
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Korrekturen an der Mappe
+# --------------------------------------------------------------------------- #
+# Fehler, die dem Statistiker gemeldet sind und in einer kuenftigen Mappe behoben
+# werden. Bis dahin rechnet die Seite mit dem richtigen Wert, statt einen
+# bekannten Fehler weiterzuschleppen. Sobald die Mappe stimmt, meldet das Skript
+# den Eintrag als ueberfluessig und er kann hier geloescht werden.
+KORREKTUREN = {
+    # Am 05.06.2026 sind in der Mappe nur CBO und MST erfasst, die vier uebrigen
+    # Zellen sind leer und zaehlen damit als abwesend. Damit gilt niemand als
+    # anwesend. Die Vereinsmail dieses Tages nennt aber SJU und YMI am Tisch,
+    # dazu die Gaeste NGR und JWI, die nicht mitzaehlen. Vom Verein bestaetigt.
+    "2026-06-05": {"CBO": 0, "JWU": 0, "MST/MSO": 0, "PKN": 0, "SJU": 1, "YMI": 1},
+}
+
+
+def _korrigiere(att, roh, notizen):
+    """Setzt die bekannten Korrekturen in beiden Anwesenheitslisten durch.
+
+    `att` traegt die Wahrheitswerte, aus denen alle Zahlen entstehen. `roh` haelt
+    zusaetzlich fest, welche Zelle in der Mappe leer war, und dient nur der
+    Anzeige. Beide muessen dasselbe sagen, sonst weicht die Terminliste von den
+    Punktzahlen ab.
+    """
+    roh_nach_datum = {d.isoformat(): zellen for d, zellen in roh}
+    for datum, soll in KORREKTUREN.items():
+        for d, zellen in att:
+            if d.isoformat() != datum:
+                continue
+            vorher = {m: bool(zellen.get(m)) for m in soll}
+            schon_richtig = all(vorher[m] == bool(v) for m, v in soll.items())
+            for m, v in soll.items():
+                if m in zellen:
+                    zellen[m] = bool(v)
+                if datum in roh_nach_datum and m in roh_nach_datum[datum]:
+                    roh_nach_datum[datum][m] = int(v)
+            if schon_richtig:
+                print(f"Hinweis: die Korrektur fuer {datum} ist ueberfluessig, "
+                      f"die Mappe stimmt jetzt. Eintrag in KORREKTUREN loeschen.")
+            else:
+                da = ", ".join(sorted(m for m, v in soll.items() if v))
+                notizen.append({"d": datum, "present": sorted(m for m, v in soll.items() if v),
+                                "text": f"In der Mappe ist dieser Termin unvollständig erfasst. "
+                                        f"Anwesend waren {da}. Vom Verein bestätigt und dem "
+                                        f"Statistiker gemeldet."})
+            break
+
+
 def build(wb, alt):
     """alt ist der bisherige Datensatz, davon wird nur das Jahr 2016 uebernommen."""
     sheets = S.year_sheets(wb)
@@ -60,6 +108,7 @@ def build(wb, alt):
         raise SystemExit("Keine Blaetter im Muster 'Stats JJJJ'")
 
     jahre, matrix = [], []          # matrix: (datum, {mitglied: bool}) ueber alle Jahre
+    korrekturen = []
     letzte_ws = None
     for fy, name in sheets:
         ws = wb[name]
@@ -67,6 +116,9 @@ def build(wb, alt):
         att, who = S.attendance(ws)
         if not att:
             continue
+        # Terminliste fuer die Anzeige, danach beide Listen korrigieren
+        roh = S.attendance_raw(ws)
+        _korrigiere(att, roh, korrekturen)
         order = [who[c] for c in sorted(who)]
         by_reason, _, total = S.fines(ws, order)
         leute = sorted(set(order))
@@ -82,10 +134,9 @@ def build(wb, alt):
             rec[m] = {"att": a, "events": events, "rate": _rate(a, events),
                       "pen": round(pen, 2), "penItemised": itemised,
                       "penByReason": gruende, "miss": events - a}
-        # Terminliste fuer die Anzeige: je Datum eine Zeichenfolge in der
-        # alphabetischen Reihenfolge der Mitglieder des Jahres.
+        # Je Datum eine Zeichenfolge in der alphabetischen Reihenfolge der
+        # Mitglieder des Jahres.
         #   1 anwesend, 0 als abwesend erfasst, ? Zelle in der Mappe leer
-        roh = S.attendance_raw(ws)
         rows = []
         if len(roh) == len(att):
             for (d, zellen), (d2, _) in zip(roh, att):
@@ -195,6 +246,7 @@ def build(wb, alt):
         "assets": alt.get("assets", {}),
         "season": season,
         "totalEvents": sum(y["events"] for y in jahre),
+        "corrections": korrekturen,
     }
 
 

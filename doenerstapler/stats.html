@@ -176,8 +176,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=20260801c"></script>
-<script src="df-data.js?v=20260801c"></script>
+<script src="df-kalender.js?v=20260801d"></script>
+<script src="df-data.js?v=20260801d"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -496,22 +496,29 @@ function attendanceCard(y) {
   const full = y.rows.filter(r => count(r) === roster.length).length;
   const thin = y.rows.filter(r => count(r) <= 2 && count(r) > 0);
   const gaps = y.rows.filter(r => r.a.includes("?"));
-  const leer = gaps.find(r => count(r) === 0);
   const dupes = y.rows.map(r => r.d).filter((d, i, a) => a.indexOf(d) !== i);
 
+  const ohne = y.rows.filter(r => count(r) === 0);
   const gapNote = gaps.length
     ? `<div class="note">In ${gaps.length === 1 ? "einem Fall" : gaps.length + " Fällen"} ist die Zelle
        in der Vereinsmappe leer geblieben, erkennbar am hohlen Ring. Die Vereinsstatistik wertet
        das als abwesend, und diese Seite hält sich daran, damit die Punktzahlen mit dem offiziellen
        Blatt übereinstimmen.
-       ${leer ? `Am ${dmy(leer.d)} sind nur CBO und MST erfasst, beide als abwesend und beide
-         mit einer Absenzbusse. Die vier übrigen Zellen sind leer und zählen damit ebenfalls
-         als abwesend, weshalb an diesem Termin niemand als anwesend gilt. Die Vereinsmail
-         von diesem Tag nennt allerdings YMI als anwesend.` : ""}
+       ${ohne.length ? ` An ${ohne.length === 1 ? "einem Termin" : ohne.length + " Terminen"} gilt
+         dadurch niemand als anwesend, nämlich am ${ohne.map(r => dmy(r.d)).join(", ")}.
+         Ob dort wirklich keiner am Tisch sass oder nur die Zeile fehlt, lässt sich aus der
+         Mappe allein nicht sagen.` : ""}
        </div>` : "";
   const dupNote = dupes.length
     ? `<div class="note">Der ${dmy(dupes[0])} steht in der Mappe zweimal, die zweite Zeile ist leer.
        Sie zählt in der offiziellen Statistik als eigener Termin und wird darum auch hier gezeigt.</div>` : "";
+
+  // Termine, bei denen die Mappe nachweislich falsch ist und die Seite den
+  // richtigen Wert rechnet. Faellt weg, sobald die Mappe nachgeführt ist.
+  const fixes = (D.corrections || []).filter(c => y.rows.some(r => r.d === c.d));
+  const fixNote = fixes.length
+    ? `<div class="note">${fixes.map(c =>
+        `<b style="color:var(--blue2)">${dmy(c.d)}</b>: ${esc(c.text)}`).join("<br>")}</div>` : "";
 
   return `<div class="card">
     <h2>Anwesenheit je Termin</h2>
@@ -532,7 +539,7 @@ function attendanceCard(y) {
       ${thin.length ? ` An ${thin.length} Terminen sassen höchstens zwei Mitglieder am Tisch, zuletzt am ${dmy(thin[thin.length - 1].d)}.` : ""}
       Im Schnitt waren ${(y.rows.reduce((s, r) => s + count(r), 0) / y.rows.length).toFixed(1).replace(".", ",")} Mitglieder da.
     </div>
-    ${gapNote}${dupNote}
+    ${fixNote}${gapNote}${dupNote}
   </div>`;
 }
 

@@ -504,11 +504,13 @@ Zeichenfolgen weiterhin `members[m].att` je Jahr entsprechen und in der Summe
 
 ## Bekannte Fehler in der Mappe
 
-- **05.06.2026**: die Teilnahmezeile ist für JWU, PKN, SJU und YMI leer, damit
-  gilt niemand als anwesend. Im Bussenblock desselben Tages haben aber nur CBO
-  und MST eine Absenzbusse bekommen, und die Vereinsmail dieses Tages nennt YMI
-  als anwesend. Die Zeile wurde schlicht nicht ausgefüllt. Beim Statistiker
-  nachfragen, dann in der Mappe korrigieren, nicht im Datensatz
+- **05.06.2026**: in dieser Zeile sind nur CBO und MST erfasst, beide mit einer
+  Null im Teilnahmeblock und beide mit einer Absenzbusse von 13. Die Zellen von
+  JWU, PKN, SJU und YMI sind in beiden Blöcken leer. Leer zählt als abwesend,
+  also gilt an diesem Termin niemand als anwesend. Die Vereinsmail vom
+  05.06.2026 nennt aber YMI als anwesend, zusammen mit den Gästen NGR und JWI.
+  Geprüft in der Mappe vom 31.07.2026, dort unverändert. In der Mappe
+  korrigieren, nicht im Datensatz
 - **26.01.2024** steht im Blatt 2023 zweimal, die zweite Zeile ist leer. Sie
   zählt in der offiziellen Statistik als eigener Termin, deshalb hat das
   Fiskaljahr 2023 53 statt 52 Termine. Zuordnungen zwischen Rohdaten und

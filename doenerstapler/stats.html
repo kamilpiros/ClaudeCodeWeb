@@ -162,8 +162,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=20260731a"></script>
-<script src="df-data.js?v=20260731a"></script>
+<script src="df-kalender.js?v=20260801b"></script>
+<script src="df-data.js?v=20260801b"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -486,9 +486,10 @@ function attendanceCard(y) {
        in der Vereinsmappe leer geblieben, erkennbar am hohlen Ring. Die Vereinsstatistik wertet
        das als abwesend, und diese Seite hält sich daran, damit die Punktzahlen mit dem offiziellen
        Blatt übereinstimmen.
-       ${leer ? `Am ${dmy(leer.d)} führt das dazu, dass niemand als anwesend gilt, obwohl im
-         Bussenblock desselben Tages nur zwei Mitglieder eine Absenzbusse bekommen haben.
-         Da hat der Statistiker die Zeile schlicht nicht ausgefüllt.` : ""}
+       ${leer ? `Am ${dmy(leer.d)} sind nur CBO und MST erfasst, beide als abwesend und beide
+         mit einer Absenzbusse. Die vier übrigen Zellen sind leer und zählen damit ebenfalls
+         als abwesend, weshalb an diesem Termin niemand als anwesend gilt. Die Vereinsmail
+         von diesem Tag nennt allerdings YMI als anwesend.` : ""}
        </div>` : "";
   const dupNote = dupes.length
     ? `<div class="note">Der ${dmy(dupes[0])} steht in der Mappe zweimal, die zweite Zeile ist leer.

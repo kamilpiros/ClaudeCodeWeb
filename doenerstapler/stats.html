@@ -91,6 +91,20 @@
   table.att td, table.att th { padding-top: 7px; padding-bottom: 7px; }
   table.att th { cursor: default; }
   table.att tbody tr:nth-child(even) { background: rgba(255,255,255,.028); }
+  /* Vollzaehlige Termine: dann ist der Verein beschlussfaehig und es findet
+     formell eine Generalversammlung statt. Gold hervorgehoben. */
+  table.att tbody tr.gv,
+  table.att tbody tr.gv:nth-child(even) { background: rgba(255,209,102,.12); }
+  table.att tbody tr.gv td {
+    border-top: 1px solid rgba(255,209,102,.3);
+    border-bottom: 1px solid rgba(255,209,102,.3);
+  }
+  table.att tbody tr.gv td:first-child { color: #ffd166; }
+  .gvb {
+    font-size: 9px; font-weight: 800; letter-spacing: .6px; color: #ffd166;
+    border: 1px solid rgba(255,209,102,.55); border-radius: 5px;
+    padding: 1px 4px; margin-left: 5px; vertical-align: 1px;
+  }
   .pd { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
   .pd.hollow { background: none; border: 1.8px solid; opacity: .45; }
   .ab { opacity: .22; font-weight: 800; }
@@ -162,8 +176,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=20260801b"></script>
-<script src="df-data.js?v=20260801b"></script>
+<script src="df-kalender.js?v=20260801c"></script>
+<script src="df-data.js?v=20260801c"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -458,6 +472,8 @@ function attendanceCard(y) {
     <th>Σ</th></tr>`;
 
   const body = y.rows.map(r => {
+    const n = count(r);
+    const gv = n === roster.length;      // alle da, also beschlussfähig
     const cells = roster.map((m, i) => {
       const c = r.a[i];
       if (c === "1") return `<td class="c"><span class="pd" style="background:${col(m)}"></span></td>`;
@@ -465,8 +481,10 @@ function attendanceCard(y) {
         title="nicht erfasst"></span></td>`;
       return `<td class="c"><span class="ab">·</span></td>`;
     }).join("");
-    return `<tr><td class="l num" style="font-weight:700">${dm(r.d)}</td>${cells}
-      <td class="num" style="opacity:.8;font-weight:700">${count(r)}</td></tr>`;
+    return `<tr class="${gv ? "gv" : ""}"${gv ? ' title="Alle anwesend, damit ist der Verein beschlussfähig"' : ""}>
+      <td class="l num" style="font-weight:700">${dm(r.d)}${gv ? '<span class="gvb">GV</span>' : ""}</td>
+      ${cells}
+      <td class="num" style="font-weight:${gv ? 800 : 700};opacity:${gv ? 1 : .8};${gv ? "color:#ffd166" : ""}">${n}</td></tr>`;
   }).join("");
 
   const sums = roster.map(m => y.members[m].att);
@@ -503,9 +521,14 @@ function attendanceCard(y) {
       <span><span class="pd" style="background:#7cc4ff"></span>anwesend</span>
       <span><span class="ab" style="width:11px;text-align:center;display:inline-block">·</span>abwesend</span>
       <span><span class="pd hollow" style="border-color:#7cc4ff"></span>nicht erfasst</span>
+      <span><span class="gvb" style="margin-left:0">GV</span>&nbsp;alle da</span>
     </div>
     <div class="note">
-      ${full ? `${full}× war der Verein vollzählig.` : "Vollzählig war der Verein in diesem Jahr nie."}
+      ${full
+        ? `${full === 1 ? "Einmal" : full + "×"} war der Verein vollzählig, golden hervorgehoben.
+           Sind alle ${roster.length} Mitglieder am Tisch, ist der Verein beschlussfähig und es
+           findet formell eine Generalversammlung statt.`
+        : `Vollzählig war der Verein in diesem Jahr nie, es gab also keine Generalversammlung.`}
       ${thin.length ? ` An ${thin.length} Terminen sassen höchstens zwei Mitglieder am Tisch, zuletzt am ${dmy(thin[thin.length - 1].d)}.` : ""}
       Im Schnitt waren ${(y.rows.reduce((s, r) => s + count(r), 0) / y.rows.length).toFixed(1).replace(".", ",")} Mitglieder da.
     </div>

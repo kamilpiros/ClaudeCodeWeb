@@ -17,6 +17,12 @@ on:
 permissions:
   contents: write
 
+# Ohne das legt Python beim Import scripts/__pycache__ an. Taucht dort etwas
+# auf, das im Repository liegt, meldet die Sicherung unten eine unerwartete
+# Aenderung und der Lauf bricht ab, obwohl alles in Ordnung ist.
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 concurrency:
   group: df-nachfuehren
   cancel-in-progress: false
@@ -106,13 +112,18 @@ jobs:
       - name: Zusammenfassung
         if: always()
         run: |
+          # Der Erfolg wird an job.status gemessen, nicht an der Absicht. Sonst
+          # meldet die Zusammenfassung einen Push, den es gar nie gegeben hat.
           {
             echo "### Dönerfriitig Abgleich"
             if [ "${{ steps.mappe.outputs.gefunden }}" != "ja" ]; then
               echo "Keine Mappe in \`mappen/\` gefunden."
-            elif [ "${{ steps.pruefung.outputs.neuer }}" = "ja" ]; then
+            elif [ "${{ steps.pruefung.outputs.neuer }}" != "ja" ]; then
+              echo "Mappe war nicht neuer als der Stand der Website. Nichts geändert."
+            elif [ "${{ job.status }}" = "success" ]; then
               echo "Mappe war neuer, Datensätze wurden nachgeführt und gepusht."
             else
-              echo "Mappe war nicht neuer als der Stand der Website. Nichts geändert."
+              echo "**Der Lauf ist fehlgeschlagen.** Die Mappe war neuer, aber es wurde"
+              echo "nichts gepusht. Der Grund steht in den Schritten oben."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

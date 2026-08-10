@@ -60,13 +60,10 @@ def _roles(ws):
 # werden. Bis dahin rechnet die Seite mit dem richtigen Wert, statt einen
 # bekannten Fehler weiterzuschleppen. Sobald die Mappe stimmt, meldet das Skript
 # den Eintrag als ueberfluessig und er kann hier geloescht werden.
-KORREKTUREN = {
-    # Am 05.06.2026 sind in der Mappe nur CBO und MST erfasst, die vier uebrigen
-    # Zellen sind leer und zaehlen damit als abwesend. Damit gilt niemand als
-    # anwesend. Die Vereinsmail dieses Tages nennt aber SJU und YMI am Tisch,
-    # dazu die Gaeste NGR und JWI, die nicht mitzaehlen. Vom Verein bestaetigt.
-    "2026-06-05": {"CBO": 0, "JWU": 0, "MST/MSO": 0, "PKN": 0, "SJU": 1, "YMI": 1},
-}
+# Derzeit leer. Zuletzt stand hier der 05.06.2026, den der Statistiker in der
+# Mappe vom 07.08.2026 nachgetragen hat. Das Skript hat den Eintrag selbst als
+# ueberfluessig gemeldet, danach kam er raus.
+KORREKTUREN = {}
 
 
 def _korrigiere(att, roh, notizen):

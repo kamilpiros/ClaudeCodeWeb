@@ -514,7 +514,14 @@ Jede aktive Korrektur landet zusätzlich als `corrections` im Datensatz und
 erscheint als Fussnote unter der Terminliste des betroffenen Jahres. Nichts wird
 also still verändert.
 
-Aktuell ein Eintrag: 05.06.2026, anwesend SJU und YMI.
+Aktuell leer. Zuletzt stand dort der 05.06.2026, den der Statistiker in der
+Mappe vom 07.08.2026 nachgetragen hat.
+
+**Kein Bytecode ins Repository.** `scripts/__pycache__` gehört in `.gitignore`
+und darf nicht eingecheckt sein. Sonst schreibt Python beim Lauf der Action neue
+`.pyc` Dateien, die Sicherung «Nur die erwarteten Dateien geaendert» schlägt an
+und der Lauf bricht ab, obwohl alles stimmt. Genau daran sind die Läufe 3 und 5
+gescheitert. Zusätzlich setzt der Workflow `PYTHONDONTWRITEBYTECODE`.
 
 ## Bekannte Fehler in der Mappe
 
@@ -525,10 +532,12 @@ Aktuell ein Eintrag: 05.06.2026, anwesend SJU und YMI.
   NGR und JWI. Vom Verein bestätigt und dem Statistiker gemeldet.
   **Wird über `KORREKTUREN` in `scripts/df_data.py` überschrieben**, siehe
   unten. Sobald die Mappe stimmt, meldet das Skript den Eintrag als überflüssig
-- **26.01.2024** steht im Blatt 2023 zweimal, die zweite Zeile ist leer. Sie
-  zählt in der offiziellen Statistik als eigener Termin, deshalb hat das
-  Fiskaljahr 2023 53 statt 52 Termine. Zuordnungen zwischen Rohdaten und
-  Datensatz deshalb über die Position machen, nie über das Datum
+- **Doppelte Termindaten**: 26.01.2024 im Blatt 2023 und 07.08.2026 im Blatt
+  2026 stehen je zweimal, eine der beiden Zeilen ohne Eintrag. Beide zählen in
+  der offiziellen Statistik als eigener Termin, das Blatt selbst nennt für 2026
+  32 Termine und seine Mitgliedersummen stimmen mit unseren überein. Deshalb
+  unverändert übernommen. Zuordnungen zwischen Rohdaten und Datensatz immer über
+  die Position machen, nie über das Datum
 - PKN 2023 enthält eine Spende von CHF 33.07 im Bussentotal
 - YMI 2024 im All-time-Blatt ist offenbar aus 2023 kopiert, 476.00 statt 393.50.
   Massgebend sind die Jahresblätter

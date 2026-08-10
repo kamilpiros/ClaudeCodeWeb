@@ -176,8 +176,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=20260801d"></script>
-<script src="df-data.js?v=20260801d"></script>
+<script src="df-kalender.js?v=202608101012"></script>
+<script src="df-data.js?v=202608101012"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -510,8 +510,11 @@ function attendanceCard(y) {
          Mappe allein nicht sagen.` : ""}
        </div>` : "";
   const dupNote = dupes.length
-    ? `<div class="note">Der ${dmy(dupes[0])} steht in der Mappe zweimal, die zweite Zeile ist leer.
-       Sie zählt in der offiziellen Statistik als eigener Termin und wird darum auch hier gezeigt.</div>` : "";
+    ? `<div class="note">${dupes.length === 1 ? "Der " + dmy(dupes[0]) + " steht"
+        : "Diese Daten stehen"} in der Mappe zweimal${dupes.length > 1
+        ? ": " + dupes.map(dmy).join(", ") : ""}, jeweils einmal ohne Eintrag.
+       Beide Zeilen zählen in der offiziellen Statistik als eigener Termin, deshalb
+       erscheinen sie auch hier.</div>` : "";
 
   // Termine, bei denen die Mappe nachweislich falsch ist und die Seite den
   // richtigen Wert rechnet. Faellt weg, sobald die Mappe nachgeführt ist.

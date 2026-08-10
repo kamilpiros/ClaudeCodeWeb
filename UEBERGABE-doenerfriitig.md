@@ -501,6 +501,28 @@ Leere Zellen kommen in gut 200 von 522 Terminen vor, vor allem 2017 bis 2022 bei
 CBO und YMI. Wer daran etwas ändert, prüft danach zwingend, dass die Punkte aus
 den Zeichenfolgen weiterhin `members[m].att` je Jahr entsprechen.
 
+### Aufbau der Blöcke, wichtig
+
+Ein Jahresblatt hat zwei nebeneinanderliegende Blöcke mit eigenen Datumsspalten:
+
+- **Bussenblock** (Datum, Grund, Beträge): **eine Zeile je Bussenposten**. Ein
+  Datum kommt darum mehrfach vor, etwa `Yearly Amount`, `LI`, `LIFO` und
+  `Missing Penalty`. Jede dieser Zeilen ist eine zusätzliche Busse, kein
+  weiterer Dönerfriitig.
+- **Teilnahmeblock** (Datum, je Mitglied eine Spalte): **eine Zeile je Termin**,
+  üblicherweise auf der Höhe der Zeile mit der Absenzbusse.
+
+Wird das Datum versehentlich auch auf einer reinen Bussenzeile eingetragen,
+entsteht dort eine zweite, fast leere Teilnahmezeile. Das wäre ein Termin, den
+es nie gab, und es zählt allen eine Absenz zu viel. `S._attendance_rows` fasst
+deshalb je Datum zusammen und nimmt die Zeile mit den meisten ausgefüllten
+Zellen, das ist immer die echte. Über den Grund zu gehen wäre unzuverlässig, in
+den Blättern 2022 und 2024 passt die Zahl der `Missing Penalty` Zeilen nicht zur
+Zahl der Termine.
+
+`attendance` und `attendance_raw` teilen sich diesen Leser, damit die
+gerechneten Zahlen und die Terminliste nicht auseinanderlaufen können.
+
 ### Korrekturen an der Mappe
 
 `KORREKTUREN` in `scripts/df_data.py` überschreibt Termine, bei denen die Mappe
@@ -533,11 +555,13 @@ gescheitert. Zusätzlich setzt der Workflow `PYTHONDONTWRITEBYTECODE`.
   **Wird über `KORREKTUREN` in `scripts/df_data.py` überschrieben**, siehe
   unten. Sobald die Mappe stimmt, meldet das Skript den Eintrag als überflüssig
 - **Doppelte Termindaten**: 26.01.2024 im Blatt 2023 und 07.08.2026 im Blatt
-  2026 stehen je zweimal, eine der beiden Zeilen ohne Eintrag. Beide zählen in
-  der offiziellen Statistik als eigener Termin, das Blatt selbst nennt für 2026
-  32 Termine und seine Mitgliedersummen stimmen mit unseren überein. Deshalb
-  unverändert übernommen. Zuordnungen zwischen Rohdaten und Datensatz immer über
-  die Position machen, nie über das Datum
+  2026. In beiden Fällen wurde das Datum versehentlich auch auf einer reinen
+  Bussenzeile eingetragen, einmal LIFO, einmal Last In. Der Leser räumt das auf,
+  siehe «Aufbau der Blöcke» unten. Das Blatt selbst zählt in `C20` mit
+  `COUNT(C23:C91)` noch 32 statt 31 Termine für 2026 und 53 statt 52 für 2023,
+  weil auch der Zähler in Spalte C auf der Bussenzeile gesetzt wurde. Dort
+  weicht die Seite bewusst vom Blatt ab. Zu korrigieren wäre in der Mappe:
+  Spalte C, Spalte D und die eine Teilnahmezelle auf der Bussenzeile leeren
 - PKN 2023 enthält eine Spende von CHF 33.07 im Bussentotal
 - YMI 2024 im All-time-Blatt ist offenbar aus 2023 kopiert, 476.00 statt 393.50.
   Massgebend sind die Jahresblätter

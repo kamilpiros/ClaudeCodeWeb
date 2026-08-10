@@ -172,8 +172,20 @@ def members_row(ws, cols, hint=None):
 # --------------------------------------------------------------------------- #
 # Anwesenheit
 # --------------------------------------------------------------------------- #
-def attendance(ws):
-    """[(datum, {mitglied: True/False}), ...] fuer jeden Termin des Blattes."""
+def _attendance_rows(ws):
+    """[(datum, {mitglied: 1 | 0 | None}), ...], ein Eintrag je Doenerfriitig.
+
+    Aufbau der Mappe: im Bussenblock steht eine Zeile je Bussenposten. Ein Datum
+    kann darum mehrfach vorkommen, etwa Mitgliederbeitrag, Last In und
+    Absenzbusse. Die Anwesenheit gehoert dagegen genau einmal je Datum dazu und
+    steht ueblicherweise auf der Zeile mit der Absenzbusse.
+
+    Wird das Datum versehentlich auch auf einer reinen Bussenzeile eingetragen,
+    entsteht dort eine zweite, fast leere Anwesenheitszeile. Das waere ein
+    zusaetzlicher Termin, den es nie gab, und es zaehlt allen eine Absenz zu
+    viel. Bei doppeltem Datum gewinnt deshalb die Zeile mit den meisten
+    ausgefuellten Zellen, das ist immer die echte Anwesenheitszeile.
+    """
     h = _header(ws, "date", "part")
     if not h:
         return [], {}
@@ -181,61 +193,43 @@ def attendance(ws):
     who = members_row(ws, cols)
     if not who:
         return [], {}
-    rows = []
+    nach_datum = {}                       # datum -> (anzahl gefuellter Zellen, rec)
     for r in range(hr + 1, ws.max_row + 1):
         d = parse_date(ws.cell(row=r, column=dc).value)
         if not d:
             continue
-        rec, gefuellt = {}, False
+        rec, gefuellt = {}, 0
         for c in cols:
             v = ws.cell(row=r, column=c).value
             if isinstance(v, (int, float)):
                 # Aeltere Blaetter haengen dem Wert eine Sortierziffer an,
                 # 1.07 heisst anwesend, 0 heisst abwesend.
-                rec[who[c]] = v >= 0.5
-                gefuellt = True
+                rec[who[c]] = 1 if v >= 0.5 else 0
+                gefuellt += 1
             else:
-                # Leere Zelle heisst abwesend. Ohne das fehlt der Termin in
-                # Kopf an Kopf und in der Saisonauswertung.
-                rec[who[c]] = False
-        if gefuellt:
-            rows.append((d, rec))
-    return rows, who
+                rec[who[c]] = None
+        if gefuellt and gefuellt > nach_datum.get(d, (0, None))[0]:
+            nach_datum[d] = (gefuellt, rec)
+    return [(d, rec) for d, (_, rec) in sorted(nach_datum.items())], who
+
+
+def attendance(ws):
+    """[(datum, {mitglied: True/False}), ...] fuer jeden Termin des Blattes.
+
+    Die leere Zelle wird zur Absenz, genau wie die Vereinsstatistik selbst
+    rechnet. Alle Summen der Seite haengen daran.
+    """
+    rows, who = _attendance_rows(ws)
+    return [(d, {m: bool(v) for m, v in rec.items()}) for d, rec in rows], who
 
 
 def attendance_raw(ws):
-    """[(datum, {mitglied: 1 | 0 | None}), ...] mit der leeren Zelle als None.
+    """Wie `attendance`, aber die leere Zelle bleibt None.
 
-    `attendance` macht aus einer leeren Zelle eine Absenz, weil die
-    Vereinsstatistik das auch so rechnet und alle Summen daran haengen. Fuer die
-    Terminliste auf der Seite muss aber sichtbar bleiben, ob jemand als abwesend
-    erfasst wurde oder ob die Zelle schlicht nie ausgefuellt worden ist. Diese
-    Funktion liefert deshalb dieselben Zeilen in derselben Reihenfolge, nur ohne
-    die Vereinfachung.
+    Nur fuer die Anzeige. Dort soll sichtbar bleiben, ob jemand als abwesend
+    erfasst wurde oder ob die Zelle schlicht nie ausgefuellt worden ist.
     """
-    h = _header(ws, "date", "part")
-    if not h:
-        return []
-    hr, dc, cols = h
-    who = members_row(ws, cols)
-    if not who:
-        return []
-    rows = []
-    for r in range(hr + 1, ws.max_row + 1):
-        d = parse_date(ws.cell(row=r, column=dc).value)
-        if not d:
-            continue
-        rec, gefuellt = {}, False
-        for c in cols:
-            v = ws.cell(row=r, column=c).value
-            if isinstance(v, (int, float)):
-                rec[who[c]] = 1 if v >= 0.5 else 0
-                gefuellt = True
-            else:
-                rec[who[c]] = None
-        if gefuellt:
-            rows.append((d, rec))
-    return rows
+    return _attendance_rows(ws)[0]
 
 
 # --------------------------------------------------------------------------- #

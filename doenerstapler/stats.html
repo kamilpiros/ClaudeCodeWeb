@@ -176,8 +176,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=202608101012"></script>
-<script src="df-data.js?v=202608101012"></script>
+<script src="df-kalender.js?v=202608101025"></script>
+<script src="df-data.js?v=202608101025"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -496,7 +496,6 @@ function attendanceCard(y) {
   const full = y.rows.filter(r => count(r) === roster.length).length;
   const thin = y.rows.filter(r => count(r) <= 2 && count(r) > 0);
   const gaps = y.rows.filter(r => r.a.includes("?"));
-  const dupes = y.rows.map(r => r.d).filter((d, i, a) => a.indexOf(d) !== i);
 
   const ohne = y.rows.filter(r => count(r) === 0);
   const gapNote = gaps.length
@@ -509,13 +508,6 @@ function attendanceCard(y) {
          Ob dort wirklich keiner am Tisch sass oder nur die Zeile fehlt, lässt sich aus der
          Mappe allein nicht sagen.` : ""}
        </div>` : "";
-  const dupNote = dupes.length
-    ? `<div class="note">${dupes.length === 1 ? "Der " + dmy(dupes[0]) + " steht"
-        : "Diese Daten stehen"} in der Mappe zweimal${dupes.length > 1
-        ? ": " + dupes.map(dmy).join(", ") : ""}, jeweils einmal ohne Eintrag.
-       Beide Zeilen zählen in der offiziellen Statistik als eigener Termin, deshalb
-       erscheinen sie auch hier.</div>` : "";
-
   // Termine, bei denen die Mappe nachweislich falsch ist und die Seite den
   // richtigen Wert rechnet. Faellt weg, sobald die Mappe nachgeführt ist.
   const fixes = (D.corrections || []).filter(c => y.rows.some(r => r.d === c.d));
@@ -542,7 +534,7 @@ function attendanceCard(y) {
       ${thin.length ? ` An ${thin.length} Terminen sassen höchstens zwei Mitglieder am Tisch, zuletzt am ${dmy(thin[thin.length - 1].d)}.` : ""}
       Im Schnitt waren ${(y.rows.reduce((s, r) => s + count(r), 0) / y.rows.length).toFixed(1).replace(".", ",")} Mitglieder da.
     </div>
-    ${fixNote}${gapNote}${dupNote}
+    ${fixNote}${gapNote}
   </div>`;
 }
 

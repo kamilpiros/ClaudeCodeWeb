@@ -13,12 +13,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-  html, body { overflow-x: hidden; height: auto; min-height: 100%; }
+  html, body { overflow: auto; overflow-x: hidden; height: auto; min-height: 100%; }
   body { padding-bottom: 46px; }
 
   /* Feuerwerk liegt ueber allem und faengt keine Klicks ab */
   #fw { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
   .layer { position: relative; z-index: 2; }
+  #p-prot, .eintrag, textarea { user-select: text; -webkit-user-select: text; }
 
   /* ---------- Kopf ---------- */
   .top {
@@ -161,11 +162,6 @@
     letter-spacing: .8px; text-transform: uppercase; font-weight: 700; line-height: 1.5;
   }
   .pokal { font-size: 12px; opacity: .8; margin-top: 12px; line-height: 1.45; }
-
-  /* ---------- Generalversammlung ---------- */
-  .gvk { border-color: rgba(126,226,135,.45); background: rgba(126,226,135,.07); }
-  .gvk h2 { color: #7ee287; }
-  .gvt { margin: 0; font-size: 13px; line-height: 1.55; opacity: .85; }
 
   /* ---------- Anwesende ---------- */
   .crew { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -497,14 +493,6 @@ function programmZeichnen() {
   }).join("");
 
   document.getElementById("p-prog").innerHTML = `
-    <div class="card gvk">
-      <h2>Generalversammlung</h2>
-      <div class="sub2">Sie ist an keine Station gebunden.</div>
-      <p class="gvt">Sobald alle sechs Mitglieder beisammen sind, ist der Verein
-      beschlussfähig. Das gilt heute den ganzen Tag, auf dem Boot genauso wie im
-      Ferienhaus oder im Restaurant. Was beschlossen wird, hält ${name(GURKE)} im
-      Live-Protokoll fest.</p>
-    </div>
     <div class="card">
       <h2>Wie der Tag läuft</h2>
       <div class="sub2">Alle Zeiten ungefähr.</div>
@@ -515,8 +503,8 @@ function programmZeichnen() {
       <div class="sub2">Heute sind alle sechs dabei.</div>
       <div class="crew">${MITGLIEDER.map(m =>
         `<span class="who"><i style="background:${FARBE[m]}"></i>${esc(name(m))}</span>`).join("")}</div>
-      <div class="note">Vollzählig heisst beschlussfähig. In 488 Dönerfriitig war das bisher
-      erst dreissig Mal der Fall. Heute wird es das einunddreissigste.</div>
+      <div class="note">In 488 Dönerfriitig waren erst dreissig Mal alle sechs da.
+      Heute ist es das einunddreissigste.</div>
     </div>`;
 }
 

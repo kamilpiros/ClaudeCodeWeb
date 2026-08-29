@@ -143,13 +143,29 @@
   }
   .quiz .qt { font-size: 14.5px; font-weight: 800; color: #ffd166; }
   .quiz .qs { font-size: 12px; opacity: .75; margin-top: 3px; line-height: 1.45; }
-  .kats { display: flex; gap: 6px; margin-top: 10px; }
+  .kats { display: grid; gap: 6px; margin-top: 11px; }
   .kat {
-    flex: 1; text-align: center; border: 1px solid rgba(255,209,102,.35); border-radius: 9px;
-    padding: 9px 2px; font-size: 17px; font-weight: 800; color: #ffd166;
-    background: rgba(255,209,102,.06);
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid rgba(255,209,102,.35); border-radius: 10px;
+    padding: 9px 11px; background: rgba(255,209,102,.06);
   }
-  .kat span { display: block; font-size: 9px; opacity: .6; font-weight: 700; letter-spacing: .4px; }
+  .kat b {
+    flex: none; width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,209,102,.22); color: #ffd166; font-size: 11.5px; font-weight: 800;
+  }
+  .kat span { font-size: 13.5px; font-weight: 700; color: #ffd166; line-height: 1.3; }
+  .kat.extra { border-style: dashed; }
+  .kzt {
+    font-size: 10px; opacity: .55; margin-top: 12px; margin-bottom: 6px;
+    letter-spacing: .8px; text-transform: uppercase; font-weight: 700; line-height: 1.5;
+  }
+  .pokal { font-size: 12px; opacity: .8; margin-top: 12px; line-height: 1.45; }
+
+  /* ---------- Generalversammlung ---------- */
+  .gvk { border-color: rgba(126,226,135,.45); background: rgba(126,226,135,.07); }
+  .gvk h2 { color: #7ee287; }
+  .gvt { margin: 0; font-size: 13px; line-height: 1.55; opacity: .85; }
 
   /* ---------- Anwesende ---------- */
   .crew { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -283,24 +299,35 @@ const bei = (hhmm) => {
   return d;
 };
 
+// Die Kategorien sind offiziell veroeffentlicht. La Biblioteca kommt nur,
+// wenn am Schluss ein Stechen noetig wird.
+const KATEGORIEN = [
+  "Data Science",
+  "La Discoteca",
+  "The Olympic Games 2108",
+  "De Fritzli Müller",
+  "Scrabble",
+];
+const KAT_STECHEN = "La Biblioteca";
+
 // ---------------------------------------------------------------------
 //  Programm des Tages
 // ---------------------------------------------------------------------
 const PROGRAMM = [
   { von: "15:00", bis: "15:15", ico: "boot", tit: "Ablegen", ort: "Zugersee",
-    txt: "Das Boot holt uns ab. Wer nicht am Steg steht, schwimmt hinterher." },
+    txt: "Das Boot holt uns am Steg ab." },
   { von: "15:15", bis: "18:00", ico: "wake", tit: "Wakeboarden", ort: "auf dem Wasser",
-    txt: "Musik läuft, Snacks und Bier sind an Bord. Dazwischen versucht sich jeder auf dem Brett.",
+    txt: "Snacks und Getränke sind an Bord.",
     quiz: true },
   { von: "18:00", bis: "19:15", ico: "haus", tit: "Anlanden bei YMI", ort: "Ferienhaus",
-    txt: "Ein Drink an Land und die Beine wieder an festen Boden gewöhnen." },
+    txt: "Ein Drink im Ferienhaus." },
   { von: "19:15", bis: "19:45", ico: "auto", tit: "Transfer", ort: "nach Mettmenstetten",
     txt: "Mit dem Auto von YMI und einem Uber. Abfahrt zwischen 19 und 19.30 Uhr." },
   { von: "19:45", bis: "22:00", ico: "steak", tit: "Steakhouse Bahnhof", ort: "Mettmenstetten",
-    txt: "Ein schönes Stück Fleisch. Und weil alle da sind, gleichzeitig die Generalversammlung.",
-    gv: true },
-  { von: "22:00", bis: null, ico: "mond", tit: "Zur freien Verfügung", ort: "offen",
-    txt: "Ausgang wäre möglich. Erfahrungsgemäss geht die Mehrheit ins Bett." },
+    txt: "Abendessen im Restaurant Bahnhof.",
+  },
+  { von: "22:00", bis: null, ico: "mond", tit: "Zur freien Verfügung", ort: "Mettmenstetten",
+    txt: "Der offizielle Teil ist vorbei." },
 ];
 
 const ICONS = {
@@ -421,7 +448,7 @@ function status() {
         <div class="u"><b>${pad(m)}</b><span>Min</span></div>
         <div class="u"><b>${pad(s)}</b><span>Sek</span></div>
       </div>
-      <div class="zusatz">Treffpunkt am Steg. Badehose nicht vergessen.</div>`;
+      <div class="zusatz">Treffpunkt am Steg.</div>`;
   } else if (jetzt) {
     el.className = "status laeuft";
     const rest = jetzt.bis ? Math.max(0, Math.round((bei(jetzt.bis) - now) / 60000)) : null;
@@ -433,7 +460,7 @@ function status() {
     el.className = "status";
     el.innerHTML = `<div class="lbl">Quo Vadis ${bei("15:00").getFullYear()}</div>
       <div class="jetzt" style="color:#ffd166">Das wars</div>
-      <div class="zusatz">Der Rest steht im Protokoll. Bis zum nächsten Dönerfriitig.</div>`;
+      <div class="zusatz">Der Rest steht im Protokoll.</div>`;
   }
   himmel(now);
   markiere(now);
@@ -447,16 +474,17 @@ function programmZeichnen() {
     const quiz = p.quiz ? `
       <div class="quiz">
         <div class="qt">Das Quiz von ${name(GURKE)}</div>
-        <div class="qs">25 Minuten, fünf Kategorien. Welche, verrät er erst an Bord.</div>
+        <div class="qs">Fünf Blöcke zu je fünf Minuten. Sie müssen nicht am Stück gespielt
+        werden und gehen überall: auf dem Boot, am Strand, im Zug oder im Restaurant.
+        Wann gespielt wird, entscheidet das OK.</div>
         <div class="kats">
-          ${[1, 2, 3, 4, 5].map(n => `<div class="kat">?<span>Kat ${n}</span></div>`).join("")}
+          ${KATEGORIEN.map((k, n) =>
+            `<div class="kat"><b>${n + 1}</b><span>${esc(k)}</span></div>`).join("")}
         </div>
-      </div>` : "";
-    const gv = p.gv ? `
-      <div class="quiz" style="border-color:rgba(126,226,135,.45);background:rgba(126,226,135,.07)">
-        <div class="qt" style="color:#7ee287">Generalversammlung</div>
-        <div class="qs">Alle sechs Mitglieder sind da, damit ist der Verein beschlussfähig.
-        ${name(GURKE)} hält die Beschlüsse im Live-Protokoll fest.</div>
+        <div class="kzt">Zusatzkategorie, falls es ein Stechen braucht</div>
+        <div class="kat extra"><b>+</b><span>${esc(KAT_STECHEN)}</span></div>
+        <div class="pokal">🏆 Für den glorreichen Sieger gibt es am Schluss einen
+        zünftigen Pokal.</div>
       </div>` : "";
     return `<div class="st" data-i="${i}">
       <div class="bub">${ICONS[p.ico]}</div>
@@ -464,19 +492,27 @@ function programmZeichnen() {
       <div class="tit">${esc(p.tit)}</div>
       <div class="ort">${esc(p.ort)}</div>
       <div class="txt">${esc(p.txt)}</div>
-      ${quiz}${gv}
+      ${quiz}
     </div>`;
   }).join("");
 
   document.getElementById("p-prog").innerHTML = `
+    <div class="card gvk">
+      <h2>Generalversammlung</h2>
+      <div class="sub2">Sie ist an keine Station gebunden.</div>
+      <p class="gvt">Sobald alle sechs Mitglieder beisammen sind, ist der Verein
+      beschlussfähig. Das gilt heute den ganzen Tag, auf dem Boot genauso wie im
+      Ferienhaus oder im Restaurant. Was beschlossen wird, hält ${name(GURKE)} im
+      Live-Protokoll fest.</p>
+    </div>
     <div class="card">
       <h2>Wie der Tag läuft</h2>
-      <div class="sub2">Alle Zeiten ungefähr. Das Boot wartet nicht, der Rest schon.</div>
+      <div class="sub2">Alle Zeiten ungefähr.</div>
       <div class="rail"><div class="fill" id="fill"></div>${stationen}</div>
     </div>
     <div class="card">
       <h2>An Bord</h2>
-      <div class="sub2">Heute sind alle da. Das ist der ganze Punkt.</div>
+      <div class="sub2">Heute sind alle sechs dabei.</div>
       <div class="crew">${MITGLIEDER.map(m =>
         `<span class="who"><i style="background:${FARBE[m]}"></i>${esc(name(m))}</span>`).join("")}</div>
       <div class="note">Vollzählig heisst beschlussfähig. In 488 Dönerfriitig war das bisher
@@ -518,8 +554,8 @@ function protokollZeichnen() {
         <h2 style="margin:0">Live-Protokoll</h2>
         <span id="livebadge" class="live off" style="margin-left:auto"><i></i>verbinde</span>
       </div>
-      <div class="sub2">Protokollführer ist ${name(GURKE)}. Was hier steht, gilt.
-      Alle sehen dasselbe Protokoll in Echtzeit.</div>
+      <div class="sub2">Protokollführer ist ${name(GURKE)}. Alle sehen dasselbe
+      Protokoll in Echtzeit.</div>
 
       <div class="feldlbl">Wer hält fest</div>
       <div class="chips" id="autoren"></div>
@@ -540,7 +576,11 @@ function protokollZeichnen() {
       </div>
       <div class="sub2" id="stand"></div>
       <div id="liste"></div>
-      <button class="knopf zweit" id="kopieren" style="margin-top:14px">Ganzes Protokoll kopieren</button>
+      <button class="knopf zweit" id="mailen" style="margin-top:14px">Protokoll per E-Mail verschicken</button>
+      <button class="knopf zweit" id="kopieren" style="margin-top:8px">Ganzes Protokoll kopieren</button>
+      <div class="note">Alles wird laufend auf dem Server gespeichert und bleibt dort
+      liegen. Diese Seite lässt sich auch morgen noch unter
+      dönerfriitig.ch/quovadis.html öffnen.</div>
     </div>`;
 
   document.getElementById("autoren").innerHTML = MITGLIEDER.map(m =>
@@ -560,6 +600,7 @@ function protokollZeichnen() {
   };
   document.getElementById("senden").onclick = senden;
   document.getElementById("kopieren").onclick = kopieren;
+  document.getElementById("mailen").onclick = mailen;
   listeZeichnen();
 }
 
@@ -684,15 +725,35 @@ async function zuruecknehmen(id) {
   lokalSpeichern(); listeZeichnen();
 }
 
-function kopieren() {
-  if (!eintraege.length) { meldung("Noch nichts zu kopieren.", false); return; }
+function protokollText() {
   const d = bei("15:00");
   const kopf = `Protokoll Generalversammlung Verein Dönerfriitig\n`
              + `DF Quo Vadis, ${d.getDate()}. ${MON[d.getMonth()]} ${d.getFullYear()}\n`
              + `Protokollführer: ${GURKE}\n`
              + `Anwesend: ${MITGLIEDER.join(", ")}\n\n`;
-  const txt = kopf + eintraege.map(e =>
+  return kopf + eintraege.map(e =>
     `${uhr(new Date(e.ts))} Uhr  [${e.art}]  ${e.autor}\n${e.text}\n`).join("\n");
+}
+
+// Oeffnet das Mailprogramm mit fertig ausgefuelltem Protokoll. Empfaenger
+// traegt der Absender selbst ein, die Adressen stehen nicht auf der Seite.
+function mailen() {
+  if (!eintraege.length) { meldung("Noch nichts zu verschicken.", false); return; }
+  const d = bei("15:00");
+  const betreff = `Protokoll DF Quo Vadis vom ${d.getDate()}. ${MON[d.getMonth()]} ${d.getFullYear()}`;
+  const link = "mailto:?subject=" + encodeURIComponent(betreff)
+             + "&body=" + encodeURIComponent(protokollText());
+  if (link.length > 8000) {
+    kopieren();
+    meldung("Zu lang fürs Mailprogramm. Das Protokoll liegt in der Zwischenablage.", false);
+    return;
+  }
+  location.href = link;
+}
+
+function kopieren() {
+  if (!eintraege.length) { meldung("Noch nichts zu kopieren.", false); return; }
+  const txt = protokollText();
   const fertig = () => meldung("Protokoll in der Zwischenablage.", true);
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(txt).then(fertig, () => notfallKopie(txt, fertig));

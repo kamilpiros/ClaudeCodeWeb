@@ -41,8 +41,8 @@ async function schreiben(env, tag, liste) {
   if (!env.LEADERBOARD) return false;
   try {
     // Ein Vereinsabend, danach braucht es den Eintrag nur noch zum Nachlesen.
-    await env.LEADERBOARD.put(PREFIX + tag, JSON.stringify(liste),
-                              { expirationTtl: 60 * 60 * 24 * 365 });
+    // Ohne Ablauf: das Protokoll ist ein Vereinsdokument und bleibt liegen
+    await env.LEADERBOARD.put(PREFIX + tag, JSON.stringify(liste));
     return true;
   } catch {
     return false;

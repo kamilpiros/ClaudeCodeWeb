@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2c386d">
+<title>DF Quo Vadis · Dönerfriitig</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="180x180" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { overflow-x: hidden; height: auto; min-height: 100%; }
+  body { padding-bottom: 46px; }
+
+  /* Feuerwerk liegt ueber allem und faengt keine Klicks ab */
+  #fw { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+  .layer { position: relative; z-index: 2; }
+
+  /* ---------- Kopf ---------- */
+  .top {
+    display: flex; align-items: center; gap: 10px;
+    padding: max(12px, env(safe-area-inset-top)) 14px 6px;
+    max-width: 760px; margin: 0 auto;
+  }
+  .top img { width: 34px; height: 34px; object-fit: contain; }
+  .top .wo { font-size: 11px; opacity: .55; letter-spacing: 1.4px; text-transform: uppercase; }
+  .top a.raus {
+    margin-left: auto; color: var(--cream); opacity: .8; text-decoration: none;
+    font-size: 12.5px; border: 1.5px solid var(--line); border-radius: 20px;
+    padding: 7px 13px; white-space: nowrap; background: rgba(38,49,94,.7);
+  }
+  .top a.raus:active { transform: scale(.96); }
+
+  /* ---------- Himmel ---------- */
+  .sky {
+    position: relative; max-width: 760px; margin: 6px auto 0; border-radius: 22px;
+    overflow: hidden; height: 250px; border: 1px solid var(--line);
+    transition: background 1.5s linear;
+  }
+  .sky .sonne, .sky .mond {
+    position: absolute; border-radius: 50%; transition: left 1.5s linear, top 1.5s linear, opacity 1.5s;
+  }
+  .sky .sonne { width: 46px; height: 46px; background: #ffe9a8;
+                box-shadow: 0 0 42px 16px rgba(255,209,102,.5); }
+  .sky .mond { width: 34px; height: 34px; background: #eef4fb;
+               box-shadow: 0 0 26px 8px rgba(238,244,251,.28); }
+  .sky .stern { position: absolute; width: 2px; height: 2px; border-radius: 50%;
+                background: #fff; animation: funkeln 3.5s ease-in-out infinite; }
+  @keyframes funkeln { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+  .sky .wasser { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; }
+  /* Der Titel sitzt unter der Sonnenbahn, damit sich die beiden nie in die Quere kommen */
+  .sky .titel {
+    position: absolute; left: 0; right: 0; bottom: 84px; text-align: center;
+    text-shadow: 0 2px 16px rgba(10,16,40,.75);
+  }
+  .sky .titel .k { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; opacity: .85; }
+  .sky .titel .g { font-size: 34px; font-weight: 800; line-height: 1.05; margin-top: 2px; }
+  .sky .titel .d { font-size: 12.5px; opacity: .85; margin-top: 4px; }
+  @media (max-width: 420px) { .sky { height: 236px; } .sky .titel .g { font-size: 28px; } }
+
+  /* ---------- Statusband ---------- */
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 14px; }
+  .status {
+    margin-top: 12px; background: var(--card); border: 1.5px solid var(--line);
+    border-radius: 18px; padding: 14px 16px; text-align: center;
+  }
+  .status .lbl { font-size: 11px; opacity: .6; letter-spacing: 1.5px; text-transform: uppercase; }
+  .status .units { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+  .status .u { flex: 1; max-width: 76px; }
+  .status .u b { display: block; font-size: 25px; font-weight: 800; color: #ffd166;
+                 line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .status .u span { font-size: 10px; opacity: .55; letter-spacing: .5px; text-transform: uppercase; }
+  .status.laeuft { border-color: rgba(126,226,135,.55); }
+  .status .jetzt { font-size: 19px; font-weight: 800; color: #7ee287; }
+  .status .zusatz { font-size: 12px; opacity: .65; margin-top: 5px; line-height: 1.45; }
+
+  /* ---------- Reiter ---------- */
+  .tabs { display: flex; gap: 8px; padding: 14px 0 4px; }
+  .tabs button {
+    flex: 1; padding: 11px 10px; border-radius: 13px; font-size: 14.5px; font-weight: 700;
+    background: var(--card); color: var(--cream); border: 2px solid transparent; cursor: pointer;
+  }
+  .tabs button.on { border-color: #ffd166; background: #33305c; color: #ffd166; }
+  .panel { display: none; } .panel.on { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px; margin-bottom: 13px;
+  }
+  .card h2 { margin: 0 0 3px; font-size: 17px; font-weight: 800; }
+  .card .sub2 { font-size: 12px; opacity: .6; margin-bottom: 13px; line-height: 1.45; }
+  .note { font-size: 11.5px; opacity: .55; line-height: 1.5; margin-top: 10px; }
+
+  /* ---------- Tagesverlauf ---------- */
+  .rail { position: relative; padding-left: 46px; }
+  .rail::before {
+    content: ""; position: absolute; left: 17px; top: 14px; bottom: 14px; width: 3px;
+    border-radius: 2px; background: rgba(255,255,255,.1);
+  }
+  .rail .fill {
+    position: absolute; left: 17px; top: 14px; width: 3px; border-radius: 2px;
+    background: linear-gradient(#ffd166, #ff9f43); transition: height 1s linear;
+  }
+  .st { position: relative; padding: 9px 0 13px; }
+  .st .bub {
+    position: absolute; left: -46px; top: 10px; width: 37px; height: 37px; border-radius: 50%;
+    background: #1d2750; border: 2px solid var(--line); display: flex;
+    align-items: center; justify-content: center;
+  }
+  .st .bub svg { width: 21px; height: 21px; display: block; }
+  .st .zeit { font-size: 11.5px; letter-spacing: .6px; opacity: .6; font-variant-numeric: tabular-nums; }
+  .st .tit { font-size: 16.5px; font-weight: 800; margin-top: 1px; }
+  .st .ort { font-size: 11.5px; opacity: .5; }
+  .st .txt { font-size: 13px; opacity: .8; line-height: 1.5; margin-top: 5px; }
+
+  .st.vorbei { opacity: .45; }
+  .st.vorbei .bub { border-color: rgba(126,226,135,.5); }
+  .st.jetzt .bub {
+    border-color: #ffd166; background: #3a3358;
+    animation: puls 2s ease-in-out infinite; box-shadow: 0 0 0 0 rgba(255,209,102,.5);
+  }
+  @keyframes puls {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,209,102,.45) }
+    50% { box-shadow: 0 0 0 11px rgba(255,209,102,0) }
+  }
+  .st.jetzt .tit { color: #ffd166; }
+  .st .mark {
+    display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .7px;
+    text-transform: uppercase; border-radius: 5px; padding: 2px 6px; margin-left: 7px;
+    vertical-align: 2px;
+  }
+  .st.jetzt .mark { color: #ffd166; border: 1px solid rgba(255,209,102,.6); }
+  .st.vorbei .mark { color: #7ee287; border: 1px solid rgba(126,226,135,.45); }
+
+  /* Das Quiz haengt als eigener Kasten im Bootsabschnitt */
+  .quiz {
+    margin-top: 11px; border: 1.5px dashed rgba(255,209,102,.45); border-radius: 14px;
+    padding: 12px 13px; background: rgba(255,209,102,.07);
+  }
+  .quiz .qt { font-size: 14.5px; font-weight: 800; color: #ffd166; }
+  .quiz .qs { font-size: 12px; opacity: .75; margin-top: 3px; line-height: 1.45; }
+  .kats { display: flex; gap: 6px; margin-top: 10px; }
+  .kat {
+    flex: 1; text-align: center; border: 1px solid rgba(255,209,102,.35); border-radius: 9px;
+    padding: 9px 2px; font-size: 17px; font-weight: 800; color: #ffd166;
+    background: rgba(255,209,102,.06);
+  }
+  .kat span { display: block; font-size: 9px; opacity: .6; font-weight: 700; letter-spacing: .4px; }
+
+  /* ---------- Anwesende ---------- */
+  .crew { display: flex; flex-wrap: wrap; gap: 7px; }
+  .who {
+    display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 20px;
+    background: #1d2750; border: 1px solid var(--line); font-size: 13px; font-weight: 700;
+  }
+  .who i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+
+  /* ---------- Protokoll ---------- */
+  .live {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700;
+    letter-spacing: .8px; text-transform: uppercase; padding: 3px 9px; border-radius: 20px;
+    border: 1px solid rgba(126,226,135,.45); color: #7ee287;
+  }
+  .live i { width: 6px; height: 6px; border-radius: 50%; background: #7ee287;
+            animation: blink 1.8s ease-in-out infinite; }
+  .live.off { border-color: rgba(255,159,67,.5); color: #ff9f43; }
+  .live.off i { background: #ff9f43; animation: none; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 7px 12px; border-radius: 10px; font-size: 13px; font-weight: 700;
+    background: #1d2750; color: var(--cream); border: 2px solid transparent; cursor: pointer;
+  }
+  .chip.on { border-color: #ffd166; color: #ffd166; }
+  .feldlbl { font-size: 10.5px; opacity: .5; letter-spacing: 1.2px; text-transform: uppercase;
+             margin: 13px 0 6px; }
+  textarea {
+    width: 100%; box-sizing: border-box; min-height: 92px; resize: vertical;
+    background: #1d2750; color: var(--cream); border: 1.5px solid var(--line);
+    border-radius: 13px; padding: 12px 13px; font-size: 15px; font-family: inherit; line-height: 1.5;
+  }
+  textarea:focus { outline: none; border-color: #ffd166; }
+  .knopf {
+    width: 100%; margin-top: 10px; padding: 14px; border-radius: 14px; border: none;
+    background: #ffd166; color: #2c386d; font-size: 16px; font-weight: 800;
+    font-family: inherit; cursor: pointer;
+  }
+  .knopf:disabled { opacity: .45; }
+  .knopf:active:not(:disabled) { transform: scale(.985); }
+  .knopf.zweit { background: transparent; color: var(--cream); border: 1.5px solid var(--line);
+                 font-size: 13.5px; padding: 10px; font-weight: 700; }
+  .meld { font-size: 12.5px; margin-top: 9px; min-height: 17px; }
+  .meld.gut { color: #7ee287; } .meld.schlecht { color: #ff6b8a; }
+
+  .eintrag {
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+    animation: rein .35s ease-out;
+  }
+  @keyframes rein { from { opacity: 0; transform: translateY(-7px) } to { opacity: 1; transform: none } }
+  .eintrag:last-child { border-bottom: none; }
+  .eintrag .kopf { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .eintrag .art {
+    font-size: 9.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase;
+    border-radius: 5px; padding: 2px 7px;
+  }
+  .art-Beschluss { color: #ffd166; border: 1px solid rgba(255,209,102,.6); }
+  .art-Traktandum { color: #7cc4ff; border: 1px solid rgba(124,196,255,.55); }
+  .art-Notiz { color: #b39dff; border: 1px solid rgba(179,157,255,.5); }
+  .art-Zitat { color: #2ee6a8; border: 1px solid rgba(46,230,168,.5); }
+  .eintrag .wer { font-size: 12.5px; font-weight: 800; }
+  .eintrag .uhr { font-size: 11.5px; opacity: .45; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .eintrag .was { font-size: 14.5px; line-height: 1.55; margin-top: 6px; white-space: pre-wrap; }
+  .eintrag.zitat .was { font-style: italic; }
+  .leer { text-align: center; padding: 26px 10px; opacity: .45; font-size: 13.5px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<canvas id="fw"></canvas>
+
+<div class="layer">
+  <div class="top">
+    <img src="logo.png" alt="DF" onerror="this.style.display='none'">
+    <div><div class="wo">Verein Dönerfriitig</div></div>
+    <a class="raus" href="index.html?normal=1">Normale Seite ›</a>
+  </div>
+
+  <div class="sky" id="sky">
+    <div class="sonne" id="sonne"></div>
+    <div class="mond" id="mond"></div>
+    <div id="sterne"></div>
+    <svg class="wasser" viewBox="0 0 760 74" preserveAspectRatio="none" aria-hidden="true">
+      <path id="w1" fill="rgba(20,40,90,.55)"></path>
+      <path id="w2" fill="rgba(12,26,66,.8)"></path>
+      <g id="boot"><path d="M-14 0 L14 0 L9 9 L-9 9 Z" fill="#eef4fb"/>
+        <rect x="-1.4" y="-13" width="2.8" height="13" fill="#eef4fb"/>
+        <path d="M2 -12 L11 -2 L2 -2 Z" fill="#ffd166"/></g>
+    </svg>
+    <div class="titel">
+      <div class="k">Heute</div>
+      <div class="g">DF Quo Vadis</div>
+      <div class="d" id="datum"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="status" id="status"></div>
+
+    <div class="tabs">
+      <button data-t="prog" class="on">Tagesverlauf</button>
+      <button data-t="prot">Live-Protokoll</button>
+    </div>
+
+    <div class="panel on" id="p-prog"></div>
+    <div class="panel" id="p-prot"></div>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+//  DF Quo Vadis, 29. August 2026
+// =====================================================================
+const TAG = "2026-08-29";
+const MITGLIEDER = ["MST/MSO", "SJU", "JWU", "PKN", "CBO", "YMI"];
+const GURKE = "JWU";                       // Protokollführer, trägt die Gurke
+const FARBE = {
+  "MST/MSO": "#ffd166", "SJU": "#2ee6a8", "JWU": "#9ce33a",
+  "PKN": "#ff9f43", "CBO": "#ff6b8a", "YMI": "#b39dff",
+};
+const name = (m) => m === GURKE ? m + " 🥒" : m;
+const esc = (s) => String(s).replace(/[&<>"]/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+const uhr = (d) => pad(d.getHours()) + "." + pad(d.getMinutes());
+const bei = (hhmm) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date(TAG + "T00:00:00");
+  d.setHours(h, m, 0, 0);
+  return d;
+};
+
+// ---------------------------------------------------------------------
+//  Programm des Tages
+// ---------------------------------------------------------------------
+const PROGRAMM = [
+  { von: "15:00", bis: "15:15", ico: "boot", tit: "Ablegen", ort: "Zugersee",
+    txt: "Das Boot holt uns ab. Wer nicht am Steg steht, schwimmt hinterher." },
+  { von: "15:15", bis: "18:00", ico: "wake", tit: "Wakeboarden", ort: "auf dem Wasser",
+    txt: "Musik läuft, Snacks und Bier sind an Bord. Dazwischen versucht sich jeder auf dem Brett.",
+    quiz: true },
+  { von: "18:00", bis: "19:15", ico: "haus", tit: "Anlanden bei YMI", ort: "Ferienhaus",
+    txt: "Ein Drink an Land und die Beine wieder an festen Boden gewöhnen." },
+  { von: "19:15", bis: "19:45", ico: "auto", tit: "Transfer", ort: "nach Mettmenstetten",
+    txt: "Mit dem Auto von YMI und einem Uber. Abfahrt zwischen 19 und 19.30 Uhr." },
+  { von: "19:45", bis: "22:00", ico: "steak", tit: "Steakhouse Bahnhof", ort: "Mettmenstetten",
+    txt: "Ein schönes Stück Fleisch. Und weil alle da sind, gleichzeitig die Generalversammlung.",
+    gv: true },
+  { von: "22:00", bis: null, ico: "mond", tit: "Zur freien Verfügung", ort: "offen",
+    txt: "Ausgang wäre möglich. Erfahrungsgemäss geht die Mehrheit ins Bett." },
+];
+
+const ICONS = {
+  boot: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 16h18l-2.4 4.4a2 2 0 0 1-1.8 1H7.2a2 2 0 0 1-1.8-1L3 16z" fill="#7cc4ff"/><path d="M12 3v11" stroke="#eef4fb" stroke-width="1.6" stroke-linecap="round"/><path d="M13 4.5l5.5 8H13z" fill="#ffd166"/></svg>',
+  wake: '<svg viewBox="0 0 24 24" fill="none"><circle cx="15" cy="5" r="2.2" fill="#ffd166"/><path d="M15.5 8.2l-2.6 3.4 2.9 2.3.7 4" stroke="#ffd166" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.9 11.6L8.4 9.4" stroke="#ffd166" stroke-width="1.7" stroke-linecap="round"/><path d="M4 19.5c3.5 0 3.5-2 7-2s3.5 2 7 2 3.5-2 6-2" stroke="#7cc4ff" stroke-width="1.8" stroke-linecap="round"/><path d="M12.5 17.6l5-1.4" stroke="#eef4fb" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  haus: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 11l8-6 8 6v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z" fill="#2ee6a8"/><rect x="10" y="14" width="4" height="6.5" fill="#2c386d"/></svg>',
+  auto: '<svg viewBox="0 0 24 24" fill="none"><path d="M3 15l1.6-4.6A2 2 0 0 1 6.5 9h11a2 2 0 0 1 1.9 1.4L21 15v3.5h-3V17H6v1.5H3z" fill="#ff9f43"/><circle cx="7" cy="15.6" r="1.7" fill="#2c386d"/><circle cx="17" cy="15.6" r="1.7" fill="#2c386d"/></svg>',
+  steak: '<svg viewBox="0 0 24 24" fill="none"><path d="M5.5 9.5c1-3.5 5-5.5 9-4.6 3.6.8 5.4 4 4.4 7-1 3.2-4.4 5.4-8.2 5-3.6-.4-6.1-3.6-5.2-7.4z" fill="#ff6b8a"/><path d="M10.5 10.6c1.6-1.2 3.6-1 4.6.4" stroke="#2c386d" stroke-width="1.5" stroke-linecap="round"/><path d="M4.6 17.2c1.6 2 4 2.6 5.6 1.8" stroke="#eef4fb" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  mond: '<svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.4 4a8.5 8.5 0 1 0 10.6 10.5z" fill="#b39dff"/><path d="M17 4.2l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L14.5 6.7l1.8-.7z" fill="#ffd166"/></svg>',
+};
+
+// ---------------------------------------------------------------------
+//  Himmel: Farbe, Sonne, Mond und Sterne folgen der echten Uhrzeit
+// ---------------------------------------------------------------------
+const STOPS = [
+  [0.00, [74, 127, 212], [156, 205, 240]],   // 14 Uhr, heller Nachmittag
+  [0.55, [63, 108, 192], [168, 207, 232]],   // 19 Uhr, noch blau
+  [0.70, [63, 95, 168],  [240, 180, 120]],   // 20.20 Uhr, Horizont wird warm
+  [0.80, [47, 63, 125],  [226, 104, 63]],    // 21.10 Uhr, Sonnenuntergang
+  [0.90, [32, 42, 86],   [107, 58, 107]],    // 22 Uhr, Dämmerung
+  [1.00, [18, 26, 56],   [34, 40, 90]],      // 23 Uhr, Nacht
+];
+const misch = (a, b, f) => a.map((v, i) => Math.round(v + (b[i] - v) * f));
+const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+(function sterneBauen() {
+  const host = document.getElementById("sterne");
+  let h = "";
+  for (let i = 0; i < 34; i++) {
+    h += `<span class="stern" style="left:${(Math.random() * 96 + 2).toFixed(1)}%;
+      top:${(Math.random() * 58 + 3).toFixed(1)}%;
+      animation-delay:${(Math.random() * 3.5).toFixed(1)}s"></span>`;
+  }
+  host.innerHTML = h;
+})();
+
+function himmel(now) {
+  const a = bei("14:00"), b = bei("23:00");
+  const t = Math.max(0, Math.min(1, (now - a) / (b - a)));
+  let i = 0;
+  while (i < STOPS.length - 2 && t > STOPS[i + 1][0]) i++;
+  const [t0, o0, u0] = STOPS[i], [t1, o1, u1] = STOPS[i + 1];
+  const f = (t - t0) / (t1 - t0 || 1);
+  document.getElementById("sky").style.background =
+    `linear-gradient(${rgb(misch(o0, o1, f))}, ${rgb(misch(u0, u1, f))})`;
+
+  // Die Sonne beschreibt einen echten Bogen: aussen tief, in der Mitte zuoberst.
+  // Untergang um 0.70, das sind rund 20.20 Uhr, so wie am Zugersee Ende August.
+  const s = document.getElementById("sonne"), m = document.getElementById("mond");
+  const u = Math.min(1, t / 0.70), k = (2 * u - 1) * (2 * u - 1);
+  s.style.left = (8 + 84 * u).toFixed(1) + "%";
+  s.style.top = (5 + 42 * k).toFixed(1) + "%";
+  s.style.opacity = Math.max(0, Math.min(1, (0.72 - t) / 0.05)).toFixed(2);
+  // Der Mond zieht danach von rechts herein und steigt
+  const v = Math.max(0, Math.min(1, (t - 0.72) / 0.28));
+  m.style.left = (88 - 50 * v).toFixed(1) + "%";
+  m.style.top = (40 - 28 * v).toFixed(1) + "%";
+  m.style.opacity = Math.min(1, v * 3).toFixed(2);
+  document.getElementById("sterne").style.opacity =
+    Math.max(0, Math.min(1, (t - 0.66) / 0.2)).toFixed(2);
+}
+
+// Wellen und ein Boot, das darauf schaukelt
+let wPhase = 0;
+function wellen() {
+  wPhase += 0.02;
+  const welle = (amp, ver, y) => {
+    let d = `M0 ${y}`;
+    for (let x = 0; x <= 760; x += 20) {
+      d += ` L${x} ${(y + Math.sin(x / 90 + wPhase + ver) * amp).toFixed(1)}`;
+    }
+    return d + " L760 74 L0 74 Z";
+  };
+  document.getElementById("w1").setAttribute("d", welle(5, 0, 26));
+  document.getElementById("w2").setAttribute("d", welle(4, 1.7, 40));
+  const bx = 120 + Math.sin(wPhase / 3) * 60;
+  const by = 26 + Math.sin(bx / 90 + wPhase) * 5;
+  const kipp = Math.cos(bx / 90 + wPhase) * 7;
+  document.getElementById("boot").setAttribute(
+    "transform", `translate(${bx.toFixed(1)} ${by.toFixed(1)}) rotate(${kipp.toFixed(1)})`);
+  if (!ruhig) requestAnimationFrame(wellen);
+}
+
+// ---------------------------------------------------------------------
+//  Status: Countdown, laufend oder vorbei
+// ---------------------------------------------------------------------
+const MON = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+             "August", "September", "Oktober", "November", "Dezember"];
+const TAGE = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+(function datumSchreiben() {
+  const d = bei("15:00");
+  document.getElementById("datum").textContent =
+    `${TAGE[d.getDay()]}, ${d.getDate()}. ${MON[d.getMonth()]} ${d.getFullYear()}`;
+})();
+
+function aktuell(now) {
+  for (const p of PROGRAMM) {
+    const a = bei(p.von), b = p.bis ? bei(p.bis) : bei("23:59");
+    if (now >= a && now < b) return p;
+  }
+  return null;
+}
+
+function status() {
+  const now = new Date();
+  const start = bei("15:00");
+  const el = document.getElementById("status");
+  const jetzt = aktuell(now);
+
+  if (now < start) {
+    let s = Math.floor((start - now) / 1000);
+    const h = Math.floor(s / 3600); s -= h * 3600;
+    const m = Math.floor(s / 60); s -= m * 60;
+    el.className = "status";
+    el.innerHTML = `<div class="lbl">Das Boot legt ab in</div>
+      <div class="units">
+        <div class="u"><b>${pad(h)}</b><span>Std</span></div>
+        <div class="u"><b>${pad(m)}</b><span>Min</span></div>
+        <div class="u"><b>${pad(s)}</b><span>Sek</span></div>
+      </div>
+      <div class="zusatz">Treffpunkt am Steg. Badehose nicht vergessen.</div>`;
+  } else if (jetzt) {
+    el.className = "status laeuft";
+    const rest = jetzt.bis ? Math.max(0, Math.round((bei(jetzt.bis) - now) / 60000)) : null;
+    el.innerHTML = `<div class="lbl">Jetzt gerade</div>
+      <div class="jetzt">${esc(jetzt.tit)}</div>
+      <div class="zusatz">${esc(jetzt.ort)}${rest !== null
+        ? ` · noch ungefähr ${rest} Minuten` : " · Ende offen"}</div>`;
+  } else {
+    el.className = "status";
+    el.innerHTML = `<div class="lbl">Quo Vadis ${bei("15:00").getFullYear()}</div>
+      <div class="jetzt" style="color:#ffd166">Das wars</div>
+      <div class="zusatz">Der Rest steht im Protokoll. Bis zum nächsten Dönerfriitig.</div>`;
+  }
+  himmel(now);
+  markiere(now);
+}
+
+// ---------------------------------------------------------------------
+//  Tagesverlauf
+// ---------------------------------------------------------------------
+function programmZeichnen() {
+  const stationen = PROGRAMM.map((p, i) => {
+    const quiz = p.quiz ? `
+      <div class="quiz">
+        <div class="qt">Das Quiz von ${name(GURKE)}</div>
+        <div class="qs">25 Minuten, fünf Kategorien. Welche, verrät er erst an Bord.</div>
+        <div class="kats">
+          ${[1, 2, 3, 4, 5].map(n => `<div class="kat">?<span>Kat ${n}</span></div>`).join("")}
+        </div>
+      </div>` : "";
+    const gv = p.gv ? `
+      <div class="quiz" style="border-color:rgba(126,226,135,.45);background:rgba(126,226,135,.07)">
+        <div class="qt" style="color:#7ee287">Generalversammlung</div>
+        <div class="qs">Alle sechs Mitglieder sind da, damit ist der Verein beschlussfähig.
+        ${name(GURKE)} hält die Beschlüsse im Live-Protokoll fest.</div>
+      </div>` : "";
+    return `<div class="st" data-i="${i}">
+      <div class="bub">${ICONS[p.ico]}</div>
+      <div class="zeit">${p.von.replace(":", ".")}${p.bis ? " bis " + p.bis.replace(":", ".") : " Uhr, offen"}<span class="mark"></span></div>
+      <div class="tit">${esc(p.tit)}</div>
+      <div class="ort">${esc(p.ort)}</div>
+      <div class="txt">${esc(p.txt)}</div>
+      ${quiz}${gv}
+    </div>`;
+  }).join("");
+
+  document.getElementById("p-prog").innerHTML = `
+    <div class="card">
+      <h2>Wie der Tag läuft</h2>
+      <div class="sub2">Alle Zeiten ungefähr. Das Boot wartet nicht, der Rest schon.</div>
+      <div class="rail"><div class="fill" id="fill"></div>${stationen}</div>
+    </div>
+    <div class="card">
+      <h2>An Bord</h2>
+      <div class="sub2">Heute sind alle da. Das ist der ganze Punkt.</div>
+      <div class="crew">${MITGLIEDER.map(m =>
+        `<span class="who"><i style="background:${FARBE[m]}"></i>${esc(name(m))}</span>`).join("")}</div>
+      <div class="note">Vollzählig heisst beschlussfähig. In 488 Dönerfriitig war das bisher
+      erst dreissig Mal der Fall. Heute wird es das einunddreissigste.</div>
+    </div>`;
+}
+
+function markiere(now) {
+  const el = document.querySelectorAll("#p-prog .st");
+  PROGRAMM.forEach((p, i) => {
+    const k = el[i]; if (!k) return;
+    const a = bei(p.von), b = p.bis ? bei(p.bis) : bei("23:59");
+    const mark = k.querySelector(".mark");
+    k.classList.remove("vorbei", "jetzt");
+    if (now >= b) { k.classList.add("vorbei"); mark.textContent = "vorbei"; }
+    else if (now >= a) { k.classList.add("jetzt"); mark.textContent = "jetzt"; }
+    else mark.textContent = "";
+  });
+  const fill = document.getElementById("fill");
+  if (fill) {
+    const rail = fill.parentElement;
+    const a = bei("15:00"), b = bei("22:00");
+    const f = Math.max(0, Math.min(1, (now - a) / (b - a)));
+    fill.style.height = Math.round((rail.clientHeight - 28) * f) + "px";
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Live-Protokoll
+// ---------------------------------------------------------------------
+const ARTEN = ["Beschluss", "Traktandum", "Notiz", "Zitat"];
+const LOKAL = "df-protokoll-" + TAG;
+let autor = GURKE, art = "Beschluss", eintraege = [], istLive = false, sendet = false;
+
+function protokollZeichnen() {
+  document.getElementById("p-prot").innerHTML = `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+        <h2 style="margin:0">Live-Protokoll</h2>
+        <span id="livebadge" class="live off" style="margin-left:auto"><i></i>verbinde</span>
+      </div>
+      <div class="sub2">Protokollführer ist ${name(GURKE)}. Was hier steht, gilt.
+      Alle sehen dasselbe Protokoll in Echtzeit.</div>
+
+      <div class="feldlbl">Wer hält fest</div>
+      <div class="chips" id="autoren"></div>
+
+      <div class="feldlbl">Was ist es</div>
+      <div class="chips" id="arten"></div>
+
+      <div class="feldlbl">Wortlaut</div>
+      <textarea id="text" maxlength="600" placeholder="Zum Beispiel: Die Absenzbusse steigt ab dem neuen Fiskaljahr auf CHF 15."></textarea>
+      <button class="knopf" id="senden">Ins Protokoll aufnehmen</button>
+      <div class="meld" id="meld"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:9px">
+        <h2 style="margin:0">Das Protokoll</h2>
+        <span style="margin-left:auto;font-size:12px;opacity:.5" id="zaehler"></span>
+      </div>
+      <div class="sub2" id="stand"></div>
+      <div id="liste"></div>
+      <button class="knopf zweit" id="kopieren" style="margin-top:14px">Ganzes Protokoll kopieren</button>
+    </div>`;
+
+  document.getElementById("autoren").innerHTML = MITGLIEDER.map(m =>
+    `<button class="chip ${m === autor ? "on" : ""}" data-a="${esc(m)}">${esc(name(m))}</button>`).join("");
+  document.getElementById("arten").innerHTML = ARTEN.map(a =>
+    `<button class="chip ${a === art ? "on" : ""}" data-k="${a}">${a}</button>`).join("");
+
+  document.getElementById("autoren").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    autor = b.dataset.a;
+    document.querySelectorAll("#autoren .chip").forEach(x => x.classList.toggle("on", x === b));
+  };
+  document.getElementById("arten").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    art = b.dataset.k;
+    document.querySelectorAll("#arten .chip").forEach(x => x.classList.toggle("on", x === b));
+  };
+  document.getElementById("senden").onclick = senden;
+  document.getElementById("kopieren").onclick = kopieren;
+  listeZeichnen();
+}
+
+function meldung(txt, gut) {
+  const m = document.getElementById("meld");
+  if (!m) return;
+  m.className = "meld " + (gut ? "gut" : "schlecht");
+  m.textContent = txt;
+  if (txt) setTimeout(() => { if (m.textContent === txt) m.textContent = ""; }, 4000);
+}
+
+function badge() {
+  const b = document.getElementById("livebadge");
+  if (!b) return;
+  b.className = "live" + (istLive ? "" : " off");
+  b.innerHTML = `<i></i>${istLive ? "Live" : "Nur dieses Gerät"}`;
+}
+
+function listeZeichnen() {
+  const host = document.getElementById("liste");
+  if (!host) return;
+  const z = document.getElementById("zaehler");
+  const stand = document.getElementById("stand");
+  z.textContent = eintraege.length
+    ? eintraege.length + (eintraege.length === 1 ? " Eintrag" : " Einträge") : "";
+  stand.textContent = istLive
+    ? "Aktualisiert sich von selbst."
+    : "Der Speicher ist gerade nicht erreichbar, die Einträge liegen nur auf diesem Gerät.";
+
+  if (!eintraege.length) {
+    host.innerHTML = `<div class="leer">Noch nichts festgehalten.<br>
+      ${esc(name(GURKE))} ist am Zug.</div>`;
+    return;
+  }
+  const neuster = eintraege[eintraege.length - 1];
+  host.innerHTML = eintraege.slice().reverse().map(e => {
+    const d = new Date(e.ts);
+    const zurueck = e.id === neuster.id && Date.now() - e.ts < 15 * 60000
+      ? `<button class="chip" style="padding:3px 9px;font-size:11px;margin-left:auto"
+           data-weg="${esc(e.id)}">zurücknehmen</button>` : "";
+    return `<div class="eintrag ${e.art === "Zitat" ? "zitat" : ""}">
+      <div class="kopf">
+        <span class="art art-${e.art}">${e.art}</span>
+        <span class="wer" style="color:${FARBE[e.autor] || "#eef4fb"}">${esc(name(e.autor))}</span>
+        <span class="uhr">${uhr(d)}</span>
+      </div>
+      <div class="was">${esc(e.text)}</div>
+      ${zurueck ? `<div style="display:flex;margin-top:7px">${zurueck}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  host.querySelectorAll("[data-weg]").forEach(b => b.onclick = () => zuruecknehmen(b.dataset.weg));
+}
+
+function lokalSpeichern() {
+  try { localStorage.setItem(LOKAL, JSON.stringify(eintraege)); } catch { /* egal */ }
+}
+function lokalLaden() {
+  try { return JSON.parse(localStorage.getItem(LOKAL) || "[]"); } catch { return []; }
+}
+
+async function holen() {
+  try {
+    const r = await fetch(`/api/protokoll?tag=${TAG}`, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (!Array.isArray(d.entries)) throw new Error("Format");
+    // Beim Tippen nicht dazwischenfunken
+    if (!sendet) { eintraege = d.entries; istLive = true; lokalSpeichern(); }
+  } catch {
+    if (!istLive) eintraege = lokalLaden();
+    istLive = false;
+  }
+  badge();
+  listeZeichnen();
+}
+
+async function senden() {
+  const feld = document.getElementById("text");
+  const text = feld.value.replace(/\s+/g, " ").trim();
+  if (!text) { meldung("Da steht noch nichts.", false); feld.focus(); return; }
+  const knopf = document.getElementById("senden");
+  knopf.disabled = true; sendet = true;
+  const eigen = { id: "l" + Date.now().toString(36), ts: Date.now(), autor, art, text };
+  try {
+    const r = await fetch("/api/protokoll", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tag: TAG, autor, art, text }),
+    });
+    const d = await r.json();
+    if (!r.ok || !Array.isArray(d.entries)) throw new Error(d.error || "Fehler");
+    eintraege = d.entries; istLive = true;
+    meldung("Festgehalten.", true);
+  } catch (err) {
+    // Lieber lokal behalten als verlieren. Beim nächsten Versuch geht es wieder hoch.
+    eintraege = eintraege.concat([eigen]); istLive = false;
+    meldung("Nur auf diesem Gerät gespeichert, der Server antwortet nicht.", false);
+  }
+  lokalSpeichern();
+  feld.value = "";
+  knopf.disabled = false; sendet = false;
+  badge(); listeZeichnen();
+}
+
+async function zuruecknehmen(id) {
+  if (!confirm("Diesen Eintrag zurücknehmen?")) return;
+  try {
+    const r = await fetch("/api/protokoll", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tag: TAG, id }),
+    });
+    const d = await r.json();
+    if (!r.ok || !Array.isArray(d.entries)) throw new Error(d.error || "Fehler");
+    eintraege = d.entries;
+    meldung("Zurückgenommen.", true);
+  } catch {
+    eintraege = eintraege.filter(e => e.id !== id);
+    meldung("Nur auf diesem Gerät entfernt.", false);
+  }
+  lokalSpeichern(); listeZeichnen();
+}
+
+function kopieren() {
+  if (!eintraege.length) { meldung("Noch nichts zu kopieren.", false); return; }
+  const d = bei("15:00");
+  const kopf = `Protokoll Generalversammlung Verein Dönerfriitig\n`
+             + `DF Quo Vadis, ${d.getDate()}. ${MON[d.getMonth()]} ${d.getFullYear()}\n`
+             + `Protokollführer: ${GURKE}\n`
+             + `Anwesend: ${MITGLIEDER.join(", ")}\n\n`;
+  const txt = kopf + eintraege.map(e =>
+    `${uhr(new Date(e.ts))} Uhr  [${e.art}]  ${e.autor}\n${e.text}\n`).join("\n");
+  const fertig = () => meldung("Protokoll in der Zwischenablage.", true);
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(txt).then(fertig, () => notfallKopie(txt, fertig));
+  } else notfallKopie(txt, fertig);
+}
+function notfallKopie(txt, fertig) {
+  const t = document.createElement("textarea");
+  t.value = txt; t.style.position = "fixed"; t.style.opacity = "0";
+  document.body.appendChild(t); t.select();
+  try { document.execCommand("copy"); fertig(); }
+  catch { meldung("Kopieren hat nicht geklappt.", false); }
+  document.body.removeChild(t);
+}
+
+// ---------------------------------------------------------------------
+//  Feuerwerk
+// ---------------------------------------------------------------------
+const PALETTE = ["#ffd166", "#7cc4ff", "#2ee6a8", "#ff6b8a", "#b39dff", "#ff9f43"];
+const ruhig = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const fw = (() => {
+  const cv = document.getElementById("fw");
+  const ctx = cv.getContext("2d");
+  let W = 0, H = 0, teile = [], raketen = [], laeuft = false, ausstehend = 0;
+
+  function groesse() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", groesse);
+  groesse();
+
+  function rakete() {
+    raketen.push({
+      x: W * (0.15 + Math.random() * 0.7), y: H + 10,
+      vy: -(H * 0.011 + Math.random() * H * 0.004),
+      ziel: H * (0.12 + Math.random() * 0.3),
+      farbe: PALETTE[(Math.random() * PALETTE.length) | 0],
+    });
+  }
+
+  function platzen(x, y, farbe) {
+    const n = 64 + ((Math.random() * 30) | 0);
+    const tempo = 2.1 + Math.random() * 1.5;
+    for (let i = 0; i < n; i++) {
+      const w = (i / n) * Math.PI * 2 + Math.random() * 0.1;
+      const s = tempo * (0.45 + Math.random() * 0.7);
+      teile.push({
+        x, y, vx: Math.cos(w) * s, vy: Math.sin(w) * s,
+        leben: 1, ab: 0.008 + Math.random() * 0.01,
+        farbe, gross: 1.2 + Math.random() * 1.6,
+      });
+    }
+  }
+
+  function bild() {
+    if (!laeuft) return;
+    // Nachziehen statt loeschen, das gibt die Schweife
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "rgba(0,0,0,.16)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "lighter";
+
+    for (let i = raketen.length - 1; i >= 0; i--) {
+      const r = raketen[i];
+      r.y += r.vy; r.vy += 0.045;
+      ctx.fillStyle = r.farbe;
+      ctx.globalAlpha = .9;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 2, 0, 6.3); ctx.fill();
+      if (r.y <= r.ziel || r.vy >= 0) { platzen(r.x, r.y, r.farbe); raketen.splice(i, 1); }
+    }
+    for (let i = teile.length - 1; i >= 0; i--) {
+      const p = teile[i];
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.032; p.vx *= 0.988; p.vy *= 0.988;
+      p.leben -= p.ab;
+      if (p.leben <= 0) { teile.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.leben) * (0.65 + Math.random() * 0.35);
+      ctx.fillStyle = p.farbe;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.gross, 0, 6.3); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    // Solange noch Raketen unterwegs sind oder nachgeladen werden, laeuft die Schleife weiter
+    if (!teile.length && !raketen.length && !ausstehend) { laeuft = false; ctx.clearRect(0, 0, W, H); return; }
+    requestAnimationFrame(bild);
+  }
+
+  function salve(anzahl, abstand) {
+    if (ruhig) return;
+    // Die erste Rakete sofort, sonst faengt das erste Bild eine leere Buehne vor und hoert wieder auf
+    for (let i = 0; i < anzahl; i++) {
+      if (i === 0) { rakete(); continue; }
+      ausstehend++;
+      setTimeout(() => { ausstehend--; rakete(); }, i * abstand);
+    }
+    if (!laeuft) { laeuft = true; requestAnimationFrame(bild); }
+  }
+  return { salve };
+})();
+
+// ---------------------------------------------------------------------
+//  Start
+// ---------------------------------------------------------------------
+document.querySelector(".tabs").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === "p-" + b.dataset.t));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+document.getElementById("sky").addEventListener("click", () => fw.salve(4, 260));
+
+programmZeichnen();
+protokollZeichnen();
+status();
+setInterval(status, 1000);
+wellen();   // zeichnet immer ein Bild, auch bei reduzierter Bewegung, sonst fehlte der See
+
+fw.salve(9, 320);
+setInterval(() => { if (!document.hidden && Math.random() < 0.5) fw.salve(1, 0); }, 9000);
+
+eintraege = lokalLaden();
+listeZeichnen();
+holen();
+setInterval(() => { if (!document.hidden) holen(); }, 8000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) holen(); });
+</script>
+</body>
+</html>

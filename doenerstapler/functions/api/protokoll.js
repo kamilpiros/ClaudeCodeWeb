@@ -4,12 +4,17 @@
 // POST   /api/protokoll { tag, autor, art, text }
 // DELETE /api/protokoll { tag, id }           nur der jeweils neuste Eintrag
 //
+// Alle drei Wege verlangen das Vereinspasswort im Kopf x-df-wort. Die Pruefung
+// gehoert hierher und nicht auf die Seite: eine Abfrage im Browser laesst sich
+// im Quelltext umgehen, diese hier nicht.
+//
 // Gespeichert wird im selben KV wie die Bestenlisten, unter einem Schluessel je
 // Vereinstag. Faellt KV aus, antwortet die Schnittstelle mit live:false und die
 // Seite schreibt nur lokal weiter, damit im Restaurant niemand vor einer
 // kaputten Seite sitzt.
 
 const PREFIX = "protokoll_v1_";
+const WORT_STANDARD = "Zuckersee";
 const MITGLIEDER = new Set(["CBO", "SJU", "PKN", "YMI", "MST/MSO", "JWU"]);
 const ARTEN = new Set(["Beschluss", "Traktandum", "Notiz", "Zitat"]);
 const MAX_TEXT = 600;
@@ -21,6 +26,26 @@ const json = (data, status = 200) =>
     status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
+
+// Gross- und Kleinschreibung sowie Leerzeichen spielen keine Rolle, sonst
+// scheitert die Eingabe an der Autokorrektur des Telefons.
+const normal = (w) => String(w == null ? "" : w).trim().toLowerCase();
+
+// Vergleich ohne Abkuerzung, damit die Laufzeit nichts ueber das Wort verraet.
+function gleich(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+function wortOk(request, env) {
+  const soll = normal(env.PROTOKOLL_WORT || WORT_STANDARD);
+  const ist = normal(request.headers.get("x-df-wort"));
+  return ist.length > 0 && gleich(ist, soll);
+}
+
+const gesperrt = () => json({ error: "Falsches Passwort" }, 401);
 
 // Nur ein Datum im Format JJJJ-MM-TT, sonst koennte jeder beliebige
 // KV-Schluessel angelegt werden.
@@ -52,6 +77,7 @@ async function schreiben(env, tag, liste) {
 const saeubern = (s) => String(s).replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
 
 export async function onRequestGet({ request, env }) {
+  if (!wortOk(request, env)) return gesperrt();
   const tag = new URL(request.url).searchParams.get("tag");
   if (!tagOk(tag)) return json({ error: "Ungültiger Tag" }, 400);
   const liste = await lesen(env, tag);
@@ -59,6 +85,7 @@ export async function onRequestGet({ request, env }) {
 }
 
 export async function onRequestPost({ request, env }) {
+  if (!wortOk(request, env)) return gesperrt();
   let body;
   try {
     body = await request.json();
@@ -88,6 +115,7 @@ export async function onRequestPost({ request, env }) {
 }
 
 export async function onRequestDelete({ request, env }) {
+  if (!wortOk(request, env)) return gesperrt();
   let body;
   try {
     body = await request.json();

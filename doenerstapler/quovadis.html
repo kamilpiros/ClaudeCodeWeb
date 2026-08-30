@@ -197,6 +197,12 @@
     border-radius: 13px; padding: 12px 13px; font-size: 15px; font-family: inherit; line-height: 1.5;
   }
   textarea:focus { outline: none; border-color: #ffd166; }
+  input.wortfeld {
+    width: 100%; box-sizing: border-box;
+    background: #1d2750; color: var(--cream); border: 1.5px solid var(--line);
+    border-radius: 13px; padding: 13px; font-size: 16px; font-family: inherit;
+  }
+  input.wortfeld:focus { outline: none; border-color: #ffd166; }
   .knopf {
     width: 100%; margin-top: 10px; padding: 14px; border-radius: 14px; border: none;
     background: #ffd166; color: #2c386d; font-size: 16px; font-weight: 800;
@@ -533,9 +539,74 @@ function markiere(now) {
 // ---------------------------------------------------------------------
 const ARTEN = ["Beschluss", "Traktandum", "Notiz", "Zitat"];
 const LOKAL = "df-protokoll-" + TAG;
+const WORTLAGER = "df-protokoll-wort";
 let autor = GURKE, art = "Beschluss", eintraege = [], istLive = false, sendet = false;
+// Das Protokoll ist nur fuer den Verein. Geprueft wird auf dem Server, hier
+// merken wir uns bloss, ob der Server uns schon einmal durchgelassen hat.
+let wort = "", entsperrt = false;
+try { wort = localStorage.getItem(WORTLAGER) || ""; } catch { /* egal */ }
+const wortKopf = () => ({ "x-df-wort": wort });
+
+function schlossZeichnen() {
+  document.getElementById("p-prot").innerHTML = `
+    <div class="card">
+      <h2>Protokoll gesperrt</h2>
+      <div class="sub2">Die Beschlüsse der Generalversammlung sind nur für den Verein.</div>
+      <div class="feldlbl">Passwort</div>
+      <input class="wortfeld" id="wort" type="password" autocomplete="current-password"
+             autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Passwort">
+      <button class="knopf" id="oeffnen">Protokoll öffnen</button>
+      <div class="meld" id="meld"></div>
+    </div>`;
+  const feld = document.getElementById("wort");
+  document.getElementById("oeffnen").onclick = oeffnen;
+  feld.addEventListener("keydown", (e) => { if (e.key === "Enter") oeffnen(); });
+  feld.focus();
+}
+
+// Der Server entscheidet, nicht die Seite. Stimmt das Wort, kommen die
+// Eintraege gleich mit der Antwort zurueck.
+async function oeffnen() {
+  const feld = document.getElementById("wort");
+  const knopf = document.getElementById("oeffnen");
+  const kandidat = feld.value.trim();
+  if (!kandidat) { meldung("Da steht noch nichts.", false); feld.focus(); return; }
+  knopf.disabled = true;
+  try {
+    const r = await fetch(`/api/protokoll?tag=${TAG}`,
+                          { cache: "no-store", headers: { "x-df-wort": kandidat } });
+    if (r.status === 401) {
+      meldung("Falsches Passwort.", false);
+      feld.select();
+      return;
+    }
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    wort = kandidat;
+    try { localStorage.setItem(WORTLAGER, wort); } catch { /* egal */ }
+    entsperrt = true;
+    eintraege = Array.isArray(d.entries) ? d.entries : [];
+    istLive = true;
+    lokalSpeichern();
+    protokollZeichnen();
+    badge();
+  } catch {
+    meldung("Der Server antwortet nicht. Bitte nochmals versuchen.", false);
+  } finally {
+    knopf.disabled = false;
+  }
+}
+
+function sperren(grund) {
+  entsperrt = false; istLive = false; eintraege = [];
+  try { localStorage.removeItem(WORTLAGER); localStorage.removeItem(LOKAL); } catch { /* egal */ }
+  wort = "";
+  schlossZeichnen();
+  if (grund) meldung(grund, false);
+}
 
 function protokollZeichnen() {
+  if (!entsperrt) { schlossZeichnen(); return; }
   document.getElementById("p-prot").innerHTML = `
     <div class="card">
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
@@ -566,9 +637,8 @@ function protokollZeichnen() {
       <div id="liste"></div>
       <button class="knopf zweit" id="mailen" style="margin-top:14px">Protokoll per E-Mail verschicken</button>
       <button class="knopf zweit" id="kopieren" style="margin-top:8px">Ganzes Protokoll kopieren</button>
-      <div class="note">Alles wird laufend auf dem Server gespeichert und bleibt dort
-      liegen. Diese Seite lässt sich auch morgen noch unter
-      dönerfriitig.ch/quovadis.html öffnen.</div>
+      <div class="note">Alles liegt dauerhaft auf dem Server. Die Seite ist unter
+      dönerfriitig.ch/quovadis.html erreichbar, das Protokoll nur mit Passwort.</div>
     </div>`;
 
   document.getElementById("autoren").innerHTML = MITGLIEDER.map(m =>
@@ -651,8 +721,11 @@ function lokalLaden() {
 }
 
 async function holen() {
+  if (!entsperrt) return;
   try {
-    const r = await fetch(`/api/protokoll?tag=${TAG}`, { cache: "no-store" });
+    const r = await fetch(`/api/protokoll?tag=${TAG}`,
+                          { cache: "no-store", headers: wortKopf() });
+    if (r.status === 401) { sperren("Das Passwort gilt nicht mehr."); return; }
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
     if (!Array.isArray(d.entries)) throw new Error("Format");
@@ -676,7 +749,7 @@ async function senden() {
   try {
     const r = await fetch("/api/protokoll", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...wortKopf() },
       body: JSON.stringify({ tag: TAG, autor, art, text }),
     });
     const d = await r.json();
@@ -699,7 +772,7 @@ async function zuruecknehmen(id) {
   try {
     const r = await fetch("/api/protokoll", {
       method: "DELETE",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...wortKopf() },
       body: JSON.stringify({ tag: TAG, id }),
     });
     const d = await r.json();
@@ -865,9 +938,20 @@ wellen();   // zeichnet immer ein Bild, auch bei reduzierter Bewegung, sonst feh
 fw.salve(9, 320);
 setInterval(() => { if (!document.hidden && Math.random() < 0.5) fw.salve(1, 0); }, 9000);
 
-eintraege = lokalLaden();
-listeZeichnen();
-holen();
+// Wer das Wort schon einmal eingegeben hat, kommt ohne Tippen wieder hinein
+if (wort) {
+  fetch(`/api/protokoll?tag=${TAG}`, { cache: "no-store", headers: wortKopf() })
+    .then(r => r.status === 401 ? Promise.reject(new Error("401")) : r.json())
+    .then(d => {
+      entsperrt = true;
+      eintraege = Array.isArray(d.entries) ? d.entries : [];
+      istLive = true;
+      lokalSpeichern();
+      protokollZeichnen();
+      badge();
+    })
+    .catch(() => { wort = ""; try { localStorage.removeItem(WORTLAGER); } catch {} });
+}
 setInterval(() => { if (!document.hidden) holen(); }, 8000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) holen(); });
 </script>

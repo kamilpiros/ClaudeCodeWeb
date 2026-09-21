@@ -1,6 +1,7 @@
 // Wann ist Dönerfriitig?
 //
-// Jeden Freitag um 12.15 Uhr, ausser der Freitag ist ein nationaler Feiertag.
+// Jeden Freitag von 12.15 bis 13.15 Uhr, ausser der Freitag ist ein
+// nationaler Feiertag.
 // Das ist keine Vermutung: in den Jahresblättern von 2016 bis 2026 fielen
 // sechzehn Freitage auf einen solchen Feiertag, und an keinem einzigen davon
 // wurde ein Termin gebucht.
@@ -10,7 +11,7 @@
 
 window.DF_KALENDER = (function () {
   var STUNDE = 12, MINUTE = 15;      // Beginn
-  var DAUER = 75;                    // Minuten, danach gilt der Termin als vorbei
+  var DAUER = 60;                    // Minuten, der Kalendereintrag ist eine Stunde
 
   var iso = function (d) {
     return d.getFullYear() + "-"

@@ -169,8 +169,8 @@ window.DF_QV = { tag: "2026-08-29", heute: false };
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="df-kalender.js?v=202609210824"></script>
-<script src="df-data.js?v=202609210824"></script>
+<script src="df-kalender.js?v=202609210857"></script>
+<script src="df-data.js?v=202609210857"></script>
 <script>
 // ---------- Countdown auf Freitag 12.15 Uhr ----------
 // Faellt der Freitag auf einen nationalen Feiertag, gibt es keinen
@@ -232,9 +232,7 @@ function offenTicker() {
   box.innerHTML = `<div class="offen">
     <div class="lbl">Statistik ausstehend seit</div>
     <div class="uhr" id="offenUhr"></div>
-    <div class="wer">Der Dönerfriitig vom ${dmy2(K.iso(a.termin))} ist noch nicht
-    nachgetragen. Gezählt wird ab ${pad(a.seit.getHours())}.${pad(a.seit.getMinutes())} Uhr,
-    dem Ende des Termins.</div>
+    <div class="wer">Der Dönerfriitig vom ${dmy2(K.iso(a.termin))} ist noch nicht nachgetragen.</div>
   </div>`;
 
   const feld = document.getElementById("offenUhr");

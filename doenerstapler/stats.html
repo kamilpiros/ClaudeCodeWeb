@@ -193,8 +193,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=202609210824"></script>
-<script src="df-data.js?v=202609210824"></script>
+<script src="df-kalender.js?v=202609210857"></script>
+<script src="df-data.js?v=202609210857"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -337,13 +337,10 @@ function standTicker() {
   if (!K.ausstehend) return "";
   const a = K.ausstehend(letzterEintrag());
   if (!a.offen) return "";
-  const uhrzeit = `${zwei(a.seit.getHours())}.${zwei(a.seit.getMinutes())}`;
   return `<div class="offen">
     <div class="lbl">Statistik ausstehend seit</div>
     <div class="uhr" id="offenUhr"></div>
-    <div class="wer">Der Dönerfriitig vom ${dmy(K.iso(a.termin))} ist noch nicht nachgetragen.
-    Gezählt wird ab ${uhrzeit} Uhr, dem Ende des Termins. Die Statistik kommt jeweils
-    per Mail und wird dann automatisch übernommen.</div>
+    <div class="wer">Der Dönerfriitig vom ${dmy(K.iso(a.termin))} ist noch nicht nachgetragen.</div>
   </div>`;
 }
 

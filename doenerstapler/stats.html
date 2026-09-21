@@ -65,6 +65,23 @@
   .live.alt i { background: #ff6b8a; animation: pulse 1.8s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .25 } }
 
+  /* Laufende Anzeige, wie lange die Statistik schon aussteht */
+  .offen {
+    border: 1.5px solid rgba(255,107,138,.5); background: rgba(255,107,138,.08);
+    border-radius: 14px; padding: 12px 14px; margin: 0 0 14px;
+  }
+  .offen .lbl { font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; opacity: .6; }
+  .offen .uhr { display: flex; gap: 5px; margin-top: 9px; }
+  .offen .uhr div { flex: 1; text-align: center; }
+  .offen .uhr div.ms { flex: 1.35; }
+  .offen .uhr b {
+    display: block; font-size: 21px; font-weight: 800; color: #ff6b8a;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .offen .uhr div.ms b { font-size: 17px; opacity: .8; }
+  .offen .uhr span { font-size: 9px; opacity: .5; text-transform: uppercase; letter-spacing: .5px; }
+  .offen .wer { font-size: 11.5px; opacity: .6; line-height: 1.5; margin-top: 10px; }
+
   .tw { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
   .tw::-webkit-scrollbar { height: 5px; }
   .tw::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
@@ -176,8 +193,8 @@
   <div class="panel" id="p-duel"></div>
 </div>
 
-<script src="df-kalender.js?v=202609210647"></script>
-<script src="df-data.js?v=202609210647"></script>
+<script src="df-kalender.js?v=202609210824"></script>
+<script src="df-data.js?v=202609210824"></script>
 <script>
 const D = window.DF_DATA;
 const COL = {
@@ -299,23 +316,56 @@ function stackChart(rows, keys, colors, opts) {
 // Verglichen wird der zuletzt gebuchte Termin mit dem letzten Doenerfriitig,
 // der laut Kalender tatsaechlich stattgefunden hat. Feiertage sind dort schon
 // beruecksichtigt, ein ausgefallener Freitag loest also keinen Fehlalarm aus.
-function standBadge() {
-  const K = window.DF_KALENDER;
-  const letzterEintrag = D.years[D.years.length - 1].end;
-  const eingetragen = new Date(letzterEintrag + "T12:15:00");
-  const soll = K.letzter();
-  const tage = Math.round((soll - eingetragen) / 86400000);
+const letzterEintrag = () => D.years[D.years.length - 1].end;
+// pad heisst in dieser Datei schon der Rand der Diagramme
+const zwei = (n) => String(n).padStart(2, "0");
 
-  if (tage <= 0) {
+function standBadge() {
+  if (!window.DF_KALENDER.ausstehend) return "";   // alte Datei im Zwischenspeicher
+  const a = window.DF_KALENDER.ausstehend(letzterEintrag());
+  if (!a.offen) {
     return `<div class="live stand" title="Alle bisherigen Dönerfriitige sind nachgetragen.">`
-         + `<i></i>Nachgetragen bis ${dmy(letzterEintrag)}</div>`;
+         + `<i></i>Nachgetragen bis ${dmy(letzterEintrag())}</div>`;
   }
-  const wie = tage === 1 ? "seit einem Tag" : `seit ${tage} Tagen`;
-  const t = `Der letzte Dönerfriitig war am ${dmy(K.iso(soll))}, nachgetragen ist erst der `
-          + `${dmy(letzterEintrag)}. Die Statistik kommt jeweils per Mail und wird dann `
-          + `automatisch übernommen.`;
-  return `<div class="live stand alt" title="${t}"><i></i>Nachgetragen bis `
-       + `${dmy(letzterEintrag)}, ${wie} offen</div>`;
+  return `<div class="live stand alt"><i></i>Statistik ausstehend</div>`;
+}
+
+// Die Uhr laeuft ab dem Ende des Termins, nicht ab seinem Datum. Vor dem
+// Essen gibt es nichts nachzutragen, darum waere alles andere gelogen.
+function standTicker() {
+  const K = window.DF_KALENDER;
+  if (!K.ausstehend) return "";
+  const a = K.ausstehend(letzterEintrag());
+  if (!a.offen) return "";
+  const uhrzeit = `${zwei(a.seit.getHours())}.${zwei(a.seit.getMinutes())}`;
+  return `<div class="offen">
+    <div class="lbl">Statistik ausstehend seit</div>
+    <div class="uhr" id="offenUhr"></div>
+    <div class="wer">Der Dönerfriitig vom ${dmy(K.iso(a.termin))} ist noch nicht nachgetragen.
+    Gezählt wird ab ${uhrzeit} Uhr, dem Ende des Termins. Die Statistik kommt jeweils
+    per Mail und wird dann automatisch übernommen.</div>
+  </div>`;
+}
+
+function offenUhrLaufen() {
+  const feld = document.getElementById("offenUhr");
+  if (!feld) return;
+  if (!window.DF_KALENDER.ausstehend) return;
+  const seit = window.DF_KALENDER.ausstehend(letzterEintrag()).seit;
+  const teil = (wert, label, klasse) =>
+    `<div${klasse ? ` class="${klasse}"` : ""}><b>${wert}</b><span>${label}</span></div>`;
+  (function bild() {
+    if (!document.body.contains(feld)) return;       // Reiter gewechselt, Schluss
+    let ms = Math.max(0, Date.now() - seit.getTime());
+    const t = Math.floor(ms / 86400000); ms -= t * 86400000;
+    const h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    const m = Math.floor(ms / 60000); ms -= m * 60000;
+    const sek = Math.floor(ms / 1000); ms -= sek * 1000;
+    feld.innerHTML = teil(t, t === 1 ? "Tag" : "Tage") + teil(zwei(h), "Std")
+                   + teil(zwei(m), "Min") + teil(zwei(sek), "Sek")
+                   + teil(String(Math.floor(ms)).padStart(3, "0"), "Ms", "ms");
+    requestAnimationFrame(bild);
+  })();
 }
 
 function renderOverview() {
@@ -349,6 +399,7 @@ function renderOverview() {
       <h2>Ewige Rangliste</h2>
       <div class="sub2">Ein Punkt pro besuchtem Dönerfriitig. ${totEv} Termine von ${dmy(D.years[0].start)} bis ${dmy(D.years[D.years.length - 1].end)}.</div>
       <div class="badges">${standBadge()}</div>
+      ${standTicker()}
       ${podium}
     </div>
     <div class="card">${kpis}</div>
@@ -798,6 +849,7 @@ function renderDuel() {
 }
 
 renderOverview(); renderYears(); renderTrend(); renderFines(); renderRecords(); renderDuel();
+offenUhrLaufen();
 </script>
 </body>
 </html>

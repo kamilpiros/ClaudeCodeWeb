@@ -104,7 +104,33 @@ window.DF_KALENDER = (function () {
     return { datum: d, laeuft: false, uebersprungen: uebersprungen };
   }
 
+  /** Wann ein Termin vorbei ist. Ab da kann nachgetragen werden, vorher nicht. */
+  function ende(d) {
+    return new Date(d.getTime() + DAUER * 60000);
+  }
+
+  /**
+   * Ist die Anwesenheitsstatistik ausstehend?
+   *
+   * Verglichen wird der zuletzt nachgetragene Termin mit dem letzten, der
+   * tatsaechlich stattgefunden hat. Gezaehlt wird aber ab dem Ende dieses
+   * Termins und nicht ab seinem Datum. Sonst waere die Statistik in dem
+   * Moment, in dem der Doenerfriitig beginnt, schlagartig eine ganze Woche
+   * ueberfaellig, obwohl noch niemand etwas haette eintragen koennen.
+   */
+  function ausstehend(letzterEintrag, jetzt) {
+    jetzt = jetzt || new Date();
+    var soll = letzter(jetzt);
+    var gebucht = new Date(letzterEintrag + "T" + String(STUNDE).padStart(2, "0")
+                           + ":" + String(MINUTE).padStart(2, "0") + ":00");
+    var seit = ende(soll);
+    // Waehrend des Essens ist noch nichts ueberfaellig
+    if (gebucht >= soll || jetzt < seit) return { offen: false, termin: soll, seit: seit };
+    return { offen: true, termin: soll, seit: seit, ms: jetzt - seit };
+  }
+
   return { feiertage: feiertage, istFeiertag: istFeiertag,
-           letzter: letzter, naechster: naechster, iso: iso,
+           letzter: letzter, naechster: naechster, iso: iso, ende: ende,
+           ausstehend: ausstehend,
            beginn: { stunde: STUNDE, minute: MINUTE }, dauer: DAUER };
 })();

@@ -64,6 +64,23 @@ window.DF_QV = { tag: "2026-08-29", heute: false };
     font-size: 11.5px; line-height: 1.45; color: #ffd166;
   }
 
+  /* Laufende Anzeige, wie lange die Anwesenheitsstatistik schon aussteht */
+  .offen {
+    width: 100%; border: 1.5px solid rgba(255,107,138,.5); background: rgba(255,107,138,.08);
+    border-radius: 18px; padding: 13px 16px;
+  }
+  .offen .lbl { font-size: 11px; letter-spacing: 1.3px; text-transform: uppercase; opacity: .6; }
+  .offen .uhr { display: flex; gap: 5px; margin-top: 9px; }
+  .offen .uhr div { flex: 1; text-align: center; }
+  .offen .uhr div.ms { flex: 1.35; }
+  .offen .uhr b {
+    display: block; font-size: 23px; font-weight: 800; color: #ff6b8a;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .offen .uhr div.ms b { font-size: 18px; opacity: .8; }
+  .offen .uhr span { font-size: 9.5px; opacity: .5; text-transform: uppercase; letter-spacing: .5px; }
+  .offen .wer { font-size: 11.5px; opacity: .6; line-height: 1.5; margin-top: 10px; }
+
   /* Zwei Eingänge */
   .gates { display: grid; gap: 12px; width: 100%; }
   .gate {
@@ -112,6 +129,8 @@ window.DF_QV = { tag: "2026-08-29", heute: false };
     <div id="cdBody"></div>
   </div>
 
+  <div id="offenBox"></div>
+
   <div class="gates">
     <a class="gate stats" href="stats.html">
       <svg class="ico" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -150,8 +169,8 @@ window.DF_QV = { tag: "2026-08-29", heute: false };
   <div class="foot" id="foot"></div>
 </div>
 
-<script src="df-kalender.js?v=202609210647"></script>
-<script src="df-data.js?v=202609210647"></script>
+<script src="df-kalender.js?v=202609210824"></script>
+<script src="df-data.js?v=202609210824"></script>
 <script>
 // ---------- Countdown auf Freitag 12.15 Uhr ----------
 // Faellt der Freitag auf einen nationalen Feiertag, gibt es keinen
@@ -196,6 +215,45 @@ function tick() {
     <div class="u"><b>${pad(s)}</b><span>Sek</span></div></div>${hinweis}`;
 }
 tick(); setInterval(tick, 1000);
+
+// ---------- Wie lange steht die Anwesenheitsstatistik schon aus? ----------
+// Gezaehlt wird ab dem Ende des Termins und nicht ab seinem Datum. Sonst waere
+// die Statistik in dem Moment, in dem der Doenerfriitig beginnt, schlagartig
+// eine ganze Woche ueberfaellig, obwohl noch niemand etwas haette eintragen
+// koennen.
+function offenTicker() {
+  if (!window.DF_DATA || !K.ausstehend) return;   // alte Datei im Zwischenspeicher
+  const dmy2 = (iso) => { const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; };
+  const eintrag = window.DF_DATA.years[window.DF_DATA.years.length - 1].end;
+  const a = K.ausstehend(eintrag);
+  const box = document.getElementById("offenBox");
+  if (!a.offen) { box.innerHTML = ""; return; }
+
+  box.innerHTML = `<div class="offen">
+    <div class="lbl">Statistik ausstehend seit</div>
+    <div class="uhr" id="offenUhr"></div>
+    <div class="wer">Der Dönerfriitig vom ${dmy2(K.iso(a.termin))} ist noch nicht
+    nachgetragen. Gezählt wird ab ${pad(a.seit.getHours())}.${pad(a.seit.getMinutes())} Uhr,
+    dem Ende des Termins.</div>
+  </div>`;
+
+  const feld = document.getElementById("offenUhr");
+  const seit = a.seit.getTime();
+  const teil = (wert, label, klasse) =>
+    `<div${klasse ? ` class="${klasse}"` : ""}><b>${wert}</b><span>${label}</span></div>`;
+  (function bild() {
+    let ms = Math.max(0, Date.now() - seit);
+    const t = Math.floor(ms / 86400000); ms -= t * 86400000;
+    const h = Math.floor(ms / 3600000); ms -= h * 3600000;
+    const m = Math.floor(ms / 60000); ms -= m * 60000;
+    const sek = Math.floor(ms / 1000); ms -= sek * 1000;
+    feld.innerHTML = teil(t, t === 1 ? "Tag" : "Tage") + teil(pad(h), "Std")
+                   + teil(pad(m), "Min") + teil(pad(sek), "Sek")
+                   + teil(String(Math.floor(ms)).padStart(3, "0"), "Ms", "ms");
+    requestAnimationFrame(bild);
+  })();
+}
+offenTicker();
 
 // ---------- Kennzahlen aus dem Statistik-Datensatz ----------
 const D = window.DF_DATA;

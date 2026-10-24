@@ -143,6 +143,19 @@ verändert hat oder die Debitoren des laufenden Jahres sinken. Beides deutet auf
 einen Fehler hin und stoppt den Lauf. `--force` übergeht alle Prüfungen und
 gehört nur nach Sichtprüfung gesetzt.
 
+Seit 24.10.2026 zwei weitere Sicherungen, nachdem eine defekte Mappe
+durchgerutscht war (Termine bis 08.01.2027 vorerfasst, Spalte JWI im Blatt
+2017 leer, Debitoren aber unverändert):
+
+- Liegt der Stand der Mappe nach dem heutigen Datum, endet auch `--check`
+  mit Rückgabe 2. Die Action schlägt dann sichtbar fehl, statt den falschen
+  Stand zu übernehmen und damit jede spätere korrekte Mappe zu blockieren.
+- Termine, Teilnahmen und Bussen je Mitglied in abgeschlossenen Jahren
+  werden mit `df-data.js` verglichen. Jede Abweichung stoppt den Lauf.
+
+Rutscht trotzdem etwas durch: den Commit der Action mit `git revert`
+zurücknehmen, dann wird die korrigierte Mappe wieder als neuer erkannt.
+
 Getestet am 27.07.2026: gleiche und ältere Mappe werden abgelehnt, eine neuere
 wird eingelesen und erzeugt wieder den bekannten Datensatz, eine manipulierte
 Jahreszahl löst die Sicherung aus.

@@ -279,6 +279,17 @@ def main():
     letztes_blatt = wb[sheets[-1][1]]
     _, stand_neu, _ = fiscal_range(letztes_blatt)
     stand_alt = a.get("asOf")
+
+    # Ein Stand in der Zukunft heisst: in der Mappe sind Termine vorerfasst
+    # (so am 24.10.2026, Termine bis 08.01.2027). Das ist nie richtig und darf
+    # auch mit --check nicht als "neuer" durchgehen, sonst blockiert der
+    # falsche Stand jede spaetere, korrekte Mappe. Rueckgabe 2 = Fehler.
+    heute = datetime.date.today().isoformat()
+    if stand_neu and stand_neu > heute and not args.force:
+        print(f"FEHLER: Mappe {os.path.basename(args.workbook)} endet am {stand_neu}, "
+              f"das liegt nach heute ({heute}). Vermutlich vorerfasste Termine "
+              f"im Blatt {sheets[-1][1]}. Nichts geschrieben.")
+        sys.exit(2)
     if args.check:
         neuer = bool(stand_neu and stand_alt and stand_neu > stand_alt)
         print(f"Mappe {os.path.basename(args.workbook)}: Stand {stand_neu}, "
@@ -386,6 +397,30 @@ def main():
             if abs(av - nv) > 0.005:
                 warnungen.append(f"Fiskaljahr {y['year']}: {feld} {av} -> {nv}, "
                                  f"aber das Jahr ist abgeschlossen")
+    # Dasselbe fuer die Anwesenheiten: Termine, Teilnahmen und Bussen je
+    # Mitglied in abgeschlossenen Jahren. Die Debitoren allein reichen nicht,
+    # am 24.10.2026 fehlte im Blatt 2017 eine ganze Spalte und die Summe
+    # blieb trotzdem gleich.
+    alt_daten = load_json_var(DATA)
+    neu = df_data.build(wb, alt_daten)
+    alt_at, neu_at = alt_daten.get("alltime", {}), neu.get("alltime", {})
+    for kurz in sorted(set(alt_at) | set(neu_at)):
+        ap = (alt_at.get(kurz) or {}).get("perYear", {})
+        np_ = (neu_at.get(kurz) or {}).get("perYear", {})
+        for jahr in sorted(set(ap) | set(np_)):
+            if str(jahr) == str(laufend):
+                continue
+            av, nv = ap.get(jahr), np_.get(jahr)
+            if av is None or nv is None:
+                warnungen.append(f"Anwesenheit {jahr}, {kurz}: Jahr "
+                                 f"{'neu dazugekommen' if av is None else 'verschwunden'}")
+                continue
+            for feld in ("events", "att", "pen"):
+                a1, n1 = av.get(feld) or 0, nv.get(feld) or 0
+                if abs(a1 - n1) > 0.005:
+                    warnungen.append(f"Anwesenheit {jahr}, {kurz}: {feld} {a1} -> {n1}, "
+                                     f"aber das Jahr ist abgeschlossen")
+
     v = alt.get(laufend)
     if v and years[-1]["debitors"] + 0.005 < (v.get("debitors") or 0):
         warnungen.append(f"Fiskaljahr {laufend}: Debitoren sinken von "
@@ -406,8 +441,7 @@ def main():
     print(f"\ndf-assets.js geschrieben, {os.path.getsize(ASSETS)} Bytes.")
 
     # ---- Anwesenheiten ----------------------------------------------------
-    alt_daten = load_json_var(DATA)
-    neu = df_data.build(wb, alt_daten)
+    # neu und alt_daten stammen aus den Sicherungen oben
     neu["generatedFrom"] = os.path.basename(args.workbook)
     neu["assets"] = {
         "total": cur["total"],

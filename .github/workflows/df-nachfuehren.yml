@@ -57,10 +57,19 @@ jobs:
         id: pruefung
         if: steps.mappe.outputs.gefunden == 'ja'
         run: |
-          if python scripts/update_from_workbook.py "${{ steps.mappe.outputs.datei }}" --check; then
+          # 0 = neuer, 1 = nicht neuer, 2 = Mappe fehlerhaft (Lauf schlaegt fehl,
+          # damit GitHub eine Fehlermail schickt statt still nichts zu tun)
+          set +e
+          python scripts/update_from_workbook.py "${{ steps.mappe.outputs.datei }}" --check
+          rc=$?
+          set -e
+          if [ $rc -eq 0 ]; then
             echo "neuer=ja" >> "$GITHUB_OUTPUT"
-          else
+          elif [ $rc -eq 1 ]; then
             echo "neuer=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Mappe fehlerhaft, siehe Ausgabe oben. Nichts geaendert."
+            exit 1
           fi
 
       - name: Datensaetze nachfuehren
@@ -118,6 +127,8 @@ jobs:
             echo "### Dönerfriitig Abgleich"
             if [ "${{ steps.mappe.outputs.gefunden }}" != "ja" ]; then
               echo "Keine Mappe in \`mappen/\` gefunden."
+            elif [ -z "${{ steps.pruefung.outputs.neuer }}" ]; then
+              echo "**Die Mappe ist fehlerhaft** (z.B. Termine in der Zukunft). Nichts geändert."
             elif [ "${{ steps.pruefung.outputs.neuer }}" != "ja" ]; then
               echo "Mappe war nicht neuer als der Stand der Website. Nichts geändert."
             elif [ "${{ job.status }}" = "success" ]; then

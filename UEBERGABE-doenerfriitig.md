@@ -143,18 +143,37 @@ verändert hat oder die Debitoren des laufenden Jahres sinken. Beides deutet auf
 einen Fehler hin und stoppt den Lauf. `--force` übergeht alle Prüfungen und
 gehört nur nach Sichtprüfung gesetzt.
 
-Seit 24.10.2026 zwei weitere Sicherungen, nachdem eine defekte Mappe
-durchgerutscht war (Termine bis 08.01.2027 vorerfasst, Spalte JWI im Blatt
-2017 leer, Debitoren aber unverändert):
+Seit 24.10.2026 verträgt das Skript zwei Eigenheiten der Mappe, nachdem am
+selben Tag zwei Fassungen hintereinander nicht durchliefen:
+
+- **Vorerfasste Freitage.** Der Statistiker trägt kommende Termine schon im
+  Voraus ein (damals bis 08.01.2027). Als Termin zählt nur noch ein Datum mit
+  ausgefüllter Anwesenheit oder einer Buchung im Bussenjournal.
+- **Abgeschlossene Jahre sind eingefroren.** Alles vor dem Vorjahr wird nicht
+  mehr aus der Mappe gelesen, sondern aus dem bisherigen Stand der Website
+  übernommen. Eine gelöschte oder verschobene Spalte in einem alten Blatt
+  (damals JWI im Blatt 2017) kann so nichts mehr verfälschen. Neu gelesen
+  werden das laufende Jahr und das Vorjahr. Korrigiert der Statistiker
+  bewusst ein altes Jahr, einmal von Hand mit `--alle-jahre` laufen lassen.
+
+Dazu zwei Sicherungen für das, was trotzdem durchrutscht:
 
 - Liegt der Stand der Mappe nach dem heutigen Datum, endet auch `--check`
-  mit Rückgabe 2. Die Action schlägt dann sichtbar fehl, statt den falschen
-  Stand zu übernehmen und damit jede spätere korrekte Mappe zu blockieren.
-- Termine, Teilnahmen und Bussen je Mitglied in abgeschlossenen Jahren
-  werden mit `df-data.js` verglichen. Jede Abweichung stoppt den Lauf.
+  mit Rückgabe 2. Die Action schlägt dann sichtbar fehl (Mail von GitHub),
+  statt den falschen Stand zu übernehmen und damit jede spätere korrekte
+  Mappe zu blockieren.
+- Termine, Teilnahmen und Bussen je Mitglied im Vorjahr und in allen anderen
+  neu gelesenen abgeschlossenen Jahren werden mit `df-data.js` verglichen.
+  Jede Abweichung stoppt den Lauf.
 
 Rutscht trotzdem etwas durch: den Commit der Action mit `git revert`
-zurücknehmen, dann wird die korrigierte Mappe wieder als neuer erkannt.
+zurücknehmen, dann wird die korrigierte Mappe wieder als neuer erkannt. Liegt
+die Mappe schon in `mappen/`, den Lauf danach von Hand auf der Actions-Seite
+starten.
+
+Geprüft am 24.10.2026: Mappe vom 16.10. ergibt mit und ohne Einfrieren
+denselben Datensatz wie zuvor. Die korrigierte Mappe vom 24.10. bringt genau
+den Termin vom 23.10. dazu, sonst ändert sich nichts.
 
 Getestet am 27.07.2026: gleiche und ältere Mappe werden abgelehnt, eine neuere
 wird eingelesen und erzeugt wieder den bekannten Datensatz, eine manipulierte

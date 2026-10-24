@@ -6,6 +6,7 @@ Eintrag wird aus dem bestehenden Datensatz uebernommen und mitgerechnet.
 """
 
 import collections
+import datetime
 import itertools
 
 import df_stats as S
@@ -98,8 +99,24 @@ def _korrigiere(att, roh, notizen):
             break
 
 
-def build(wb, alt):
-    """alt ist der bisherige Datensatz, davon wird nur das Jahr 2016 uebernommen."""
+def _aus_altem_stand(y):
+    """Termine eines uebernommenen Jahres aus den gespeicherten Zeilen.
+
+    Die Zeichen stehen in der alphabetischen Reihenfolge der Mitglieder des
+    Jahres, 1 heisst anwesend, 0 und ? zaehlen als abwesend wie in der Mappe.
+    """
+    leute = sorted(y["members"])
+    out = []
+    for row in y.get("rows", []):
+        d = datetime.date.fromisoformat(row["d"])
+        out.append((d, {m: ch == "1" for m, ch in zip(leute, row["a"])}))
+    return out
+
+
+def build(wb, alt, eingefroren=()):
+    """alt ist der bisherige Datensatz. Daraus kommen das Jahr 2016 und alle
+    Jahre in `eingefroren`, der Rest wird aus der Mappe gerechnet."""
+    alt_jahre = {y["year"]: y for y in alt.get("years", [])}
     sheets = S.year_sheets(wb)
     if not sheets:
         raise SystemExit("Keine Blaetter im Muster 'Stats JJJJ'")
@@ -110,6 +127,10 @@ def build(wb, alt):
     for fy, name in sheets:
         ws = wb[name]
         letzte_ws = ws
+        if fy in eingefroren and fy in alt_jahre and alt_jahre[fy].get("rows"):
+            jahre.append(alt_jahre[fy])
+            matrix.extend(_aus_altem_stand(alt_jahre[fy]))
+            continue
         att, who = S.attendance(ws)
         if not att:
             continue

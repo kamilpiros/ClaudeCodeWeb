@@ -191,17 +191,20 @@ def fiscal_range(ws):
     ds, start = [], None
     f = find_ledger(ws)
     rc = f[2] if f else None
-    for col in (13, 4):
-        for r in range(18, ws.max_row + 1):
-            d = parse_date(ws.cell(row=r, column=col).value)
-            if not d:
-                continue
-            ds.append(d)
-            if col == 13 and rc:
-                grund = ws.cell(row=r, column=rc).value
-                if isinstance(grund, str) and "yearly" in grund.lower():
-                    if start is None or d < start:
-                        start = d
+    for r in range(18, ws.max_row + 1):
+        d = parse_date(ws.cell(row=r, column=13).value)
+        if not d:
+            continue
+        ds.append(d)
+        if rc:
+            grund = ws.cell(row=r, column=rc).value
+            if isinstance(grund, str) and "yearly" in grund.lower():
+                if start is None or d < start:
+                    start = d
+    # Aus der Anwesenheit zaehlen nur Termine, bei denen auch jemand erfasst
+    # ist. Der Statistiker traegt die kommenden Freitage gerne schon im Voraus
+    # ein (24.10.2026: bis 08.01.2027), die sind noch keine Termine.
+    ds.extend(d for d, _ in S.attendance(ws)[0])
     if not ds:
         return None, None, 0
     return (start or min(ds)).isoformat(), max(ds).isoformat(), len(set(ds))
@@ -262,6 +265,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="nur zeigen, nichts schreiben")
     ap.add_argument("--check", action="store_true",
                     help="nur pruefen, ob die Mappe neuer ist. Rueckgabe 0 wenn ja, 1 wenn nein")
+    ap.add_argument("--alle-jahre", action="store_true",
+                    help="auch abgeschlossene Jahre neu aus der Mappe lesen")
     ap.add_argument("--force", action="store_true",
                     help="auch schreiben, wenn die Pruefungen anschlagen")
     args = ap.parse_args()
@@ -299,8 +304,30 @@ def main():
         sys.exit(f"Die Mappe endet am {stand_neu}, die Website steht schon auf "
                  f"{stand_alt}. Nichts zu tun. Mit --force trotzdem schreiben.")
 
+    # Abgeschlossene Jahre werden nicht mehr aus der Mappe gelesen, sondern
+    # vom bisherigen Stand der Website uebernommen. So kann eine verrutschte
+    # Spalte in einem alten Blatt (24.10.2026: JWI im Blatt 2017 geloescht)
+    # nichts mehr kaputt machen. Neu gelesen werden nur das laufende und das
+    # Vorjahr, weil der letzte Termin eines Jahres oft erst in der ersten Mappe
+    # des neuen Jahres nachgetragen wird. Mit --alle-jahre wird alles neu
+    # gelesen, etwa wenn der Statistiker ein altes Jahr bewusst korrigiert hat.
+    laufend_fy = sheets[-1][0]
+    alt_fiscal = {f["fy"]: f for f in a.get("fiscalYears", [])}
+    eingefroren = set() if args.alle_jahre else {
+        fy for fy, _ in sheets
+        if fy < laufend_fy - 1 and fy in alt and fy in alt_fiscal}
+    if eingefroren:
+        print(f"Unveraendert vom bisherigen Stand: {', '.join(map(str, sorted(eingefroren)))}")
+
     years, fiscal, led, residual = [], [], {}, {}
     for fy, name in sheets:
+        if fy in eingefroren:
+            years.append(alt[fy])
+            fiscal.append(alt_fiscal[fy])
+            if str(fy) in a.get("ledger", {}):
+                led[str(fy)] = a["ledger"][str(fy)]
+                residual[str(fy)] = a.get("ledgerResidual", {}).get(str(fy), 0.0)
+            continue
         ws = wb[name]
         b = balance(ws)
         von, bis, termine = fiscal_range(ws)
@@ -402,7 +429,7 @@ def main():
     # am 24.10.2026 fehlte im Blatt 2017 eine ganze Spalte und die Summe
     # blieb trotzdem gleich.
     alt_daten = load_json_var(DATA)
-    neu = df_data.build(wb, alt_daten)
+    neu = df_data.build(wb, alt_daten, eingefroren)
     alt_at, neu_at = alt_daten.get("alltime", {}), neu.get("alltime", {})
     for kurz in sorted(set(alt_at) | set(neu_at)):
         ap = (alt_at.get(kurz) or {}).get("perYear", {})
